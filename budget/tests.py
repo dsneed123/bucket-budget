@@ -769,3 +769,94 @@ class BudgetAlertsTest(TestCase):
         self._make_bucket('Empty', Decimal('0.00'))
         alerts = self._get_alerts()
         self.assertFalse(any('Empty' in a['message'] for a in alerts))
+
+
+class ZeroBasedBudgetingTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='zbb@example.com',
+            password='testpass',
+            first_name='Zero',
+            last_name='Based',
+            monthly_income=Decimal('5000.00'),
+            zero_based_budgeting=True,
+        )
+        self.client.login(email='zbb@example.com', password='testpass')
+
+    def _make_bucket(self, name, allocation):
+        return Bucket.objects.create(
+            user=self.user,
+            name=name,
+            monthly_allocation=allocation,
+            color='#00d4aa',
+            icon='💰',
+        )
+
+    def _get_context(self):
+        response = self.client.get(reverse('budget_overview'))
+        self.assertEqual(response.status_code, 200)
+        return response.context
+
+    def test_every_dollar_assigned_when_fully_allocated(self):
+        self._make_bucket('Rent', Decimal('3000.00'))
+        self._make_bucket('Food', Decimal('2000.00'))
+        ctx = self._get_context()
+        self.assertTrue(ctx['every_dollar_assigned'])
+
+    def test_every_dollar_assigned_false_when_under_allocated(self):
+        self._make_bucket('Rent', Decimal('3000.00'))
+        ctx = self._get_context()
+        self.assertFalse(ctx['every_dollar_assigned'])
+
+    def test_every_dollar_assigned_false_when_over_allocated(self):
+        self._make_bucket('Rent', Decimal('6000.00'))
+        ctx = self._get_context()
+        self.assertFalse(ctx['every_dollar_assigned'])
+
+    def test_zero_based_flag_in_context(self):
+        ctx = self._get_context()
+        self.assertTrue(ctx['zero_based'])
+
+    def test_warning_alert_when_unallocated_positive(self):
+        self._make_bucket('Rent', Decimal('3000.00'))
+        ctx = self._get_context()
+        alerts = ctx['alerts']
+        zb_alerts = [a for a in alerts if 'Zero-based' in a['message']]
+        self.assertEqual(len(zb_alerts), 1)
+        self.assertEqual(zb_alerts[0]['level'], 'warning')
+        self.assertIn('unallocated', zb_alerts[0]['message'])
+
+    def test_warning_alert_when_over_allocated_in_zb_mode(self):
+        self._make_bucket('Rent', Decimal('6000.00'))
+        ctx = self._get_context()
+        zb_alerts = [a for a in ctx['alerts'] if 'Zero-based' in a['message']]
+        self.assertEqual(len(zb_alerts), 1)
+        self.assertIn('exceed', zb_alerts[0]['message'])
+
+    def test_no_zero_based_warning_when_fully_allocated(self):
+        self._make_bucket('Rent', Decimal('5000.00'))
+        ctx = self._get_context()
+        zb_alerts = [a for a in ctx['alerts'] if 'Zero-based' in a['message']]
+        self.assertEqual(len(zb_alerts), 0)
+
+    def test_no_zero_based_warning_when_mode_disabled(self):
+        self.user.zero_based_budgeting = False
+        self.user.save()
+        self._make_bucket('Rent', Decimal('3000.00'))
+        ctx = self._get_context()
+        zb_alerts = [a for a in ctx['alerts'] if 'Zero-based' in a['message']]
+        self.assertEqual(len(zb_alerts), 0)
+
+    def test_every_dollar_assigned_false_when_mode_disabled(self):
+        self.user.zero_based_budgeting = False
+        self.user.save()
+        self._make_bucket('Rent', Decimal('5000.00'))
+        ctx = self._get_context()
+        self.assertFalse(ctx['every_dollar_assigned'])
+
+    def test_every_dollar_assigned_false_when_no_income(self):
+        self.user.monthly_income = Decimal('0')
+        self.user.save()
+        ctx = self._get_context()
+        self.assertFalse(ctx['every_dollar_assigned'])

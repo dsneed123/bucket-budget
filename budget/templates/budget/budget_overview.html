@@ -42,7 +42,9 @@
         <p class="stat-value {% if unallocated >= 0 %}stat-positive{% else %}stat-negative{% endif %}">
             {{ unallocated|currency:user.currency }}
         </p>
-        {% if unallocated < 0 %}
+        {% if every_dollar_assigned %}
+        <p style="margin-top: 6px; display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--accent-green); background: rgba(0, 212, 170, 0.12); border: 1px solid var(--accent-green); border-radius: 4px; padding: 3px 8px; letter-spacing: 0.03em;">&#10003; Every Dollar Assigned</p>
+        {% elif unallocated < 0 %}
         <p class="stat-label" style="margin-top: 4px; color: var(--accent-red);">Over-allocated</p>
         {% endif %}
     </div>
@@ -264,6 +266,7 @@
 (function () {
     var monthlyIncome = parseFloat("{{ monthly_income|floatformat:2 }}") || 0;
     var userCurrency = "{{ user.currency }}";
+    var zeroBased = {{ zero_based|yesno:"true,false" }};
 
     function fmt(val) {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: userCurrency }).format(val);
@@ -278,8 +281,14 @@
         document.getElementById('edit-total').textContent = fmt(total);
         document.getElementById('total-alloc-edit').textContent = fmt(total);
         var uEl = document.getElementById('edit-unallocated');
-        uEl.textContent = fmt(unallocated);
-        uEl.style.color = unallocated >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+        if (zeroBased && Math.abs(unallocated) < 0.01) {
+            uEl.textContent = '\u2713 Every Dollar Assigned';
+            uEl.style.color = 'var(--accent-green)';
+        } else {
+            uEl.textContent = fmt(unallocated);
+            uEl.style.color = unallocated >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+        }
     }
 
     document.getElementById('edit-allocations-btn').addEventListener('click', function () {

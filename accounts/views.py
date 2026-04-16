@@ -107,6 +107,7 @@ def profile(request):
         last_name = request.POST.get('last_name', '').strip()
         currency = request.POST.get('currency', '').strip()
         monthly_income = request.POST.get('monthly_income', '').strip()
+        zero_based_budgeting = request.POST.get('zero_based_budgeting') == 'on'
 
         if not first_name:
             errors['first_name'] = 'First name is required.'
@@ -130,6 +131,7 @@ def profile(request):
             request.user.last_name = last_name
             request.user.currency = currency
             request.user.monthly_income = monthly_income_val
+            request.user.zero_based_budgeting = zero_based_budgeting
             request.user.save()
             success = True
 

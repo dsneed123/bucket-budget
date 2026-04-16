@@ -1,5 +1,6 @@
-from django.test import TestCase
+from django.test import TestCase, Client
 from django.template import Context, Template
+from django.urls import reverse
 
 from accounts.models import CustomUser
 from accounts.signals import DEFAULT_BUCKETS
@@ -75,3 +76,40 @@ class DefaultBucketsSignalTest(TestCase):
         user2 = self._create_user('user2@example.com')
         self.assertEqual(Bucket.objects.filter(user=user1).count(), len(DEFAULT_BUCKETS))
         self.assertEqual(Bucket.objects.filter(user=user2).count(), len(DEFAULT_BUCKETS))
+
+
+class ProfileZeroBasedBudgetingTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = CustomUser.objects.create_user(
+            email='profile_zb@example.com',
+            password='testpass',
+            first_name='Profile',
+        )
+        self.client.login(email='profile_zb@example.com', password='testpass')
+
+    def _post_profile(self, zero_based=False):
+        data = {
+            'first_name': 'Profile',
+            'last_name': '',
+            'currency': 'USD',
+            'monthly_income': '5000',
+        }
+        if zero_based:
+            data['zero_based_budgeting'] = 'on'
+        return self.client.post(reverse('profile'), data)
+
+    def test_zero_based_budgeting_enabled_on_save(self):
+        self._post_profile(zero_based=True)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.zero_based_budgeting)
+
+    def test_zero_based_budgeting_disabled_when_unchecked(self):
+        self.user.zero_based_budgeting = True
+        self.user.save()
+        self._post_profile(zero_based=False)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.zero_based_budgeting)
+
+    def test_zero_based_budgeting_defaults_to_false(self):
+        self.assertFalse(self.user.zero_based_budgeting)
