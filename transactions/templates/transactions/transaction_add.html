@@ -98,7 +98,10 @@
                     class="form-control"
                     value="{{ form_data.vendor|default:'' }}"
                     placeholder="e.g. Whole Foods"
+                    list="vendor-suggestions"
+                    autocomplete="off"
                 >
+                <datalist id="vendor-suggestions"></datalist>
                 {% if errors.vendor %}
                     <p class="form-error">{{ errors.vendor }}</p>
                 {% endif %}
@@ -234,6 +237,37 @@
 </div>
 
 <script>
+(function () {
+    var VENDOR_MAPPINGS = {{ vendor_mappings_json|safe }};
+
+    function initVendorAutocomplete() {
+        var datalist = document.getElementById('vendor-suggestions');
+        var vendorInput = document.getElementById('vendor');
+        var bucketSelect = document.getElementById('bucket');
+
+        // Populate datalist options
+        VENDOR_MAPPINGS.forEach(function (m) {
+            var opt = document.createElement('option');
+            opt.value = m.vendor_name;
+            datalist.appendChild(opt);
+        });
+
+        // Auto-fill bucket when vendor matches a mapping
+        vendorInput.addEventListener('change', function () {
+            var val = this.value.trim().toLowerCase();
+            if (!val) return;
+            var match = VENDOR_MAPPINGS.find(function (m) {
+                return m.vendor_name.toLowerCase() === val;
+            });
+            if (match && match.bucket_id) {
+                bucketSelect.value = String(match.bucket_id);
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', initVendorAutocomplete);
+}());
+
 (function () {
     var CATEGORIES = {
         want:   { id: 'btn-want',   min: 1, max: 3,  activeBg: 'rgba(255,71,87,0.35)'  },

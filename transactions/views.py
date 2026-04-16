@@ -1,4 +1,5 @@
 import datetime
+import json
 import uuid
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
@@ -6,13 +7,14 @@ from urllib.parse import urlencode
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 
 from banking.models import BankAccount
 from buckets.models import Bucket
 
-from .models import Tag, Transaction
+from .models import Tag, Transaction, VendorMapping
 
 VALID_TRANSACTION_TYPES = [c[0] for c in Transaction.TRANSACTION_TYPE_CHOICES]
 
@@ -39,6 +41,17 @@ def _resolve_tags(user, raw_names):
         )
         tags.append(tag)
     return tags
+
+
+@login_required
+def vendor_autocomplete(request):
+    """Return JSON list of vendor names and their mapped bucket IDs for the current user."""
+    mappings = VendorMapping.objects.filter(user=request.user).select_related('bucket').order_by('-last_used')
+    data = [
+        {'vendor': m.vendor_name, 'bucket_id': m.bucket_id}
+        for m in mappings
+    ]
+    return JsonResponse({'vendors': data})
 
 
 @login_required
@@ -173,6 +186,11 @@ def transaction_add(request):
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
     buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
     user_tags = Tag.objects.filter(user=request.user).order_by('name')
+    vendor_mappings = list(
+        VendorMapping.objects.filter(user=request.user)
+        .values('vendor_name', 'bucket_id')
+        .order_by('-last_used')
+    )
 
     errors = {}
     form_data = {
@@ -286,6 +304,7 @@ def transaction_add(request):
                     'accounts': accounts,
                     'buckets': buckets,
                     'user_tags': user_tags,
+                    'vendor_mappings_json': json.dumps(vendor_mappings),
                     'duplicate_warning': duplicate_warning,
                 })
 
@@ -305,6 +324,14 @@ def transaction_add(request):
             if tags_raw:
                 txn.tags.set(_resolve_tags(request.user, tags_raw))
 
+            if vendor:
+                existing = VendorMapping.objects.filter(user=request.user, vendor_name__iexact=vendor).first()
+                if existing:
+                    existing.bucket = bucket
+                    existing.save()
+                else:
+                    VendorMapping.objects.create(user=request.user, vendor_name=vendor, bucket=bucket)
+
             next_url = request.POST.get('next', '').strip()
             if next_url == '/dashboard/':
                 return redirect('dashboard')
@@ -316,6 +343,7 @@ def transaction_add(request):
         'accounts': accounts,
         'buckets': buckets,
         'user_tags': user_tags,
+        'vendor_mappings_json': json.dumps(vendor_mappings),
     })
 
 
