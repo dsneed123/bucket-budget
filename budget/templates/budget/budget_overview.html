@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% load currency_tags %}
+{% block title %}Budget — Bucket Budget{% endblock %}
+{% block page_title %}Budget{% endblock %}
+
+{% block content %}
+<p style="color: var(--text-secondary); font-size: 14px; margin: 0 0 20px;">{{ current_month }}</p>
+
+<!-- Top stat cards -->
+<div class="grid grid-4" style="margin-bottom: 28px;">
+    <div class="card" style="padding: 20px;">
+        <p class="stat-label">Monthly Income</p>
+        <p class="stat-value stat-positive">{{ monthly_income|currency:user.currency }}</p>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <p class="stat-label">Allocated to Buckets</p>
+        <p class="stat-value">{{ total_allocated|currency:user.currency }}</p>
+        <p class="stat-label" style="margin-top: 4px;">of {{ monthly_income|currency:user.currency }} income</p>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <p class="stat-label">Unallocated</p>
+        <p class="stat-value {% if unallocated >= 0 %}stat-positive{% else %}stat-negative{% endif %}">
+            {{ unallocated|currency:user.currency }}
+        </p>
+        {% if unallocated < 0 %}
+        <p class="stat-label" style="margin-top: 4px; color: var(--accent-red);">Over-allocated</p>
+        {% endif %}
+    </div>
+    <div class="card" style="padding: 20px;">
+        <p class="stat-label">Total Spent</p>
+        <p class="stat-value stat-negative">{{ total_spent|currency:user.currency }}</p>
+        <p class="stat-label" style="margin-top: 4px;">this month</p>
+    </div>
+</div>
+
+<!-- Remaining budget — full-width card -->
+<div class="card" style="padding: 20px; margin-bottom: 28px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <p class="stat-label">Remaining Budget</p>
+        <p class="stat-value {% if remaining_budget >= 0 %}stat-positive{% else %}stat-negative{% endif %}" style="font-size: 2rem;">
+            {{ remaining_budget|currency:user.currency }}
+        </p>
+        <p class="stat-label" style="margin-top: 4px;">
+            {% if remaining_budget >= 0 %}
+                Under budget — great work!
+            {% else %}
+                Over budget this month
+            {% endif %}
+        </p>
+    </div>
+    {% if monthly_income > 0 %}
+    <div style="flex: 1; max-width: 340px;">
+        {% with spent_pct=total_spent|floatformat:0 %}
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">
+            <span>Spent</span>
+            <span>{{ total_spent|currency:user.currency }} / {{ monthly_income|currency:user.currency }}</span>
+        </div>
+        {% endwith %}
+        <div class="progress" style="height: 10px;">
+            {% with raw_pct=total_spent %}
+            <div class="progress-bar {% if remaining_budget < 0 %}progress-bar-red{% endif %}"
+                 style="width: {% widthratio total_spent monthly_income 100 %}%; max-width: 100%;"></div>
+            {% endwith %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Per-bucket breakdown -->
+{% if bucket_data %}
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+        <div>
+            <h2 class="card-title">Bucket Breakdown</h2>
+            <p class="card-subtitle">Spending vs. allocation per bucket</p>
+        </div>
+        <a href="{% url 'bucket_list' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">Manage Buckets</a>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+        {% for item in bucket_data %}
+        <div style="padding: 12px; background: var(--bg-primary); border-radius: var(--radius); border-left: 4px solid {{ item.bucket.color }};">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                    <span style="font-size: 1.2rem; flex-shrink: 0;">{{ item.bucket.icon }}</span>
+                    <span style="font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.bucket.name }}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 16px; flex-shrink: 0; font-size: 13px;">
+                    <span style="color: var(--text-secondary);">Allocated: {{ item.bucket.monthly_allocation|currency:user.currency }}</span>
+                    <span style="color: var(--text-secondary);">Spent: {{ item.spent|currency:user.currency }}</span>
+                    <span style="font-weight: 600; {% if item.over %}color: var(--accent-red);{% else %}color: var(--accent-green);{% endif %}">
+                        {% if item.over %}-{% endif %}{{ item.remaining|currency:user.currency }}
+                        {% if item.over %}over{% else %}left{% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="progress" style="height: 6px;">
+                <div class="progress-bar {% if item.over %}progress-bar-red{% endif %}"
+                     style="width: {{ item.pct }}%; {% if not item.over %}background: {{ item.bucket.color }};{% endif %}"></div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 4px; font-size: 11px; color: var(--text-secondary);">{{ item.pct }}%</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 48px 24px;">
+    <div style="font-size: 3rem; margin-bottom: 16px;">🪣</div>
+    <h3 style="color: var(--text-primary); margin-bottom: 8px;">No buckets set up</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 24px;">Create buckets to allocate your monthly income and track spending.</p>
+    <a href="{% url 'bucket_add' %}" class="btn btn-primary">+ Add Bucket</a>
+</div>
+{% endif %}
+{% endblock %}
