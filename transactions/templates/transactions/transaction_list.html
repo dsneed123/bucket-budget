@@ -25,6 +25,34 @@
     </div>
 </div>
 
+{% if income_by_source %}
+<div class="card" style="padding: 16px 20px; margin-bottom: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">{{ current_month }} Income by Source</div>
+        <a href="{% url 'income_source_list' %}" style="font-size: 0.78rem; color: var(--text-secondary); text-decoration: none;">Manage sources</a>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+        {% for src in income_by_source %}
+        <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: {{ src.color }}; flex-shrink: 0;"></span>
+                    <span style="font-size: 0.85rem; color: var(--text-primary);">{{ src.name }}</span>
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                    <span style="color: var(--accent-green); font-weight: 600;">+{{ src.total|currency:request.user.currency }}</span>
+                    <span style="margin-left: 8px;">{{ src.pct }}%</span>
+                </div>
+            </div>
+            <div style="height: 6px; background-color: var(--bg-secondary); border-radius: 3px; overflow: hidden;">
+                <div style="height: 100%; width: {{ src.pct }}%; background-color: {{ src.color }}; border-radius: 3px;"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 {# Filter bar #}
 <div class="card" style="margin-bottom: 16px; padding: 16px 20px;">
     <form method="get" action="">

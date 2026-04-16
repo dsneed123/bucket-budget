@@ -14,7 +14,7 @@ from django.urls import reverse
 from banking.models import BankAccount
 from buckets.models import Bucket
 
-from .models import Tag, Transaction, VendorMapping
+from .models import IncomeSource, Tag, Transaction, VendorMapping
 
 VALID_TRANSACTION_TYPES = [c[0] for c in Transaction.TRANSACTION_TYPE_CHOICES]
 
@@ -157,6 +157,24 @@ def transaction_list(request):
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
     tags = Tag.objects.filter(user=request.user).order_by('name')
 
+    # Income by source for current month
+    income_by_source = []
+    if total_income > 0:
+        source_rows = (
+            month_qs.filter(transaction_type='income')
+            .values('income_source__id', 'income_source__name', 'income_source__color')
+            .annotate(total=Sum('amount'))
+            .order_by('-total')
+        )
+        for row in source_rows:
+            income_by_source.append({
+                'id': row['income_source__id'],
+                'name': row['income_source__name'] or 'Uncategorized',
+                'color': row['income_source__color'] or '#74b9ff',
+                'total': row['total'],
+                'pct': round(row['total'] / total_income * 100),
+            })
+
     return render(request, 'transactions/transaction_list.html', {
         'page_obj': page_obj,
         'total_income': total_income,
@@ -178,6 +196,7 @@ def transaction_list(request):
         'active_filter_count': active_filter_count,
         'filter_qs': filter_qs,
         'balance_is_absolute': bool(account_id),
+        'income_by_source': income_by_source,
     })
 
 
@@ -186,6 +205,7 @@ def transaction_add(request):
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
     buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
     user_tags = Tag.objects.filter(user=request.user).order_by('name')
+    income_sources = IncomeSource.objects.filter(user=request.user, is_active=True).order_by('name')
     vendor_mappings = list(
         VendorMapping.objects.filter(user=request.user)
         .values('vendor_name', 'bucket_id')
@@ -209,6 +229,7 @@ def transaction_add(request):
         date_str = request.POST.get('date', '').strip()
         necessity_score_str = request.POST.get('necessity_score', '').strip()
         tags_raw = request.POST.get('tags', '').strip()
+        income_source_id = request.POST.get('income_source', '').strip()
 
         form_data = {
             'amount': amount,
@@ -220,6 +241,7 @@ def transaction_add(request):
             'date': date_str,
             'necessity_score': necessity_score_str,
             'tags': tags_raw,
+            'income_source': income_source_id,
         }
 
         # Validate amount
@@ -261,6 +283,14 @@ def transaction_add(request):
                 bucket = buckets.get(pk=bucket_id)
             except Bucket.DoesNotExist:
                 errors['bucket'] = 'Please select a valid bucket.'
+
+        # Validate income_source (optional, income only)
+        income_source = None
+        if income_source_id and transaction_type == 'income':
+            try:
+                income_source = income_sources.get(pk=income_source_id)
+            except IncomeSource.DoesNotExist:
+                errors['income_source'] = 'Please select a valid income source.'
 
         # Validate date
         date_val = None
@@ -304,6 +334,7 @@ def transaction_add(request):
                     'accounts': accounts,
                     'buckets': buckets,
                     'user_tags': user_tags,
+                    'income_sources': income_sources,
                     'vendor_mappings_json': json.dumps(vendor_mappings),
                     'duplicate_warning': duplicate_warning,
                 })
@@ -313,6 +344,7 @@ def transaction_add(request):
                 user=request.user,
                 account=account,
                 bucket=bucket,
+                income_source=income_source,
                 amount=amount_val,
                 transaction_type=transaction_type,
                 description=description,
@@ -343,6 +375,7 @@ def transaction_add(request):
         'accounts': accounts,
         'buckets': buckets,
         'user_tags': user_tags,
+        'income_sources': income_sources,
         'vendor_mappings_json': json.dumps(vendor_mappings),
     })
 
@@ -354,6 +387,7 @@ def transaction_edit(request, transaction_id):
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
     buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
     user_tags = Tag.objects.filter(user=request.user).order_by('name')
+    income_sources = IncomeSource.objects.filter(user=request.user, is_active=True).order_by('name')
 
     errors = {}
 
@@ -368,6 +402,7 @@ def transaction_edit(request, transaction_id):
         necessity_score_str = request.POST.get('necessity_score', '').strip()
         tags_raw = request.POST.get('tags', '').strip()
         notes = request.POST.get('notes', '')
+        income_source_id = request.POST.get('income_source', '').strip()
 
         form_data = {
             'amount': amount,
@@ -380,6 +415,7 @@ def transaction_edit(request, transaction_id):
             'necessity_score': necessity_score_str,
             'tags': tags_raw,
             'notes': notes,
+            'income_source': income_source_id,
         }
 
         # Validate amount
@@ -422,6 +458,14 @@ def transaction_edit(request, transaction_id):
             except Bucket.DoesNotExist:
                 errors['bucket'] = 'Please select a valid bucket.'
 
+        # Validate income_source (optional, income only)
+        income_source = None
+        if income_source_id and transaction_type == 'income':
+            try:
+                income_source = income_sources.get(pk=income_source_id)
+            except IncomeSource.DoesNotExist:
+                errors['income_source'] = 'Please select a valid income source.'
+
         # Validate date
         date_val = None
         if not date_str:
@@ -446,6 +490,7 @@ def transaction_edit(request, transaction_id):
             # Update transaction fields — the post_save signal handles balance.
             transaction.account = account
             transaction.bucket = bucket
+            transaction.income_source = income_source
             transaction.amount = amount_val
             transaction.transaction_type = transaction_type
             transaction.description = description
@@ -474,6 +519,7 @@ def transaction_edit(request, transaction_id):
             'necessity_score': str(transaction.necessity_score) if transaction.necessity_score is not None else '',
             'tags': existing_tags,
             'notes': transaction.notes,
+            'income_source': str(transaction.income_source_id) if transaction.income_source_id else '',
         }
 
     return render(request, 'transactions/transaction_edit.html', {
@@ -483,6 +529,7 @@ def transaction_edit(request, transaction_id):
         'accounts': accounts,
         'buckets': buckets,
         'user_tags': user_tags,
+        'income_sources': income_sources,
     })
 
 
@@ -828,3 +875,110 @@ def transaction_bulk_action(request):
     if filter_params:
         redirect_url += '?' + urlencode(filter_params)
     return redirect(redirect_url)
+
+
+# ── Income Source CRUD ────────────────────────────────────────────────────────
+
+INCOME_SOURCE_COLORS = [
+    '#0984e3', '#00d4aa', '#f9ca24', '#ff4757',
+    '#a29bfe', '#fd79a8', '#55efc4', '#fdcb6e',
+    '#e17055', '#74b9ff',
+]
+
+
+@login_required
+def income_source_list(request):
+    sources = IncomeSource.objects.filter(user=request.user).order_by('name')
+    return render(request, 'transactions/income_source_list.html', {'sources': sources})
+
+
+@login_required
+def income_source_add(request):
+    errors = {}
+    form_data = {'name': '', 'color': '#0984e3', 'is_active': True}
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        color = request.POST.get('color', '#0984e3').strip()
+        is_active = request.POST.get('is_active', '') == '1'
+
+        form_data = {'name': name, 'color': color, 'is_active': is_active}
+
+        if not name:
+            errors['name'] = 'Name is required.'
+        elif IncomeSource.objects.filter(user=request.user, name__iexact=name).exists():
+            errors['name'] = 'An income source with this name already exists.'
+
+        if not color or len(color) != 7 or not color.startswith('#'):
+            errors['color'] = 'Please select a valid color.'
+
+        if not errors:
+            IncomeSource.objects.create(
+                user=request.user,
+                name=name,
+                color=color,
+                is_active=is_active,
+            )
+            return redirect('income_source_list')
+
+    return render(request, 'transactions/income_source_add.html', {
+        'errors': errors,
+        'form_data': form_data,
+        'color_palette': INCOME_SOURCE_COLORS,
+    })
+
+
+@login_required
+def income_source_edit(request, source_id):
+    source = get_object_or_404(IncomeSource, pk=source_id, user=request.user)
+    errors = {}
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        color = request.POST.get('color', '#0984e3').strip()
+        is_active = request.POST.get('is_active', '') == '1'
+
+        form_data = {'name': name, 'color': color, 'is_active': is_active}
+
+        if not name:
+            errors['name'] = 'Name is required.'
+        elif IncomeSource.objects.filter(user=request.user, name__iexact=name).exclude(pk=source_id).exists():
+            errors['name'] = 'An income source with this name already exists.'
+
+        if not color or len(color) != 7 or not color.startswith('#'):
+            errors['color'] = 'Please select a valid color.'
+
+        if not errors:
+            source.name = name
+            source.color = color
+            source.is_active = is_active
+            source.save()
+            return redirect('income_source_list')
+    else:
+        form_data = {
+            'name': source.name,
+            'color': source.color,
+            'is_active': source.is_active,
+        }
+
+    return render(request, 'transactions/income_source_edit.html', {
+        'source': source,
+        'errors': errors,
+        'form_data': form_data,
+        'color_palette': INCOME_SOURCE_COLORS,
+    })
+
+
+@login_required
+def income_source_delete(request, source_id):
+    source = get_object_or_404(IncomeSource, pk=source_id, user=request.user)
+
+    if request.method == 'POST':
+        source.delete()
+        return redirect('income_source_list')
+
+    txn_count = source.transactions.count()
+    return render(request, 'transactions/income_source_delete.html', {
+        'source': source,
+        'txn_count': txn_count,
+    })

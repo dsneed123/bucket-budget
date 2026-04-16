@@ -54,6 +54,16 @@
             </div>
             {% endif %}
 
+            {% if transaction.income_source %}
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border);">
+                <span>Income Source</span>
+                <span style="display: flex; align-items: center; gap: 8px;">
+                    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: {{ transaction.income_source.color }};"></span>
+                    <span style="color: var(--text-primary); font-weight: 500;">{{ transaction.income_source.name }}</span>
+                </span>
+            </div>
+            {% endif %}
+
             {% if transaction.is_recurring %}
             <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
                 <span>Recurring</span>

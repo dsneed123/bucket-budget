@@ -38,6 +38,21 @@ class VendorMapping(models.Model):
         return self.vendor_name
 
 
+class IncomeSource(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='income_sources')
+    name = models.CharField(max_length=100)
+    color = models.CharField(max_length=7, default='#0984e3')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'name')
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class Transaction(models.Model):
     TRANSACTION_TYPE_CHOICES = [
         ('expense', 'Expense'),
@@ -63,6 +78,7 @@ class Transaction(models.Model):
     is_recurring = models.BooleanField(default=False)
     split_group = models.UUIDField(null=True, blank=True, db_index=True)
     transfer_id = models.UUIDField(null=True, blank=True, db_index=True)
+    income_source = models.ForeignKey('IncomeSource', on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions')
     tags = models.ManyToManyField('Tag', blank=True, related_name='transactions')
     created_at = models.DateTimeField(auto_now_add=True)
 

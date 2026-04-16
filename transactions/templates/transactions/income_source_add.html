@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Add Income Source — Bucket Budget{% endblock %}
+{% block page_title %}Add Income Source{% endblock %}
+
+{% block content %}
+<div style="max-width: 560px;">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">New Income Source</h2>
+            <p class="card-subtitle">Create a category for tracking income by source (e.g. Salary, Freelance, Side Hustle).</p>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="name" class="form-label">Name</label>
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    class="form-control"
+                    value="{{ form_data.name|default:'' }}"
+                    placeholder="e.g. Salary"
+                    autofocus
+                >
+                {% if errors.name %}
+                    <p class="form-error">{{ errors.name }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="color" class="form-label">Color</label>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input
+                        type="color"
+                        id="color"
+                        name="color"
+                        value="{{ form_data.color|default:'#0984e3' }}"
+                        style="width: 44px; height: 38px; padding: 2px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 4px; cursor: pointer;"
+                    >
+                    <input
+                        type="text"
+                        id="color_hex"
+                        class="form-control"
+                        value="{{ form_data.color|default:'#0984e3' }}"
+                        maxlength="7"
+                        placeholder="#0984e3"
+                        style="flex: 1; font-family: monospace;"
+                    >
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+                    {% for c in color_palette %}
+                        <button type="button" onclick="pickColor('{{ c }}')"
+                            style="width: 24px; height: 24px; border-radius: 50%; background-color: {{ c }}; border: 2px solid transparent; cursor: pointer; padding: 0;"
+                            title="{{ c }}"></button>
+                    {% endfor %}
+                </div>
+                {% if errors.color %}
+                    <p class="form-error">{{ errors.color }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px;">
+                    <input
+                        type="checkbox"
+                        name="is_active"
+                        value="1"
+                        {% if form_data.is_active %}checked{% endif %}
+                        style="width: 15px; height: 15px;"
+                    >
+                    Active
+                </label>
+                <p style="margin: 4px 0 0; font-size: 0.8rem; color: var(--text-secondary);">Inactive sources are hidden from the transaction form.</p>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                <button type="submit" class="btn btn-primary">Add income source</button>
+                <a href="{% url 'income_source_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const colorPicker = document.getElementById('color');
+    const colorHex = document.getElementById('color_hex');
+
+    colorPicker.addEventListener('input', () => {
+        colorHex.value = colorPicker.value;
+    });
+
+    colorHex.addEventListener('input', () => {
+        const val = colorHex.value.trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+            colorPicker.value = val;
+        }
+    });
+
+    function pickColor(hex) {
+        colorPicker.value = hex;
+        colorHex.value = hex;
+    }
+</script>
+{% endblock %}
