@@ -1,0 +1,631 @@
+{% extends "base.html" %}
+{% load currency_tags %}
+
+{% block title %}Compare Periods — Bucket Budget{% endblock %}
+{% block page_title %}Compare Periods{% endblock %}
+
+{% block content %}
+<div class="compare-page">
+
+    <div class="page-header">
+        <h1 class="page-title-inline">Compare Periods</h1>
+        <a href="/insights/" class="compare-back-link text-secondary">← Back to Insights</a>
+    </div>
+
+    <!-- Period Selector -->
+    <div class="card compare-picker-card">
+        <form method="get" action="" id="compare-form">
+            <div class="compare-picker-row">
+
+                <div class="compare-picker-period">
+                    <div class="compare-picker-label">Period A</div>
+                    <div class="compare-picker-presets">
+                        <button type="button" class="date-preset-btn {% if a_preset == 'this_month' %}date-preset-active{% endif %}" data-period="a" data-preset="this_month">This month</button>
+                        <button type="button" class="date-preset-btn {% if a_preset == 'last_month' %}date-preset-active{% endif %}" data-period="a" data-preset="last_month">Last month</button>
+                        <button type="button" class="date-preset-btn {% if a_preset == 'last_3_months' %}date-preset-active{% endif %}" data-period="a" data-preset="last_3_months">Last 3 months</button>
+                        <button type="button" class="date-preset-btn {% if a_preset == 'last_6_months' %}date-preset-active{% endif %}" data-period="a" data-preset="last_6_months">Last 6 months</button>
+                        <button type="button" class="date-preset-btn {% if a_preset == 'this_year' %}date-preset-active{% endif %}" data-period="a" data-preset="this_year">This year</button>
+                        <button type="button" class="date-preset-btn {% if a_preset == 'custom' %}date-preset-active{% endif %}" data-period="a" data-preset="custom">Custom</button>
+                    </div>
+                    <div class="compare-custom-inputs {% if a_preset != 'custom' %}compare-hidden{% endif %}" id="custom-a">
+                        <label class="date-range-label text-secondary">From</label>
+                        <input type="date" name="date_from_a" value="{{ a_from }}" class="date-range-input">
+                        <label class="date-range-label text-secondary">To</label>
+                        <input type="date" name="date_to_a" value="{{ a_to }}" class="date-range-input">
+                    </div>
+                    <input type="hidden" name="preset_a" id="preset_a" value="{{ a_preset }}">
+                </div>
+
+                <div class="compare-vs-divider text-secondary">vs</div>
+
+                <div class="compare-picker-period">
+                    <div class="compare-picker-label">Period B</div>
+                    <div class="compare-picker-presets">
+                        <button type="button" class="date-preset-btn {% if b_preset == 'this_month' %}date-preset-active{% endif %}" data-period="b" data-preset="this_month">This month</button>
+                        <button type="button" class="date-preset-btn {% if b_preset == 'last_month' %}date-preset-active{% endif %}" data-period="b" data-preset="last_month">Last month</button>
+                        <button type="button" class="date-preset-btn {% if b_preset == 'last_3_months' %}date-preset-active{% endif %}" data-period="b" data-preset="last_3_months">Last 3 months</button>
+                        <button type="button" class="date-preset-btn {% if b_preset == 'last_6_months' %}date-preset-active{% endif %}" data-period="b" data-preset="last_6_months">Last 6 months</button>
+                        <button type="button" class="date-preset-btn {% if b_preset == 'this_year' %}date-preset-active{% endif %}" data-period="b" data-preset="this_year">This year</button>
+                        <button type="button" class="date-preset-btn {% if b_preset == 'custom' %}date-preset-active{% endif %}" data-period="b" data-preset="custom">Custom</button>
+                    </div>
+                    <div class="compare-custom-inputs {% if b_preset != 'custom' %}compare-hidden{% endif %}" id="custom-b">
+                        <label class="date-range-label text-secondary">From</label>
+                        <input type="date" name="date_from_b" value="{{ b_from }}" class="date-range-input">
+                        <label class="date-range-label text-secondary">To</label>
+                        <input type="date" name="date_to_b" value="{{ b_to }}" class="date-range-input">
+                    </div>
+                    <input type="hidden" name="preset_b" id="preset_b" value="{{ b_preset }}">
+                </div>
+
+            </div>
+            <div class="compare-picker-actions">
+                <button type="submit" class="date-range-apply">Compare</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="compare-column-labels">
+        <div></div>
+        <div class="compare-col-label compare-col-a">{{ a_label }}</div>
+        <div class="compare-col-label compare-col-b">{{ b_label }}</div>
+        <div class="compare-col-label text-secondary">Change</div>
+    </div>
+
+    <!-- Spending -->
+    <div class="card compare-metric-card">
+        <div class="compare-metric-name insights-card-label">Total Spending</div>
+        <div class="compare-metric-row">
+            <div class="compare-metric-label text-secondary">Total Spending</div>
+            <div class="compare-metric-a">{{ comparison.a_spending|currency }}</div>
+            <div class="compare-metric-b text-secondary">{{ comparison.b_spending|currency }}</div>
+            <div class="compare-metric-change">
+                {% if comparison.spending_pct is not None %}
+                    <span class="insights-arrow insights-arrow-{{ comparison.spending_color }}">
+                        {% if comparison.spending_arrow == 'up' %}&#8593;{% elif comparison.spending_arrow == 'down' %}&#8595;{% else %}&mdash;{% endif %}
+                    </span>
+                    <span class="text-{{ comparison.spending_color }}">
+                        {% if comparison.spending_pct > 0 %}+{% endif %}{{ comparison.spending_pct }}%
+                    </span>
+                {% else %}
+                    <span class="text-secondary">—</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="compare-metric-row">
+            <div class="compare-metric-label text-secondary">Income</div>
+            <div class="compare-metric-a">{{ comparison.a_income|currency }}</div>
+            <div class="compare-metric-b text-secondary">{{ comparison.b_income|currency }}</div>
+            <div class="compare-metric-change text-secondary">—</div>
+        </div>
+
+        <div class="compare-metric-row">
+            <div class="compare-metric-label text-secondary">Savings Rate</div>
+            <div class="compare-metric-a">
+                {% if comparison.a_savings_rate is not None %}{{ comparison.a_savings_rate }}%{% else %}<span class="text-secondary">—</span>{% endif %}
+            </div>
+            <div class="compare-metric-b text-secondary">
+                {% if comparison.b_savings_rate is not None %}{{ comparison.b_savings_rate }}%{% else %}—{% endif %}
+            </div>
+            <div class="compare-metric-change">
+                {% if comparison.sr_delta is not None %}
+                    <span class="insights-arrow insights-arrow-{{ comparison.sr_color }}">
+                        {% if comparison.sr_arrow == 'up' %}&#8593;{% elif comparison.sr_arrow == 'down' %}&#8595;{% else %}&mdash;{% endif %}
+                    </span>
+                    <span class="text-{{ comparison.sr_color }}">
+                        {% if comparison.sr_delta > 0 %}+{% endif %}{{ comparison.sr_delta }}pp
+                    </span>
+                {% else %}
+                    <span class="text-secondary">—</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="compare-metric-row">
+            <div class="compare-metric-label text-secondary">Quality Score</div>
+            <div class="compare-metric-a">
+                {% if comparison.a_quality is not None %}
+                    <span class="text-{{ comparison.a_quality_color }}">{{ comparison.a_quality }}<span class="compare-denom">/10</span></span>
+                {% else %}
+                    <span class="text-secondary">—</span>
+                {% endif %}
+            </div>
+            <div class="compare-metric-b text-secondary">
+                {% if comparison.b_quality is not None %}
+                    {{ comparison.b_quality }}/10
+                {% else %}
+                    —
+                {% endif %}
+            </div>
+            <div class="compare-metric-change">
+                {% if comparison.q_delta is not None %}
+                    <span class="insights-arrow insights-arrow-{{ comparison.q_color }}">
+                        {% if comparison.q_arrow == 'up' %}&#8593;{% elif comparison.q_arrow == 'down' %}&#8595;{% else %}&mdash;{% endif %}
+                    </span>
+                    <span class="text-{{ comparison.q_color }}">
+                        {% if comparison.q_delta > 0 %}+{% endif %}{{ comparison.q_delta }}
+                    </span>
+                {% else %}
+                    <span class="text-secondary">—</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Bucket Breakdown -->
+    {% if comparison.bucket_rows %}
+    <div class="card compare-buckets-card">
+        <div class="trend-header">
+            <span class="insights-card-label">Spending by Bucket</span>
+            <div class="compare-bucket-legend">
+                <span class="compare-legend-dot compare-legend-a"></span>
+                <span class="text-secondary">{{ a_label }}</span>
+                <span class="compare-legend-dot compare-legend-b"></span>
+                <span class="text-secondary">{{ b_label }}</span>
+            </div>
+        </div>
+
+        <div class="compare-bucket-header">
+            <div class="compare-bucket-name"></div>
+            <div class="compare-bucket-bars-header">
+                <span class="text-secondary" style="font-size:0.72rem;">{{ a_label }}</span>
+                <span class="text-secondary" style="font-size:0.72rem;">{{ b_label }}</span>
+            </div>
+            <div class="compare-bucket-a-val text-secondary" style="font-size:0.72rem;">A</div>
+            <div class="compare-bucket-b-val text-secondary" style="font-size:0.72rem;">B</div>
+            <div class="compare-bucket-change-col text-secondary" style="font-size:0.72rem;">Change</div>
+        </div>
+
+        <div class="compare-bucket-list">
+            {% for row in comparison.bucket_rows %}
+            <div class="compare-bucket-row">
+                <div class="compare-bucket-name text-secondary">{{ row.name }}</div>
+                <div class="compare-bucket-bars">
+                    <div class="compare-bar-wrap">
+                        <div class="compare-bar compare-bar-a" style="width: {{ row.a_bar_pct }}%; background-color: {{ row.color }};"></div>
+                    </div>
+                    <div class="compare-bar-wrap">
+                        <div class="compare-bar compare-bar-b" style="width: {{ row.b_bar_pct }}%; background-color: {{ row.color }};"></div>
+                    </div>
+                </div>
+                <div class="compare-bucket-a-val">{{ row.a_amount|currency }}</div>
+                <div class="compare-bucket-b-val text-secondary">{{ row.b_amount|currency }}</div>
+                <div class="compare-bucket-change-col">
+                    {% if row.pct_change is not None %}
+                        <span class="text-{{ row.arrow_color }}">
+                            {% if row.arrow == 'up' %}&#8593;{% elif row.arrow == 'down' %}&#8595;{% else %}&mdash;{% endif %}
+                            {% if row.pct_change > 0 %}+{% endif %}{{ row.pct_change }}%
+                        </span>
+                    {% else %}
+                        <span class="text-secondary">New</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="card compare-empty">
+        <p class="text-secondary">No spending data found for the selected periods.</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    document.querySelectorAll('[data-preset]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var period = btn.dataset.period;
+            var preset = btn.dataset.preset;
+            document.getElementById('preset_' + period).value = preset;
+
+            // Update active button
+            btn.closest('.compare-picker-period').querySelectorAll('.date-preset-btn').forEach(function (b) {
+                b.classList.remove('date-preset-active');
+            });
+            btn.classList.add('date-preset-active');
+
+            // Show/hide custom inputs
+            var customEl = document.getElementById('custom-' + period);
+            if (preset === 'custom') {
+                customEl.classList.remove('compare-hidden');
+            } else {
+                customEl.classList.add('compare-hidden');
+                document.getElementById('compare-form').submit();
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.compare-page {
+    max-width: 1100px;
+}
+
+.page-header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.page-title-inline {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.compare-back-link {
+    font-size: 0.85rem;
+    text-decoration: none;
+}
+
+.compare-back-link:hover {
+    color: var(--text-primary);
+}
+
+/* Picker */
+.compare-picker-card {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.compare-picker-row {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.compare-picker-period {
+    flex: 1;
+    min-width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.compare-picker-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+}
+
+.compare-picker-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.compare-vs-divider {
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding-top: 1.6rem;
+    flex-shrink: 0;
+}
+
+.compare-custom-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.compare-hidden {
+    display: none;
+}
+
+.compare-picker-actions {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Column labels */
+.compare-column-labels {
+    display: grid;
+    grid-template-columns: 160px 1fr 1fr 120px;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    padding: 0 1.5rem;
+}
+
+.compare-col-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: right;
+}
+
+.compare-col-a { color: var(--accent-green); }
+.compare-col-b { color: var(--accent-blue); }
+
+/* Metric rows */
+.compare-metric-card {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.compare-metric-name {
+    margin-bottom: 0.25rem;
+}
+
+.compare-metric-row {
+    display: grid;
+    grid-template-columns: 160px 1fr 1fr 120px;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--border);
+}
+
+.compare-metric-label {
+    font-size: 0.85rem;
+}
+
+.compare-metric-a {
+    font-size: 1rem;
+    font-weight: 600;
+    text-align: right;
+    color: var(--text-primary);
+}
+
+.compare-metric-b {
+    font-size: 1rem;
+    text-align: right;
+}
+
+.compare-metric-change {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    justify-content: flex-end;
+}
+
+.compare-denom {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+/* Bucket comparison */
+.compare-buckets-card {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.compare-bucket-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+}
+
+.compare-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.compare-legend-a { background-color: var(--accent-green); opacity: 1; }
+.compare-legend-b { background-color: var(--accent-blue); opacity: 0.5; }
+
+.compare-bucket-header,
+.compare-bucket-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 90px 90px 100px;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.compare-bucket-header {
+    margin-bottom: 0.5rem;
+}
+
+.compare-bucket-bars-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.72rem;
+}
+
+.compare-bucket-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.compare-bucket-name {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: right;
+}
+
+.compare-bucket-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.compare-bar-wrap {
+    height: 10px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.compare-bar {
+    height: 100%;
+    border-radius: 3px;
+    min-width: 2px;
+    transition: width 0.3s ease;
+}
+
+.compare-bar-a {
+    opacity: 1;
+}
+
+.compare-bar-b {
+    opacity: 0.45;
+}
+
+.compare-bucket-a-val {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: right;
+}
+
+.compare-bucket-b-val {
+    font-size: 0.85rem;
+    text-align: right;
+}
+
+.compare-bucket-change-col {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: right;
+}
+
+.compare-empty {
+    padding: 2rem;
+    text-align: center;
+}
+
+/* Reuse date-range styles from insights */
+.date-range-label {
+    font-size: 0.82rem;
+}
+
+.date-range-input {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
+    padding: 0.3rem 0.5rem;
+    font-size: 0.85rem;
+}
+
+.date-preset-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    padding: 0.3rem 0.65rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.date-preset-btn:hover {
+    border-color: var(--accent-green);
+    color: var(--text-primary);
+}
+
+.date-preset-active {
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+}
+
+.date-range-apply {
+    background: var(--accent-green);
+    border: none;
+    color: #000;
+    border-radius: var(--radius-sm);
+    padding: 0.4rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.date-range-apply:hover {
+    opacity: 0.9;
+}
+
+.insights-arrow {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.insights-arrow-green   { color: var(--accent-green); }
+.insights-arrow-red     { color: var(--accent-red); }
+.insights-arrow-gold    { color: var(--accent-gold); }
+.insights-arrow-secondary { color: var(--text-secondary); }
+
+.text-green     { color: var(--accent-green); }
+.text-red       { color: var(--accent-red); }
+.text-gold      { color: var(--accent-gold); }
+.text-secondary { color: var(--text-secondary); }
+
+.insights-card-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+}
+
+.trend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+@media (max-width: 800px) {
+    .compare-picker-row {
+        flex-direction: column;
+    }
+
+    .compare-vs-divider {
+        padding-top: 0;
+        text-align: center;
+    }
+
+    .compare-column-labels,
+    .compare-metric-row,
+    .compare-bucket-header,
+    .compare-bucket-row {
+        grid-template-columns: 110px 1fr 1fr 90px;
+    }
+
+    .compare-bucket-header,
+    .compare-bucket-row {
+        grid-template-columns: 110px 1fr 70px 70px 80px;
+    }
+}
+
+@media (max-width: 540px) {
+    .compare-column-labels,
+    .compare-metric-row {
+        grid-template-columns: 100px 1fr 1fr 80px;
+    }
+
+    .compare-bucket-header,
+    .compare-bucket-row {
+        grid-template-columns: 80px 1fr 60px 60px 70px;
+    }
+}
+</style>
+{% endblock %}

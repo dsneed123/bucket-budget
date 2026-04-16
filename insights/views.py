@@ -1194,6 +1194,166 @@ def insights(request):
     })
 
 
+def _resolve_single_period(preset_key, from_key, to_key, params, today):
+    """Parse one side of the compare form. Returns (date_from, date_to, label, preset)."""
+    preset = params.get(preset_key, 'this_month')
+    date_from_str = params.get(from_key, '')
+    date_to_str = params.get(to_key, '')
+    start, end, _, _, label, _, preset = _resolve_date_range(preset, date_from_str, date_to_str, today)
+    return start, end, label, preset
+
+
+def _compare_periods(user, a_from, a_to, b_from, b_to):
+    """Return a comparison dict between period A and period B."""
+    a_spending = _range_expenses(user, a_from, a_to)
+    b_spending = _range_expenses(user, b_from, b_to)
+    a_income = _range_income(user, a_from, a_to)
+    b_income = _range_income(user, b_from, b_to)
+    a_contributions = _range_contributions(user, a_from, a_to)
+    b_contributions = _range_contributions(user, b_from, b_to)
+    a_savings_rate = _savings_rate(a_contributions, a_income)
+    b_savings_rate = _savings_rate(b_contributions, b_income)
+    a_quality, a_quality_count = _range_quality_score(user, a_from, a_to)
+    b_quality, b_quality_count = _range_quality_score(user, b_from, b_to)
+
+    def _pct_change(a, b):
+        if b > 0:
+            return round(float((a - b) / b * 100), 1)
+        return None
+
+    def _spending_arrow(pct):
+        if pct is None:
+            return None, 'secondary'
+        if pct > 0:
+            return 'up', 'red'
+        if pct < 0:
+            return 'down', 'green'
+        return 'same', 'secondary'
+
+    def _savings_arrow(a_sr, b_sr):
+        if a_sr is None or b_sr is None:
+            return None, None, 'secondary'
+        delta = round(a_sr - b_sr, 1)
+        if delta > 0:
+            return delta, 'up', 'green'
+        if delta < 0:
+            return delta, 'down', 'red'
+        return delta, 'same', 'secondary'
+
+    def _quality_arrow(a_q, b_q):
+        if a_q is None or b_q is None:
+            return None, None, 'secondary'
+        delta = round(float(a_q - b_q), 1)
+        if delta > 0:
+            return delta, 'up', 'green'
+        if delta < 0:
+            return delta, 'down', 'red'
+        return delta, 'same', 'secondary'
+
+    spending_pct = _pct_change(a_spending, b_spending)
+    spending_arrow, spending_color = _spending_arrow(spending_pct)
+
+    sr_delta, sr_arrow, sr_color = _savings_arrow(a_savings_rate, b_savings_rate)
+    q_delta, q_arrow, q_color = _quality_arrow(a_quality, b_quality)
+
+    # Bucket breakdown comparison
+    bucket_map = {b.pk: b for b in Bucket.objects.filter(user=user)}
+
+    def _bucket_totals(date_from, date_to):
+        return {
+            row['bucket_id']: row['total'] or Decimal('0')
+            for row in Transaction.objects.filter(
+                user=user, transaction_type='expense',
+                date__gte=date_from, date__lte=date_to,
+            ).values('bucket_id').annotate(total=Sum('amount'))
+        }
+
+    a_buckets = _bucket_totals(a_from, a_to)
+    b_buckets = _bucket_totals(b_from, b_to)
+
+    bucket_rows = []
+    for bid in set(a_buckets) | set(b_buckets):
+        a_amt = a_buckets.get(bid, Decimal('0'))
+        b_amt = b_buckets.get(bid, Decimal('0'))
+        if bid is None:
+            name, color = 'Uncategorized', '#888888'
+        else:
+            bucket = bucket_map.get(bid)
+            if bucket is None:
+                continue
+            name, color = bucket.name, bucket.color or '#888888'
+        diff = a_amt - b_amt
+        pct = _pct_change(a_amt, b_amt)
+        arrow, arrow_color = _spending_arrow(pct)
+        bucket_rows.append({
+            'name': name, 'color': color,
+            'a_amount': a_amt, 'b_amount': b_amt,
+            'diff': diff,
+            'pct_change': pct,
+            'arrow': arrow, 'arrow_color': arrow_color,
+        })
+
+    bucket_rows.sort(key=lambda r: r['a_amount'], reverse=True)
+    max_amt = max(
+        (max(r['a_amount'], r['b_amount']) for r in bucket_rows),
+        default=Decimal('0'),
+    )
+    for row in bucket_rows:
+        row['a_bar_pct'] = int(float(row['a_amount'] / max_amt) * 100) if max_amt > 0 else 0
+        row['b_bar_pct'] = int(float(row['b_amount'] / max_amt) * 100) if max_amt > 0 else 0
+
+    return {
+        'a_spending': a_spending,
+        'b_spending': b_spending,
+        'spending_diff': a_spending - b_spending,
+        'spending_pct': spending_pct,
+        'spending_arrow': spending_arrow,
+        'spending_color': spending_color,
+        'a_income': a_income,
+        'b_income': b_income,
+        'a_savings_rate': a_savings_rate,
+        'b_savings_rate': b_savings_rate,
+        'sr_delta': sr_delta,
+        'sr_arrow': sr_arrow,
+        'sr_color': sr_color,
+        'a_quality': a_quality,
+        'b_quality': b_quality,
+        'a_quality_color': _score_color(float(a_quality) if a_quality is not None else None),
+        'b_quality_color': _score_color(float(b_quality) if b_quality is not None else None),
+        'q_delta': q_delta,
+        'q_arrow': q_arrow,
+        'q_color': q_color,
+        'bucket_rows': bucket_rows,
+    }
+
+
+@login_required
+def compare(request):
+    today = datetime.date.today()
+    params = request.GET
+
+    a_from, a_to, a_label, a_preset = _resolve_single_period(
+        'preset_a', 'date_from_a', 'date_to_a', params, today,
+    )
+    b_from, b_to, b_label, b_preset = _resolve_single_period(
+        'preset_b', 'date_from_b', 'date_to_b', params, today,
+    )
+
+    comparison = _compare_periods(request.user, a_from, a_to, b_from, b_to)
+
+    return render(request, 'insights/compare.html', {
+        'a_label': a_label,
+        'b_label': b_label,
+        'a_preset': a_preset,
+        'b_preset': b_preset,
+        'a_from': a_from.isoformat(),
+        'a_to': a_to.isoformat(),
+        'b_from': b_from.isoformat(),
+        'b_to': b_to.isoformat(),
+        'comparison': comparison,
+    })
+
+
 @login_required
 def dismiss_recommendation(request, rec_id):
     if request.method == 'POST':
