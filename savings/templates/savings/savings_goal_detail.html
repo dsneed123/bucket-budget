@@ -76,6 +76,16 @@
             </span>
         </div>
         {% endif %}
+        {% if projected and not goal.is_achieved %}
+        <div style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 0.8rem; color: var(--text-secondary);">Projected</span>
+            {% if projected.meets_deadline %}
+            <span style="font-size: 0.875rem; font-weight: 600; color: var(--accent-green);">{{ projected.projected_date|date:"M j, Y" }}</span>
+            {% else %}
+            <span style="font-size: 0.8rem; font-weight: 600; color: var(--accent-gold);">Increase contributions to meet deadline</span>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 
     <!-- Add Contribution form -->
