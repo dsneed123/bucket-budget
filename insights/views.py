@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Sum
+from django.db.models.functions import ExtractWeekDay
 from django.shortcuts import render
 
 from buckets.models import Bucket
@@ -67,6 +68,7 @@ def _spending_quality_score(user, year, month):
 _TREND_CHART_H = 140  # px height for tallest bar
 _BUCKET_BAR_MAX_W = 100  # % width for largest bucket bar
 _MERCHANT_BAR_MAX_W = 100
+_DOW_CHART_H = 100
 
 
 def _top_merchants(user, year, month):
@@ -140,6 +142,33 @@ def _bucket_breakdown(user, year, month):
             if max_amount > 0 else 0
         )
     return rows
+
+
+_DOW_NAMES = {1: 'Sun', 2: 'Mon', 3: 'Tue', 4: 'Wed', 5: 'Thu', 6: 'Fri', 7: 'Sat'}
+_DOW_ORDER = [2, 3, 4, 5, 6, 7, 1]  # Mon → Sun
+
+
+def _dow_pattern(user, year, month):
+    qs = (
+        Transaction.objects.filter(
+            user=user, transaction_type='expense',
+            date__year=year, date__month=month,
+        )
+        .annotate(weekday=ExtractWeekDay('date'))
+        .values('weekday')
+        .annotate(total=Sum('amount'))
+    )
+    totals = {row['weekday']: row['total'] or Decimal('0') for row in qs}
+    days = [{'label': _DOW_NAMES[d], 'amount': totals.get(d, Decimal('0'))} for d in _DOW_ORDER]
+    max_amount = max((d['amount'] for d in days), default=Decimal('0'))
+    peak_amount = max_amount
+    for day in days:
+        day['bar_height_px'] = (
+            max(2, int(float(day['amount'] / max_amount) * _DOW_CHART_H))
+            if max_amount > 0 else 2
+        )
+        day['is_peak'] = max_amount > 0 and day['amount'] == peak_amount
+    return days
 
 
 def _monthly_trend(user, today):
@@ -246,6 +275,9 @@ def insights(request):
     # Top merchants (current month)
     top_merchants = _top_merchants(request.user, this_year, this_month)
 
+    # Day-of-week spending pattern (current month)
+    dow_pattern = _dow_pattern(request.user, this_year, this_month)
+
     return render(request, 'insights/insights.html', {
         'current_month': today.strftime('%B %Y'),
         'last_month_label': last_month_date.strftime('%B %Y'),
@@ -267,4 +299,5 @@ def insights(request):
         'trend_avg': trend_avg,
         'bucket_breakdown': bucket_breakdown,
         'top_merchants': top_merchants,
+        'dow_pattern': dow_pattern,
     })
