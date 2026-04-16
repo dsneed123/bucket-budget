@@ -104,6 +104,23 @@
 
             <div class="form-group">
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px;">
+                    <input type="checkbox" name="is_subscription" value="1"
+                        {% if form_data.is_subscription %}checked{% endif %}
+                        style="width: 15px; height: 15px;">
+                    Subscription
+                </label>
+                <p style="margin: 4px 0 0; font-size: 0.8rem; color: var(--text-secondary);">Mark as a subscription service (e.g. Netflix, Spotify).</p>
+            </div>
+
+            <div class="form-group">
+                <label for="necessity_score" class="form-label">Necessity Score <span style="color: var(--text-secondary); font-weight: 400;">(1–10, optional)</span></label>
+                <input type="number" id="necessity_score" name="necessity_score" class="form-control" min="1" max="10" step="1"
+                    value="{{ form_data.necessity_score|default:'' }}" placeholder="1 = rarely used, 10 = essential">
+                {% if errors.necessity_score %}<p class="form-error">{{ errors.necessity_score }}</p>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px;">
                     <input type="checkbox" name="is_active" value="1"
                         {% if form_data.is_active %}checked{% endif %}
                         style="width: 15px; height: 15px;">

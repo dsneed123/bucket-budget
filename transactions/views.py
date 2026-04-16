@@ -1593,6 +1593,7 @@ def recurring_list(request):
     filter_frequency = request.GET.get('frequency', '').strip()
     filter_type = request.GET.get('type', '').strip()
     filter_status = request.GET.get('status', '').strip()
+    filter_subscription = request.GET.get('subscription', '').strip()
 
     if filter_bucket:
         qs = qs.filter(bucket_id=filter_bucket)
@@ -1604,6 +1605,8 @@ def recurring_list(request):
         qs = qs.filter(is_active=True)
     elif filter_status == 'inactive':
         qs = qs.filter(is_active=False)
+    if filter_subscription == 'true':
+        qs = qs.filter(is_subscription=True, transaction_type='expense')
 
     recurring = list(qs)
     active_expenses = [r for r in recurring if r.is_active and r.transaction_type == 'expense']
@@ -1621,6 +1624,12 @@ def recurring_list(request):
         bucket_costs[key] = bucket_costs.get(key, Decimal('0')) + _monthly_cost(r)
     bucket_breakdown = sorted(bucket_costs.items(), key=lambda x: x[1], reverse=True)
 
+    all_active_subs = list(RecurringTransaction.objects.filter(
+        user=request.user, is_active=True, is_subscription=True, transaction_type='expense'
+    ).select_related('bucket'))
+    subscription_monthly = sum(_monthly_cost(r) for r in all_active_subs)
+    low_necessity_subs = [r for r in all_active_subs if r.necessity_score is not None and r.necessity_score <= 3]
+
     buckets = Bucket.objects.filter(user=request.user).order_by('name')
 
     return render(request, 'transactions/recurring_list.html', {
@@ -1634,8 +1643,12 @@ def recurring_list(request):
         'filter_frequency': filter_frequency,
         'filter_type': filter_type,
         'filter_status': filter_status,
+        'filter_subscription': filter_subscription,
         'frequency_choices': RecurringTransaction.FREQUENCY_CHOICES,
         'type_choices': RecurringTransaction.TRANSACTION_TYPE_CHOICES,
+        'subscription_monthly': subscription_monthly,
+        'low_necessity_subs': low_necessity_subs,
+        'has_subscriptions': bool(all_active_subs),
     })
 
 
@@ -1666,13 +1679,16 @@ def recurring_add(request):
         account_id = request.POST.get('account', '').strip()
         bucket_id = request.POST.get('bucket', '').strip()
         is_active = request.POST.get('is_active', '') == '1'
+        is_subscription = request.POST.get('is_subscription', '') == '1'
+        necessity_score_str = request.POST.get('necessity_score', '').strip()
 
         form_data = {
             'description': description, 'vendor': vendor, 'amount': amount_str,
             'transaction_type': transaction_type, 'frequency': frequency,
             'start_date': start_date_str, 'next_due': next_due_str,
             'end_date': end_date_str, 'account': account_id, 'bucket': bucket_id,
-            'is_active': is_active,
+            'is_active': is_active, 'is_subscription': is_subscription,
+            'necessity_score': necessity_score_str,
         }
 
         if not description:
@@ -1736,6 +1752,16 @@ def recurring_add(request):
             except Bucket.DoesNotExist:
                 errors['bucket'] = 'Please select a valid bucket.'
 
+        necessity_score = None
+        if necessity_score_str:
+            try:
+                necessity_score = int(necessity_score_str)
+                if not (1 <= necessity_score <= 10):
+                    errors['necessity_score'] = 'Necessity score must be between 1 and 10.'
+                    necessity_score = None
+            except ValueError:
+                errors['necessity_score'] = 'Enter a valid necessity score.'
+
         if not errors:
             RecurringTransaction.objects.create(
                 user=request.user,
@@ -1750,6 +1776,8 @@ def recurring_add(request):
                 next_due=next_due,
                 end_date=end_date,
                 is_active=is_active,
+                is_subscription=is_subscription,
+                necessity_score=necessity_score,
             )
             return redirect('recurring_list')
 
@@ -1782,13 +1810,16 @@ def recurring_edit(request, recurring_id):
         account_id = request.POST.get('account', '').strip()
         bucket_id = request.POST.get('bucket', '').strip()
         is_active = request.POST.get('is_active', '') == '1'
+        is_subscription = request.POST.get('is_subscription', '') == '1'
+        necessity_score_str = request.POST.get('necessity_score', '').strip()
 
         form_data = {
             'description': description, 'vendor': vendor, 'amount': amount_str,
             'transaction_type': transaction_type, 'frequency': frequency,
             'start_date': start_date_str, 'next_due': next_due_str,
             'end_date': end_date_str, 'account': account_id, 'bucket': bucket_id,
-            'is_active': is_active,
+            'is_active': is_active, 'is_subscription': is_subscription,
+            'necessity_score': necessity_score_str,
         }
 
         if not description:
@@ -1852,6 +1883,16 @@ def recurring_edit(request, recurring_id):
             except Bucket.DoesNotExist:
                 errors['bucket'] = 'Please select a valid bucket.'
 
+        necessity_score = None
+        if necessity_score_str:
+            try:
+                necessity_score = int(necessity_score_str)
+                if not (1 <= necessity_score <= 10):
+                    errors['necessity_score'] = 'Necessity score must be between 1 and 10.'
+                    necessity_score = None
+            except ValueError:
+                errors['necessity_score'] = 'Enter a valid necessity score.'
+
         if not errors:
             rt.description = description
             rt.vendor = vendor
@@ -1864,6 +1905,8 @@ def recurring_edit(request, recurring_id):
             rt.next_due = next_due
             rt.end_date = end_date
             rt.is_active = is_active
+            rt.is_subscription = is_subscription
+            rt.necessity_score = necessity_score
             rt.save()
             return redirect('recurring_list')
     else:
@@ -1879,6 +1922,8 @@ def recurring_edit(request, recurring_id):
             'account': str(rt.account_id) if rt.account_id else '',
             'bucket': str(rt.bucket_id) if rt.bucket_id else '',
             'is_active': rt.is_active,
+            'is_subscription': rt.is_subscription,
+            'necessity_score': rt.necessity_score if rt.necessity_score is not None else '',
         }
 
     return render(request, 'transactions/recurring_edit.html', {

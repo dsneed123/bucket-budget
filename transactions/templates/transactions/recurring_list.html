@@ -19,6 +19,14 @@
             <span style="font-size: 1.4rem; font-weight: 700; {% if income_pct > 50 %}color: #ff4757;{% elif income_pct > 30 %}color: #ffa502;{% else %}color: var(--accent-green);{% endif %}">{{ income_pct }}%</span>
         </div>
         {% endif %}
+        {% if has_subscriptions %}
+        <a href="{% url 'recurring_list' %}?subscription=true" style="text-decoration: none;">
+            <div class="card" style="display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px; margin: 0; {% if filter_subscription == 'true' %}border: 1.5px solid var(--accent-green);{% endif %}">
+                <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Subscriptions/mo</span>
+                <span style="font-size: 1.4rem; font-weight: 700; color: #a29bfe;">${{ subscription_monthly|floatformat:2 }}</span>
+            </div>
+        </a>
+        {% endif %}
     </div>
     <a href="{% url 'recurring_add' %}" class="btn btn-primary" style="white-space: nowrap;">+ Add Recurring</a>
 </div>
@@ -77,12 +85,45 @@
                 <option value="inactive" {% if filter_status == 'inactive' %}selected{% endif %}>Inactive</option>
             </select>
         </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 0.7rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Category</label>
+            <select name="subscription" class="form-control" style="min-width: 140px; font-size: 0.85rem; padding: 6px 10px;">
+                <option value="">All</option>
+                <option value="true" {% if filter_subscription == 'true' %}selected{% endif %}>Subscriptions</option>
+            </select>
+        </div>
         <button type="submit" class="btn" style="padding: 6px 14px; font-size: 0.85rem;">Filter</button>
-        {% if filter_bucket or filter_frequency or filter_type or filter_status %}
+        {% if filter_bucket or filter_frequency or filter_type or filter_status or filter_subscription %}
             <a href="{% url 'recurring_list' %}" style="font-size: 0.85rem; color: var(--text-secondary); text-decoration: none; align-self: center;">Clear</a>
         {% endif %}
     </form>
 </div>
+
+{% if filter_subscription == 'true' and low_necessity_subs %}
+<div class="card" style="margin-bottom: 16px; padding: 16px 20px; border-left: 3px solid #ffa502;">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <span style="font-size: 0.75rem; font-weight: 600; color: #ffa502; text-transform: uppercase; letter-spacing: 0.05em;">Consider Reviewing</span>
+        <span style="font-size: 0.75rem; color: var(--text-secondary);">Low necessity subscriptions you may want to cancel</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+        {% for sub in low_necessity_subs %}
+        <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-secondary); border-radius: 8px; padding: 10px 14px;">
+            <div>
+                <span style="font-size: 0.9rem; font-weight: 500; color: var(--text-primary);">{{ sub.description }}</span>
+                {% if sub.vendor %}<span style="font-size: 0.8rem; color: var(--text-secondary); margin-left: 8px;">{{ sub.vendor }}</span>{% endif %}
+                <div style="margin-top: 2px;">
+                    <span style="font-size: 0.75rem; color: #ffa502; font-weight: 600;">Necessity: {{ sub.necessity_score }}/10</span>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">${{ sub.amount|floatformat:2 }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">{{ sub.get_frequency_display }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
 
 {% if recurring %}
 <div class="card">
@@ -104,7 +145,13 @@
             <tr style="border-bottom: 1px solid var(--border); {% if not rt.is_active %}opacity: 0.6;{% endif %}">
                 <td style="padding: 14px 16px;">
                     <span style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">{{ rt.description }}</span>
-                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">{{ rt.get_transaction_type_display }}</div>
+                    {% if rt.is_subscription %}
+                    <span style="display: inline-block; background: rgba(162, 155, 254, 0.15); color: #a29bfe; font-size: 0.7rem; font-weight: 600; padding: 1px 7px; border-radius: 10px; margin-left: 6px;">Sub</span>
+                    {% endif %}
+                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">
+                        {{ rt.get_transaction_type_display }}
+                        {% if rt.necessity_score is not None %}&nbsp;·&nbsp;Necessity: {{ rt.necessity_score }}/10{% endif %}
+                    </div>
                 </td>
                 <td style="padding: 14px 16px; font-size: 0.85rem; color: var(--text-secondary);">{{ rt.vendor|default:"—" }}</td>
                 <td style="padding: 14px 16px; text-align: right; font-size: 0.95rem; font-weight: 600; {% if rt.transaction_type == 'income' %}color: var(--accent-green);{% else %}color: var(--text-primary);{% endif %}">
