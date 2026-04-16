@@ -16,4 +16,5 @@ urlpatterns = [
     path('savings/<int:goal_id>/contribute/', views.savings_goal_contribute, name='savings_goal_contribute'),
     path('savings/<int:goal_id>/withdraw/', views.savings_goal_withdraw, name='savings_goal_withdraw'),
     path('savings/<int:goal_id>/delete/', views.savings_goal_delete, name='savings_goal_delete'),
+    path('savings/<int:goal_id>/export/csv/', views.savings_goal_export_csv, name='savings_goal_export_csv'),
 ]

@@ -1,9 +1,11 @@
+import csv
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Case, F, IntegerField, Sum, Value, When
+from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -384,6 +386,52 @@ def savings_goal_detail(request, goal_id):
         'milestones': _get_milestone_data(goal),
         'emergency_coverage': emergency_coverage,
     })
+
+
+@login_required
+def savings_goal_export_csv(request, goal_id):
+    """Download contribution history for a savings goal as a CSV file."""
+    goal = get_object_or_404(SavingsGoal, pk=goal_id, user=request.user)
+
+    # Fetch in ascending order to compute running balance
+    contributions = (
+        goal.contributions
+        .select_related('source_account')
+        .order_by('date', 'created_at')
+    )
+
+    # Pre-compute balance_after for each contribution
+    rows = []
+    running_balance = Decimal('0')
+    for c in contributions.iterator():
+        if c.transaction_type == 'withdrawal':
+            running_balance -= c.amount
+        else:
+            running_balance += c.amount
+        rows.append((
+            c.date.isoformat(),
+            str(c.amount),
+            c.note or '',
+            str(running_balance),
+        ))
+
+    # Reverse so newest entries appear first in the CSV
+    rows.reverse()
+
+    def _csv_rows():
+        class _EchoBuf:
+            def write(self, val):
+                return val
+
+        writer = csv.writer(_EchoBuf())
+        yield writer.writerow(['date', 'amount', 'note', 'balance_after'])
+        for row in rows:
+            yield writer.writerow(row)
+
+    safe_name = goal.name.replace('"', '').replace(',', '')
+    response = StreamingHttpResponse(_csv_rows(), content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{safe_name}_contributions.csv"'
+    return response
 
 
 @login_required
