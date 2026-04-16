@@ -9,7 +9,9 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle-input">
     <div class="layout">
+        <label for="sidebar-toggle" class="sidebar-overlay"></label>
         <nav class="sidebar">
             <div class="sidebar-header">
                 <span class="logo">Bucket Budget</span>
@@ -54,7 +56,14 @@
 
         <div class="main-wrapper">
             <header class="topbar">
-                <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
+                <div class="topbar-left">
+                    <label for="sidebar-toggle" class="hamburger-btn" aria-label="Toggle navigation">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </label>
+                    <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
+                </div>
                 <div class="user-info">
                     {% if user.is_authenticated %}
                         <span class="balance-display">$0.00</span>
@@ -70,6 +79,25 @@
             </main>
         </div>
     </div>
+
+    <nav class="bottom-nav" aria-label="Mobile navigation">
+        <a href="/dashboard/" class="bottom-nav-item {% if request.path == '/dashboard/' %}active{% endif %}">
+            <span class="bottom-nav-icon">📊</span>
+            <span class="bottom-nav-label">Dashboard</span>
+        </a>
+        <a href="/transactions/" class="bottom-nav-item {% if request.path == '/transactions/' %}active{% endif %}">
+            <span class="bottom-nav-icon">💳</span>
+            <span class="bottom-nav-label">Transactions</span>
+        </a>
+        <a href="/budget/" class="bottom-nav-item {% if request.path == '/budget/' %}active{% endif %}">
+            <span class="bottom-nav-icon">💰</span>
+            <span class="bottom-nav-label">Budget</span>
+        </a>
+        <a href="/buckets/" class="bottom-nav-item {% if request.path == '/buckets/' %}active{% endif %}">
+            <span class="bottom-nav-icon">🪣</span>
+            <span class="bottom-nav-label">More</span>
+        </a>
+    </nav>
 
     {% block extra_js %}{% endblock %}
 </body>
