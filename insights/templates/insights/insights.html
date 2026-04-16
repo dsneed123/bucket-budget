@@ -93,6 +93,28 @@
 
     </div>
 
+    <!-- Spending by Bucket -->
+    <div class="card bucket-breakdown-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Spending by Bucket — {{ current_month }}</span>
+        </div>
+        {% if bucket_breakdown %}
+        <div class="bucket-breakdown-list">
+            {% for row in bucket_breakdown %}
+            <div class="bucket-breakdown-row">
+                <div class="bucket-breakdown-name text-secondary">{{ row.name }}</div>
+                <div class="bucket-breakdown-bar-wrap">
+                    <div class="bucket-breakdown-bar" style="width: {{ row.bar_width_pct }}%; background-color: {{ row.color }};"></div>
+                </div>
+                <div class="bucket-breakdown-amount">{{ row.amount|currency }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-secondary" style="margin:0;font-size:0.9rem;">No expense transactions this month.</p>
+        {% endif %}
+    </div>
+
     <!-- Monthly Spending Trend -->
     <div class="card trend-section">
         <div class="trend-header">
@@ -250,6 +272,59 @@
     height: 20px;
     display: flex;
     align-items: center;
+}
+
+.bucket-breakdown-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.bucket-breakdown-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.bucket-breakdown-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 90px;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.bucket-breakdown-name {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: right;
+}
+
+.bucket-breakdown-bar-wrap {
+    height: 16px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.bucket-breakdown-bar {
+    height: 100%;
+    border-radius: 3px;
+    min-width: 2px;
+    transition: width 0.3s ease;
+}
+
+.bucket-breakdown-amount {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: right;
+}
+
+@media (max-width: 540px) {
+    .bucket-breakdown-row {
+        grid-template-columns: 100px 1fr 70px;
+    }
 }
 </style>
 {% endblock %}

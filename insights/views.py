@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Sum
 from django.shortcuts import render
 
+from buckets.models import Bucket
 from savings.models import SavingsContribution
 from transactions.models import Transaction
 
@@ -64,6 +65,46 @@ def _spending_quality_score(user, year, month):
 
 
 _TREND_CHART_H = 140  # px height for tallest bar
+_BUCKET_BAR_MAX_W = 100  # % width for largest bucket bar
+
+
+def _bucket_breakdown(user, year, month):
+    qs = (
+        Transaction.objects.filter(
+            user=user, transaction_type='expense',
+            date__year=year, date__month=month,
+        )
+        .values('bucket_id')
+        .annotate(total=Sum('amount'))
+        .order_by('-total')
+    )
+
+    bucket_map = {b.pk: b for b in Bucket.objects.filter(user=user)}
+
+    rows = []
+    for entry in qs:
+        bid = entry['bucket_id']
+        amount = entry['total'] or Decimal('0')
+        if bid is None:
+            name, color = 'Uncategorized', '#888888'
+        else:
+            bucket = bucket_map.get(bid)
+            if bucket is None:
+                continue
+            name = bucket.name
+            color = bucket.color or '#888888'
+        rows.append({'name': name, 'color': color, 'amount': amount})
+
+    if not rows:
+        return rows
+
+    max_amount = rows[0]['amount']
+    for row in rows:
+        row['bar_width_pct'] = (
+            int(float(row['amount'] / max_amount) * _BUCKET_BAR_MAX_W)
+            if max_amount > 0 else 0
+        )
+    return rows
 
 
 def _monthly_trend(user, today):
@@ -164,6 +205,9 @@ def insights(request):
     # 12-month spending trend
     trend_months, trend_avg = _monthly_trend(request.user, today)
 
+    # Spending by bucket (current month)
+    bucket_breakdown = _bucket_breakdown(request.user, this_year, this_month)
+
     return render(request, 'insights/insights.html', {
         'current_month': today.strftime('%B %Y'),
         'last_month_label': last_month_date.strftime('%B %Y'),
@@ -183,4 +227,5 @@ def insights(request):
         'last_quality_score': last_quality_score,
         'trend_months': trend_months,
         'trend_avg': trend_avg,
+        'bucket_breakdown': bucket_breakdown,
     })
