@@ -8,6 +8,25 @@ register = template.Library()
 
 
 @register.filter
+def highlight_search(value, search_term):
+    """
+    Wrap occurrences of search_term in <mark> tags for highlighting.
+    HTML-escapes the value first to prevent XSS.
+    """
+    if not value or not search_term:
+        return value
+    escaped = escape(value)
+    escaped_term = re.escape(escape(search_term))
+    highlighted = re.sub(
+        f'({escaped_term})',
+        r'<mark class="search-highlight">\1</mark>',
+        escaped,
+        flags=re.IGNORECASE,
+    )
+    return mark_safe(highlighted)
+
+
+@register.filter
 def render_notes(value):
     """
     Render notes with basic markdown-like formatting:

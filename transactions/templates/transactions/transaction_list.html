@@ -1,9 +1,47 @@
 {% extends "base.html" %}
-{% load currency_tags %}
+{% load currency_tags transaction_filters %}
 {% block title %}Transactions — Bucket Budget{% endblock %}
 {% block page_title %}Transactions{% endblock %}
 
 {% block content %}
+<style>
+mark.search-highlight {
+    background-color: rgba(249, 202, 36, 0.35);
+    color: inherit;
+    border-radius: 2px;
+    padding: 0 1px;
+}
+</style>
+
+{# Prominent search bar #}
+<div class="card" style="margin-bottom: 16px; padding: 14px 20px;">
+    <form method="get" action="" id="search-form">
+        {# Preserve all other active filters when searching #}
+        {% if filters.date_from %}<input type="hidden" name="date_from" value="{{ filters.date_from }}">{% endif %}
+        {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
+        {% if filters.bucket %}<input type="hidden" name="bucket" value="{{ filters.bucket }}">{% endif %}
+        {% if filters.type %}<input type="hidden" name="type" value="{{ filters.type }}">{% endif %}
+        {% if filters.account %}<input type="hidden" name="account" value="{{ filters.account }}">{% endif %}
+        {% if filters.tag %}<input type="hidden" name="tag" value="{{ filters.tag }}">{% endif %}
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <div style="position: relative; flex: 1;">
+                <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none; font-size: 0.95rem;">&#128269;</span>
+                <input type="text" name="search" id="search-input" value="{{ filters.search }}" placeholder="Search description, vendor, or notes…" class="form-control" style="padding: 9px 12px 9px 36px; font-size: 0.95rem; width: 100%; box-sizing: border-box;">
+            </div>
+            <button type="submit" class="btn btn-primary" style="padding: 8px 18px; font-size: 0.9rem; white-space: nowrap;">Search</button>
+            {% if filters.search %}
+                <a href="?{% if filter_qs_no_search %}{{ filter_qs_no_search }}{% endif %}" class="btn" style="padding: 8px 14px; font-size: 0.9rem; white-space: nowrap;">&#10005; Clear</a>
+            {% endif %}
+        </div>
+    </form>
+    {% if filters.search %}
+    <div style="margin-top: 8px; font-size: 0.8rem; color: var(--text-secondary);">
+        Searching description, vendor, and notes for <strong style="color: var(--text-primary);">&#8220;{{ filters.search }}&#8221;</strong>
+        &mdash; {{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }}
+    </div>
+    {% endif %}
+</div>
+
 <div style="margin-bottom: 16px; display: flex; justify-content: flex-end; gap: 8px;">
     <a href="{% url 'transaction_import_csv' %}" class="btn">Import CSV</a>
     <a href="{% url 'transaction_export_csv' %}{% if filter_qs %}?{{ filter_qs }}{% endif %}" class="btn">Export CSV</a>
@@ -104,10 +142,8 @@
                 </select>
             </div>
             {% endif %}
-            <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 160px;">
-                <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Search</label>
-                <input type="text" name="search" value="{{ filters.search }}" placeholder="Description or vendor…" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
-            </div>
+            {# Carry the active search term through filter form submissions #}
+            {% if filters.search %}<input type="hidden" name="search" value="{{ filters.search }}">{% endif %}
             <div style="display: flex; gap: 8px; align-items: flex-end; padding-bottom: 1px;">
                 <button type="submit" class="btn btn-primary" style="padding: 6px 14px; font-size: 0.85rem; white-space: nowrap;">
                     Filter{% if active_filter_count %} <span style="display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.25); border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; font-weight: 700; margin-left: 4px;">{{ active_filter_count }}</span>{% endif %}
@@ -210,9 +246,9 @@
                 </td>
                 <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap;">{{ txn.date }}</td>
                 <td style="padding: 12px; font-size: 0.9rem; font-weight: 500; color: var(--text-primary);">
-                    <a href="{% url 'transaction_detail' txn.pk %}" style="color: inherit; text-decoration: none;">{{ txn.description }}</a>
+                    <a href="{% url 'transaction_detail' txn.pk %}" style="color: inherit; text-decoration: none;">{{ txn.description|highlight_search:filters.search }}</a>
                 </td>
-                <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary);">{{ txn.vendor|default:"—" }}</td>
+                <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary);">{{ txn.vendor|default:"—"|highlight_search:filters.search }}</td>
                 <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary);">
                     {% if txn.bucket %}{{ txn.bucket.icon }} {{ txn.bucket.name }}{% else %}—{% endif %}
                 </td>
