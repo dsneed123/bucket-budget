@@ -204,6 +204,66 @@ class RankingsViewTest(TestCase):
         self.assertEqual(len(response.context['impulse_purchases']), 0)
         self.assertEqual(response.context['impulse_total'], Decimal('0'))
 
+    def test_essential_purchases_returned_for_score_8_to_10(self):
+        today = date.today()
+        Transaction.objects.create(
+            user=self.user, account=self.account, bucket=self.bucket,
+            amount=Decimal('60.00'), transaction_type='expense',
+            description='Rent', vendor='Landlord', date=today, necessity_score=9,
+        )
+        Transaction.objects.create(
+            user=self.user, account=self.account, bucket=self.bucket,
+            amount=Decimal('15.00'), transaction_type='expense',
+            description='Impulse buy', vendor='Store', date=today, necessity_score=2,
+        )
+        response = self.client.get(reverse('rankings'))
+        essential = response.context['essential_purchases']
+        self.assertEqual(len(essential), 1)
+        self.assertEqual(essential[0]['description'], 'Rent')
+        self.assertEqual(essential[0]['necessity_score'], 9)
+
+    def test_essential_total_sums_only_score_8_to_10(self):
+        today = date.today()
+        Transaction.objects.create(
+            user=self.user, account=self.account, bucket=self.bucket,
+            amount=Decimal('40.00'), transaction_type='expense',
+            description='Groceries', date=today, necessity_score=8,
+        )
+        Transaction.objects.create(
+            user=self.user, account=self.account, bucket=self.bucket,
+            amount=Decimal('80.00'), transaction_type='expense',
+            description='Utilities', date=today, necessity_score=10,
+        )
+        Transaction.objects.create(
+            user=self.user, account=self.account, bucket=self.bucket,
+            amount=Decimal('25.00'), transaction_type='expense',
+            description='Want item', date=today, necessity_score=2,
+        )
+        response = self.client.get(reverse('rankings'))
+        self.assertEqual(response.context['essential_total'], Decimal('120.00'))
+
+    def test_essential_purchases_capped_at_10(self):
+        today = date.today()
+        for i in range(15):
+            Transaction.objects.create(
+                user=self.user, account=self.account, bucket=self.bucket,
+                amount=Decimal('10.00'), transaction_type='expense',
+                description=f'Essential {i}', date=today, necessity_score=9,
+            )
+        response = self.client.get(reverse('rankings'))
+        self.assertLessEqual(len(response.context['essential_purchases']), 10)
+
+    def test_essential_purchases_empty_when_none(self):
+        today = date.today()
+        Transaction.objects.create(
+            user=self.user, account=self.account, bucket=self.bucket,
+            amount=Decimal('20.00'), transaction_type='expense',
+            description='Impulse', date=today, necessity_score=2,
+        )
+        response = self.client.get(reverse('rankings'))
+        self.assertEqual(len(response.context['essential_purchases']), 0)
+        self.assertEqual(response.context['essential_total'], Decimal('0'))
+
     def test_rankings_isolates_users(self):
         other_user = User.objects.create_user(
             email='other@example.com',
