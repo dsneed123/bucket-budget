@@ -9,7 +9,8 @@ from django.urls import reverse
 from banking.models import BankAccount
 from buckets.models import Bucket
 
-from .models import Transaction
+from .models import Tag, Transaction
+from .views import _resolve_tags
 
 User = get_user_model()
 
@@ -739,3 +740,239 @@ class TransactionAddSplitViewTest(TestCase):
         self.assertRedirects(response, reverse('transaction_list'))
         self.account.refresh_from_db()
         self.assertEqual(self.account.balance, Decimal('600.00'))
+
+
+class TagModelTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='tags@example.com',
+            password='testpass',
+            first_name='Tag',
+            last_name='User',
+        )
+
+    def test_create_tag(self):
+        tag = Tag.objects.create(user=self.user, name='groceries', color='#00d4aa')
+        self.assertEqual(tag.name, 'groceries')
+        self.assertEqual(tag.color, '#00d4aa')
+        self.assertEqual(tag.user, self.user)
+
+    def test_tag_default_color(self):
+        tag = Tag.objects.create(user=self.user, name='travel')
+        self.assertEqual(tag.color, '#0984e3')
+
+    def test_tag_str(self):
+        tag = Tag.objects.create(user=self.user, name='recurring')
+        self.assertEqual(str(tag), 'recurring')
+
+    def test_tag_unique_per_user(self):
+        from django.db import IntegrityError
+        Tag.objects.create(user=self.user, name='food')
+        with self.assertRaises(IntegrityError):
+            Tag.objects.create(user=self.user, name='food')
+
+    def test_tag_name_not_unique_across_users(self):
+        other_user = User.objects.create_user(
+            email='other_tags@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        Tag.objects.create(user=self.user, name='food')
+        # Should not raise — different user
+        tag2 = Tag.objects.create(user=other_user, name='food')
+        self.assertEqual(tag2.name, 'food')
+
+    def test_tag_ordering_by_name(self):
+        Tag.objects.create(user=self.user, name='zebra')
+        Tag.objects.create(user=self.user, name='apple')
+        Tag.objects.create(user=self.user, name='mango')
+        names = list(Tag.objects.filter(user=self.user).values_list('name', flat=True))
+        self.assertEqual(names, sorted(names))
+
+
+class ResolveTagsTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='resolve@example.com',
+            password='testpass',
+            first_name='Resolve',
+            last_name='User',
+        )
+
+    def test_creates_new_tags(self):
+        tags = _resolve_tags(self.user, 'groceries, travel')
+        self.assertEqual(len(tags), 2)
+        names = {t.name for t in tags}
+        self.assertIn('groceries', names)
+        self.assertIn('travel', names)
+        self.assertEqual(Tag.objects.filter(user=self.user).count(), 2)
+
+    def test_reuses_existing_tags(self):
+        existing = Tag.objects.create(user=self.user, name='food', color='#ff4757')
+        tags = _resolve_tags(self.user, 'food')
+        self.assertEqual(len(tags), 1)
+        self.assertEqual(tags[0].pk, existing.pk)
+        self.assertEqual(Tag.objects.filter(user=self.user).count(), 1)
+
+    def test_case_insensitive_lookup(self):
+        existing = Tag.objects.create(user=self.user, name='groceries', color='#ff4757')
+        tags = _resolve_tags(self.user, 'Groceries')
+        self.assertEqual(len(tags), 1)
+        self.assertEqual(tags[0].pk, existing.pk)
+
+    def test_empty_string_returns_no_tags(self):
+        tags = _resolve_tags(self.user, '')
+        self.assertEqual(tags, [])
+
+    def test_blank_entries_are_skipped(self):
+        tags = _resolve_tags(self.user, 'food, , ,travel')
+        self.assertEqual(len(tags), 2)
+
+    def test_assigns_color_from_palette(self):
+        tags = _resolve_tags(self.user, 'first')
+        self.assertIn(tags[0].color, [
+            '#0984e3', '#00d4aa', '#f9ca24', '#ff4757',
+            '#a29bfe', '#fd79a8', '#55efc4', '#fdcb6e',
+            '#e17055', '#74b9ff',
+        ])
+
+
+class TagTransactionIntegrationTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='tagtxn@example.com',
+            password='testpass',
+            first_name='Tag',
+            last_name='Txn',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('500.00'),
+        )
+        self.client.login(email='tagtxn@example.com', password='testpass')
+
+    def _post_add(self, **overrides):
+        data = {
+            'amount': '25.00',
+            'transaction_type': 'expense',
+            'description': 'Tagged purchase',
+            'vendor': '',
+            'bucket': '',
+            'account': str(self.account.pk),
+            'date': '2026-04-16',
+            'tags': '',
+        }
+        data.update(overrides)
+        return self.client.post(reverse('transaction_add'), data)
+
+    def test_add_transaction_with_tags_creates_tags(self):
+        self._post_add(tags='groceries, travel')
+        txn = Transaction.objects.get(user=self.user)
+        tag_names = set(txn.tags.values_list('name', flat=True))
+        self.assertEqual(tag_names, {'groceries', 'travel'})
+
+    def test_add_transaction_without_tags_has_no_tags(self):
+        self._post_add(tags='')
+        txn = Transaction.objects.get(user=self.user)
+        self.assertEqual(txn.tags.count(), 0)
+
+    def test_edit_transaction_updates_tags(self):
+        txn = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('50.00'),
+            transaction_type='expense',
+            description='Purchase',
+            date=datetime.date(2026, 4, 16),
+        )
+        tag = Tag.objects.create(user=self.user, name='old-tag')
+        txn.tags.set([tag])
+
+        self.client.post(reverse('transaction_edit', args=[txn.pk]), {
+            'amount': '50.00',
+            'transaction_type': 'expense',
+            'description': 'Purchase',
+            'vendor': '',
+            'bucket': '',
+            'account': str(self.account.pk),
+            'date': '2026-04-16',
+            'tags': 'new-tag',
+        })
+        txn.refresh_from_db()
+        tag_names = set(txn.tags.values_list('name', flat=True))
+        self.assertEqual(tag_names, {'new-tag'})
+
+    def test_edit_transaction_clears_tags_when_empty(self):
+        txn = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('50.00'),
+            transaction_type='expense',
+            description='Purchase',
+            date=datetime.date(2026, 4, 16),
+        )
+        tag = Tag.objects.create(user=self.user, name='some-tag')
+        txn.tags.set([tag])
+
+        self.client.post(reverse('transaction_edit', args=[txn.pk]), {
+            'amount': '50.00',
+            'transaction_type': 'expense',
+            'description': 'Purchase',
+            'vendor': '',
+            'bucket': '',
+            'account': str(self.account.pk),
+            'date': '2026-04-16',
+            'tags': '',
+        })
+        txn.refresh_from_db()
+        self.assertEqual(txn.tags.count(), 0)
+
+    def test_filter_by_tag_returns_only_tagged_transactions(self):
+        tag = Tag.objects.create(user=self.user, name='filtered-tag')
+        txn1 = Transaction.objects.create(
+            user=self.user, account=self.account, amount=Decimal('10.00'),
+            transaction_type='expense', description='Tagged', date=datetime.date(2026, 4, 16),
+        )
+        txn1.tags.set([tag])
+        Transaction.objects.create(
+            user=self.user, account=self.account, amount=Decimal('20.00'),
+            transaction_type='expense', description='Untagged', date=datetime.date(2026, 4, 16),
+        )
+
+        response = self.client.get(reverse('transaction_list'), {'tag': str(tag.pk)})
+        self.assertEqual(response.status_code, 200)
+        txns = list(response.context['page_obj'])
+        self.assertEqual(len(txns), 1)
+        self.assertEqual(txns[0].pk, txn1.pk)
+
+    def test_filter_by_invalid_tag_shows_all(self):
+        Transaction.objects.create(
+            user=self.user, account=self.account, amount=Decimal('10.00'),
+            transaction_type='expense', description='Some txn', date=datetime.date(2026, 4, 16),
+        )
+        response = self.client.get(reverse('transaction_list'), {'tag': '99999'})
+        self.assertEqual(response.status_code, 200)
+        # Invalid tag ID is ignored — all transactions are shown
+        self.assertEqual(response.context['page_obj'].paginator.count, 1)
+
+    def test_transaction_list_shows_tag_filter_when_tags_exist(self):
+        Tag.objects.create(user=self.user, name='show-me')
+        response = self.client.get(reverse('transaction_list'))
+        self.assertContains(response, 'show-me')
+
+    def test_edit_form_prepopulates_existing_tags(self):
+        txn = Transaction.objects.create(
+            user=self.user, account=self.account, amount=Decimal('50.00'),
+            transaction_type='expense', description='Purchase',
+            date=datetime.date(2026, 4, 16),
+        )
+        tag = Tag.objects.create(user=self.user, name='prepop-tag')
+        txn.tags.set([tag])
+
+        response = self.client.get(reverse('transaction_edit', args=[txn.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'prepop-tag')
