@@ -1634,7 +1634,6 @@ def recurring_add(request):
         'transaction_type': 'expense',
         'frequency': 'monthly',
         'start_date': today,
-        'next_due': today,
         'is_active': True,
     }
 
@@ -1645,7 +1644,6 @@ def recurring_add(request):
         transaction_type = request.POST.get('transaction_type', '').strip()
         frequency = request.POST.get('frequency', '').strip()
         start_date_str = request.POST.get('start_date', '').strip()
-        next_due_str = request.POST.get('next_due', '').strip()
         end_date_str = request.POST.get('end_date', '').strip()
         account_id = request.POST.get('account', '').strip()
         bucket_id = request.POST.get('bucket', '').strip()
@@ -1654,7 +1652,7 @@ def recurring_add(request):
         form_data = {
             'description': description, 'vendor': vendor, 'amount': amount_str,
             'transaction_type': transaction_type, 'frequency': frequency,
-            'start_date': start_date_str, 'next_due': next_due_str,
+            'start_date': start_date_str,
             'end_date': end_date_str, 'account': account_id, 'bucket': bucket_id,
             'is_active': is_active,
         }
@@ -1697,15 +1695,6 @@ def recurring_add(request):
             except ValueError:
                 errors['start_date'] = 'Enter a valid date.'
 
-        next_due = None
-        if not next_due_str:
-            errors['next_due'] = 'Next due date is required.'
-        else:
-            try:
-                next_due = datetime.date.fromisoformat(next_due_str)
-            except ValueError:
-                errors['next_due'] = 'Enter a valid date.'
-
         end_date = None
         if end_date_str:
             try:
@@ -1731,7 +1720,7 @@ def recurring_add(request):
                 vendor=vendor,
                 frequency=frequency,
                 start_date=start_date,
-                next_due=next_due,
+                next_due=start_date,
                 end_date=end_date,
                 is_active=is_active,
             )
