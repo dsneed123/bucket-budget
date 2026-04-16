@@ -69,6 +69,292 @@ def _spending_quality_score(user, year, month):
     return round(Decimal(str(result['avg'])), 1), result['count']
 
 
+def _resolve_date_range(preset, date_from_str, date_to_str, today):
+    """Return (date_from, date_to, prev_date_from, prev_date_to, period_label, preset)."""
+    if preset == 'last_month':
+        first = today.replace(day=1)
+        end = first - datetime.timedelta(days=1)
+        start = end.replace(day=1)
+    elif preset == 'last_3_months':
+        end = today
+        m = today.month - 3
+        y = today.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        start = datetime.date(y, m, 1)
+    elif preset == 'last_6_months':
+        end = today
+        m = today.month - 6
+        y = today.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        start = datetime.date(y, m, 1)
+    elif preset == 'this_year':
+        start = datetime.date(today.year, 1, 1)
+        end = today
+    elif preset == 'custom' and date_from_str and date_to_str:
+        try:
+            start = datetime.date.fromisoformat(date_from_str)
+            end = datetime.date.fromisoformat(date_to_str)
+            if start > end:
+                start, end = end, start
+        except ValueError:
+            preset = 'this_month'
+            start = today.replace(day=1)
+            end = today
+    else:
+        preset = 'this_month'
+        start = today.replace(day=1)
+        end = today
+
+    delta_days = (end - start).days + 1
+    prev_end = start - datetime.timedelta(days=1)
+    prev_start = prev_end - datetime.timedelta(days=delta_days - 1)
+
+    if start.year == end.year and start.month == end.month:
+        label = start.strftime('%B %Y')
+    elif start.year == end.year:
+        label = f"{start.strftime('%b')} \u2013 {end.strftime('%b %Y')}"
+    else:
+        label = f"{start.strftime('%b %Y')} \u2013 {end.strftime('%b %Y')}"
+
+    if prev_start.year == prev_end.year and prev_start.month == prev_end.month:
+        prev_label = prev_start.strftime('%B %Y')
+    elif prev_start.year == prev_end.year:
+        prev_label = f"{prev_start.strftime('%b')} \u2013 {prev_end.strftime('%b %Y')}"
+    else:
+        prev_label = f"{prev_start.strftime('%b %Y')} \u2013 {prev_end.strftime('%b %Y')}"
+
+    return start, end, prev_start, prev_end, label, prev_label, preset
+
+
+def _range_expenses(user, date_from, date_to):
+    return (
+        Transaction.objects.filter(
+            user=user, transaction_type='expense',
+            date__gte=date_from, date__lte=date_to,
+        ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    )
+
+
+def _range_income(user, date_from, date_to):
+    return (
+        Transaction.objects.filter(
+            user=user, transaction_type='income',
+            date__gte=date_from, date__lte=date_to,
+        ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    )
+
+
+def _range_contributions(user, date_from, date_to):
+    return (
+        SavingsContribution.objects.filter(
+            goal__user=user, transaction_type='contribution',
+            date__gte=date_from, date__lte=date_to,
+        ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    )
+
+
+def _range_quality_score(user, date_from, date_to):
+    result = Transaction.objects.filter(
+        user=user, transaction_type='expense',
+        date__gte=date_from, date__lte=date_to,
+        necessity_score__isnull=False,
+    ).aggregate(avg=Avg('necessity_score'), count=Count('id'))
+    if not result['count']:
+        return None, 0
+    return round(Decimal(str(result['avg'])), 1), result['count']
+
+
+def _range_top_merchants(user, date_from, date_to):
+    qs = (
+        Transaction.objects.filter(
+            user=user, transaction_type='expense',
+            date__gte=date_from, date__lte=date_to,
+        )
+        .exclude(vendor='')
+        .values('vendor')
+        .annotate(total=Sum('amount'), count=Count('id'), avg_necessity=Avg('necessity_score'))
+        .order_by('-total')[:10]
+    )
+    rows = []
+    for entry in qs:
+        avg = entry['avg_necessity']
+        avg_rounded = round(Decimal(str(avg)), 1) if avg is not None else None
+        rows.append({
+            'vendor': entry['vendor'],
+            'total': entry['total'] or Decimal('0'),
+            'count': entry['count'],
+            'avg_necessity': avg_rounded,
+            'necessity_color': _score_color(float(avg_rounded) if avg_rounded is not None else None),
+        })
+    if rows:
+        max_total = rows[0]['total']
+        for row in rows:
+            row['bar_width_pct'] = (
+                int(float(row['total'] / max_total) * _MERCHANT_BAR_MAX_W)
+                if max_total > 0 else 0
+            )
+    return rows
+
+
+def _range_bucket_breakdown(user, date_from, date_to):
+    qs = (
+        Transaction.objects.filter(
+            user=user, transaction_type='expense',
+            date__gte=date_from, date__lte=date_to,
+        )
+        .values('bucket_id')
+        .annotate(total=Sum('amount'))
+        .order_by('-total')
+    )
+    bucket_map = {b.pk: b for b in Bucket.objects.filter(user=user)}
+    rows = []
+    for entry in qs:
+        bid = entry['bucket_id']
+        amount = entry['total'] or Decimal('0')
+        if bid is None:
+            name, color = 'Uncategorized', '#888888'
+        else:
+            bucket = bucket_map.get(bid)
+            if bucket is None:
+                continue
+            name = bucket.name
+            color = bucket.color or '#888888'
+        rows.append({'name': name, 'color': color, 'amount': amount})
+    if not rows:
+        return rows
+    max_amount = rows[0]['amount']
+    for row in rows:
+        row['bar_width_pct'] = (
+            int(float(row['amount'] / max_amount) * _BUCKET_BAR_MAX_W)
+            if max_amount > 0 else 0
+        )
+    return rows
+
+
+def _range_dow_pattern(user, date_from, date_to):
+    qs = (
+        Transaction.objects.filter(
+            user=user, transaction_type='expense',
+            date__gte=date_from, date__lte=date_to,
+        )
+        .annotate(weekday=ExtractWeekDay('date'))
+        .values('weekday')
+        .annotate(total=Sum('amount'))
+    )
+    totals = {row['weekday']: row['total'] or Decimal('0') for row in qs}
+    days = [{'label': _DOW_NAMES[d], 'amount': totals.get(d, Decimal('0'))} for d in _DOW_ORDER]
+    max_amount = max((d['amount'] for d in days), default=Decimal('0'))
+    peak_amount = max_amount
+    for day in days:
+        day['bar_height_px'] = (
+            max(2, int(float(day['amount'] / max_amount) * _DOW_CHART_H))
+            if max_amount > 0 else 2
+        )
+        day['is_peak'] = max_amount > 0 and day['amount'] == peak_amount
+    return days
+
+
+def _range_expense_ratio(user, date_from, date_to):
+    income = _range_income(user, date_from, date_to)
+    if income <= 0:
+        return None
+
+    qs = (
+        Transaction.objects.filter(
+            user=user, transaction_type='expense',
+            date__gte=date_from, date__lte=date_to,
+        )
+        .values('bucket_id')
+        .annotate(total=Sum('amount'))
+    )
+    bucket_map = {b.pk: b for b in Bucket.objects.filter(user=user)}
+
+    bucket_spending = {}
+    for entry in qs:
+        bid = entry['bucket_id']
+        amount = entry['total'] or Decimal('0')
+        name = 'Uncategorized' if bid is None else (bucket_map[bid].name if bid in bucket_map else None)
+        if name is not None:
+            bucket_spending[name] = bucket_spending.get(name, Decimal('0')) + amount
+
+    category_spending = {cat['key']: Decimal('0') for cat in _EXPENSE_RATIO_CATEGORIES}
+    for bucket_name, amount in bucket_spending.items():
+        lower = bucket_name.lower()
+        for cat in _EXPENSE_RATIO_CATEGORIES:
+            if any(kw in lower for kw in cat['keywords']):
+                category_spending[cat['key']] += amount
+                break
+
+    rows = []
+    for cat in _EXPENSE_RATIO_CATEGORIES:
+        spent = category_spending[cat['key']]
+        pct = round(float(spent / income * 100), 1)
+        min_pct, max_pct = cat['min_pct'], cat['max_pct']
+        if pct > max_pct + _RATIO_SIGNIFICANT_OVER_PP:
+            status, status_color, status_label = 'high', 'red', 'Significantly over'
+        elif pct > max_pct:
+            status, status_color, status_label = 'over', 'gold', 'Above recommended'
+        elif pct >= min_pct:
+            status, status_color, status_label = 'ok', 'green', 'On track'
+        else:
+            status, status_color, status_label = 'under', 'secondary', 'Below range'
+        bar_pct = min(int(pct / _RATIO_BAR_SCALE * 100), 100)
+        rec_min_bar = int(min_pct / _RATIO_BAR_SCALE * 100)
+        rec_max_bar = int(max_pct / _RATIO_BAR_SCALE * 100)
+        rec_band_width = rec_max_bar - rec_min_bar
+        rows.append({
+            'label': cat['key'],
+            'description': cat['description'],
+            'spent': spent,
+            'pct': pct,
+            'min_pct': min_pct,
+            'max_pct': max_pct,
+            'status': status,
+            'status_color': status_color,
+            'status_label': status_label,
+            'bar_pct': bar_pct,
+            'rec_min_bar': rec_min_bar,
+            'rec_band_width': rec_band_width,
+        })
+
+    contributions = _range_contributions(user, date_from, date_to)
+    savings_pct = round(float(contributions / income * 100), 1)
+    savings_target = 20
+    if savings_pct >= savings_target:
+        savings_status, savings_color, savings_status_label = 'ok', 'green', 'On track'
+    elif savings_pct >= savings_target * 0.75:
+        savings_status, savings_color, savings_status_label = 'under', 'gold', 'Below target'
+    else:
+        savings_status, savings_color, savings_status_label = 'low', 'red', 'Significantly under'
+
+    savings_bar_pct = min(int(savings_pct / _RATIO_BAR_SCALE * 100), 100)
+    savings_rec_bar = int(savings_target / _RATIO_BAR_SCALE * 100)
+    savings_row = {
+        'label': 'Savings',
+        'description': 'Contributions to savings goals',
+        'contributed': contributions,
+        'pct': savings_pct,
+        'target_pct': savings_target,
+        'status': savings_status,
+        'status_color': savings_color,
+        'status_label': savings_status_label,
+        'bar_pct': savings_bar_pct,
+        'rec_target_bar': savings_rec_bar,
+    }
+
+    flagged = sum(1 for r in rows if r['status'] in ('over', 'high'))
+    return {
+        'income': income,
+        'rows': rows,
+        'savings_row': savings_row,
+        'flagged_count': flagged,
+    }
+
+
 def _has_12_months_data(user, today):
     cutoff = datetime.date(today.year - 1, today.month, 1)
     return Transaction.objects.filter(user=user, date__lt=cutoff).exists()
@@ -744,15 +1030,18 @@ def _financial_health_score(user, year, month, cur_savings_rate, quality_score, 
 @login_required
 def insights(request):
     today = datetime.date.today()
-    this_year, this_month = today.year, today.month
 
-    first_of_month = today.replace(day=1)
-    last_month_date = first_of_month - datetime.timedelta(days=1)
-    last_year, last_month = last_month_date.year, last_month_date.month
+    preset = request.GET.get('preset', 'this_month')
+    date_from_str = request.GET.get('date_from', '')
+    date_to_str = request.GET.get('date_to', '')
 
-    # This month vs last month spending
-    this_spending = _month_expenses(request.user, this_year, this_month)
-    last_spending = _month_expenses(request.user, last_year, last_month)
+    date_from, date_to, prev_date_from, prev_date_to, period_label, prev_period_label, preset = (
+        _resolve_date_range(preset, date_from_str, date_to_str, today)
+    )
+
+    # Period spending
+    this_spending = _range_expenses(request.user, date_from, date_to)
+    last_spending = _range_expenses(request.user, prev_date_from, prev_date_to)
 
     if last_spending > 0:
         spending_pct_change = round(float((this_spending - last_spending) / last_spending * 100), 1)
@@ -773,12 +1062,12 @@ def insights(request):
         spending_arrow_color = 'secondary'
 
     # Savings rate
-    cur_income = _month_income(request.user, this_year, this_month)
-    cur_contributions = _month_contributions(request.user, this_year, this_month)
+    cur_income = _range_income(request.user, date_from, date_to)
+    cur_contributions = _range_contributions(request.user, date_from, date_to)
     cur_savings_rate = _savings_rate(cur_contributions, cur_income)
 
-    prev_income = _month_income(request.user, last_year, last_month)
-    prev_contributions = _month_contributions(request.user, last_year, last_month)
+    prev_income = _range_income(request.user, prev_date_from, prev_date_to)
+    prev_contributions = _range_contributions(request.user, prev_date_from, prev_date_to)
     prev_savings_rate = _savings_rate(prev_contributions, prev_income)
 
     if cur_savings_rate is None:
@@ -801,8 +1090,8 @@ def insights(request):
         savings_arrow = None
 
     # Spending quality score
-    quality_score, quality_count = _spending_quality_score(request.user, this_year, this_month)
-    last_quality_score, _ = _spending_quality_score(request.user, last_year, last_month)
+    quality_score, quality_count = _range_quality_score(request.user, date_from, date_to)
+    last_quality_score, _ = _range_quality_score(request.user, prev_date_from, prev_date_to)
     quality_color = _score_color(quality_score)
 
     if quality_score is not None and last_quality_score is not None:
@@ -815,40 +1104,48 @@ def insights(request):
     else:
         quality_arrow = None
 
-    # 12-month spending trend
+    # 12-month spending trend (always anchored to today)
     trend_months, trend_avg = _monthly_trend(request.user, today)
 
-    # Spending by bucket (current month)
-    bucket_breakdown = _bucket_breakdown(request.user, this_year, this_month)
+    # Spending by bucket for selected period
+    bucket_breakdown = _range_bucket_breakdown(request.user, date_from, date_to)
 
-    # Top merchants (current month)
-    top_merchants = _top_merchants(request.user, this_year, this_month)
+    # Top merchants for selected period
+    top_merchants = _range_top_merchants(request.user, date_from, date_to)
 
-    # Day-of-week spending pattern (current month)
-    dow_pattern = _dow_pattern(request.user, this_year, this_month)
+    # Day-of-week spending pattern for selected period
+    dow_pattern = _range_dow_pattern(request.user, date_from, date_to)
 
-    # Income vs expenses — last 6 months
+    # Income vs expenses — last 6 months (always anchored to today)
     income_expense_trend = _income_expense_trend(request.user, today)
 
-    # Savings rate trend — last 12 months
+    # Savings rate trend — last 12 months (always anchored to today)
     sr_trend_months, sr_avg_line_px = _savings_rate_trend(request.user, today)
 
-    # Daily spending heatmap (current month)
-    heatmap_weeks = _daily_heatmap(request.user, this_year, this_month)
+    # Daily spending heatmap — only for single-month ranges
+    is_single_month = (date_from.year == date_to.year and date_from.month == date_to.month)
+    heatmap_weeks = _daily_heatmap(request.user, date_from.year, date_from.month) if is_single_month else None
 
-    # Spending forecast (current month projection)
-    forecast = _spending_forecast(request.user, this_year, this_month, today)
+    # Spending forecast — only for current month
+    is_current_month = (preset == 'this_month')
+    forecast = _spending_forecast(request.user, today.year, today.month, today) if is_current_month else None
 
-    # Year-over-year comparison (only if user has 12+ months of data)
+    # Year-over-year comparison (always for current month)
     yoy_data = _yoy_comparison(request.user, today) if _has_12_months_data(request.user, today) else None
 
-    # Expense ratio analysis
-    expense_ratio = _expense_ratio_analysis(request.user, this_year, this_month)
+    # Expense ratio analysis for selected period
+    expense_ratio = _range_expense_ratio(request.user, date_from, date_to)
 
-    # Financial health score
+    # Financial health score — always for current month (uses consistency, emergency funds, etc.)
+    cur_sr_for_health = _savings_rate(
+        _month_contributions(request.user, today.year, today.month),
+        _month_income(request.user, today.year, today.month),
+    )
+    quality_for_health, _ = _spending_quality_score(request.user, today.year, today.month)
+    forecast_for_health = _spending_forecast(request.user, today.year, today.month, today)
     health_score = _financial_health_score(
-        request.user, this_year, this_month,
-        cur_savings_rate, quality_score, forecast,
+        request.user, today.year, today.month,
+        cur_sr_for_health, quality_for_health, forecast_for_health,
     )
 
     # Personalized recommendations
@@ -860,8 +1157,11 @@ def insights(request):
     )
 
     return render(request, 'insights/insights.html', {
-        'current_month': today.strftime('%B %Y'),
-        'last_month_label': last_month_date.strftime('%B %Y'),
+        'period_label': period_label,
+        'prev_period_label': prev_period_label,
+        'preset': preset,
+        'date_from': date_from.isoformat(),
+        'date_to': date_to.isoformat(),
         'this_spending': this_spending,
         'last_spending': last_spending,
         'spending_pct_change': spending_pct_change,
