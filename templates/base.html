@@ -74,6 +74,32 @@
                     <div class="quality-widget-sublabel">Spending Quality</div>
                 </a>
             </div>
+            <div class="sidebar-savings-rate-widget">
+                <a href="/savings/" class="savings-rate-widget-link">
+                    <div class="savings-rate-widget-label">Savings Rate</div>
+                    <div class="savings-rate-value savings-rate-{{ sidebar_savings_rate_color }}">
+                        {% if sidebar_savings_rate is not None %}
+                            {{ sidebar_savings_rate }}%
+                            {% if sidebar_savings_rate_arrow == 'up' %}
+                                <span class="savings-rate-arrow savings-rate-arrow-up">&#9650;</span>
+                            {% elif sidebar_savings_rate_arrow == 'down' %}
+                                <span class="savings-rate-arrow savings-rate-arrow-down">&#9660;</span>
+                            {% elif sidebar_savings_rate_arrow == 'same' %}
+                                <span class="savings-rate-arrow savings-rate-arrow-same">&#8212;</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="quality-score-na">—</span>
+                        {% endif %}
+                    </div>
+                    <div class="savings-rate-sublabel">
+                        {% if sidebar_savings_rate_prev is not None %}
+                            vs {{ sidebar_savings_rate_prev }}% last month
+                        {% else %}
+                            of income saved
+                        {% endif %}
+                    </div>
+                </a>
+            </div>
             {% endif %}
             <div class="nav-bottom">
                 <ul class="nav-links">

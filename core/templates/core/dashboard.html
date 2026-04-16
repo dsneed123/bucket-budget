@@ -4,7 +4,7 @@
 {% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="grid grid-3" style="margin-bottom: 24px;">
+<div class="grid grid-4" style="margin-bottom: 24px;">
     <div class="card" style="padding: 20px;">
         <p class="stat-label">{{ current_month }} Income</p>
         <p class="stat-value stat-positive">{{ total_income|currency:user.currency }}</p>
@@ -16,6 +16,25 @@
     <div class="card" style="padding: 20px;">
         <p class="stat-label">Net</p>
         <p class="stat-value {% if net >= 0 %}stat-positive{% else %}stat-negative{% endif %}">{{ net|currency:user.currency }}</p>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <p class="stat-label">Savings Rate
+            {% if sidebar_savings_rate_arrow == 'up' %}
+                <span class="savings-rate-arrow savings-rate-arrow-up" style="font-size: 10px;">&#9650;</span>
+            {% elif sidebar_savings_rate_arrow == 'down' %}
+                <span class="savings-rate-arrow savings-rate-arrow-down" style="font-size: 10px;">&#9660;</span>
+            {% elif sidebar_savings_rate_arrow == 'same' %}
+                <span class="savings-rate-arrow savings-rate-arrow-same" style="font-size: 10px;">&#8212;</span>
+            {% endif %}
+        </p>
+        {% if sidebar_savings_rate is not None %}
+            <p class="stat-value savings-rate-{{ sidebar_savings_rate_color }}">{{ sidebar_savings_rate }}%</p>
+            {% if sidebar_savings_rate_prev is not None %}
+                <p class="stat-label" style="margin-top: 4px;">vs {{ sidebar_savings_rate_prev }}% last month</p>
+            {% endif %}
+        {% else %}
+            <p class="stat-value" style="color: var(--text-secondary);">—</p>
+        {% endif %}
     </div>
 </div>
 
