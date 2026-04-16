@@ -33,7 +33,7 @@ class CurrencyFilterTest(TestCase):
         self.assertEqual(self._render(1234.56, 'AUD'), 'A$1,234.56')
 
     def test_jpy(self):
-        self.assertEqual(self._render(1234, 'JPY'), '¥1,234.00')
+        self.assertEqual(self._render(1234, 'JPY'), '¥1,234')
 
     def test_zero(self):
         self.assertEqual(self._render(0, 'USD'), '$0.00')
