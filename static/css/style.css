@@ -93,13 +93,33 @@ body {
 }
 
 .nav-links li a {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     padding: 12px 24px;
     color: var(--text-secondary);
     text-decoration: none;
     font-size: 14px;
     font-weight: 500;
     transition: color 0.2s, background-color 0.2s;
+}
+
+.nav-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    width: 20px;
+    text-align: center;
+}
+
+.nav-bottom {
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.nav-bottom .nav-links {
+    padding: 8px 0;
+    flex: none;
+    overflow: visible;
 }
 
 .nav-links li a:hover,
