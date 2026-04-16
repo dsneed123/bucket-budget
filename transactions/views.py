@@ -39,6 +39,7 @@ def transaction_add(request):
         bucket_id = request.POST.get('bucket', '').strip()
         account_id = request.POST.get('account', '').strip()
         date_str = request.POST.get('date', '').strip()
+        necessity_score_str = request.POST.get('necessity_score', '').strip()
 
         form_data = {
             'amount': amount,
@@ -48,6 +49,7 @@ def transaction_add(request):
             'bucket': bucket_id,
             'account': account_id,
             'date': date_str,
+            'necessity_score': necessity_score_str,
         }
 
         # Validate amount
@@ -100,6 +102,16 @@ def transaction_add(request):
             except ValueError:
                 errors['date'] = 'Please enter a valid date.'
 
+        # Validate necessity_score (optional, expenses only)
+        necessity_score_val = None
+        if necessity_score_str and transaction_type == 'expense':
+            try:
+                necessity_score_val = int(necessity_score_str)
+                if not (1 <= necessity_score_val <= 10):
+                    errors['necessity_score'] = 'Necessity score must be between 1 and 10.'
+            except ValueError:
+                errors['necessity_score'] = 'Please enter a valid necessity score.'
+
         if not errors:
             Transaction.objects.create(
                 user=request.user,
@@ -110,6 +122,7 @@ def transaction_add(request):
                 description=description,
                 vendor=vendor,
                 date=date_val,
+                necessity_score=necessity_score_val,
             )
 
             # Update account balance

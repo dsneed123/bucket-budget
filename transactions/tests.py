@@ -214,3 +214,27 @@ class TransactionAddViewTest(TestCase):
         history = BalanceHistory.objects.filter(account=self.account).first()
         self.assertIsNotNone(history)
         self.assertEqual(history.change_reason, 'transaction')
+
+    def test_necessity_score_saved_for_expense(self):
+        response = self._post(necessity_score='7')
+        self.assertRedirects(response, reverse('transaction_list'))
+        txn = Transaction.objects.get(user=self.user)
+        self.assertEqual(txn.necessity_score, 7)
+
+    def test_necessity_score_omitted_saves_null(self):
+        response = self._post()
+        self.assertRedirects(response, reverse('transaction_list'))
+        txn = Transaction.objects.get(user=self.user)
+        self.assertIsNone(txn.necessity_score)
+
+    def test_necessity_score_ignored_for_income(self):
+        response = self._post(transaction_type='income', necessity_score='5')
+        self.assertRedirects(response, reverse('transaction_list'))
+        txn = Transaction.objects.get(user=self.user)
+        self.assertIsNone(txn.necessity_score)
+
+    def test_necessity_score_out_of_range_shows_error(self):
+        response = self._post(necessity_score='11')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'between 1 and 10')
+        self.assertEqual(Transaction.objects.count(), 0)
