@@ -1998,3 +1998,126 @@ class RecurringAddViewTest(TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 302)
         self.assertIn('/login/', response['Location'])
+
+
+class ProcessRecurringCommandTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='recurring_cmd@example.com',
+            password='testpass',
+            first_name='Cmd',
+            last_name='User',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('5000.00'),
+        )
+
+    def _make_recurring(self, next_due, frequency='monthly', is_active=True, end_date=None):
+        return RecurringTransaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('50.00'),
+            transaction_type='expense',
+            description='Netflix',
+            frequency=frequency,
+            start_date=datetime.date(2026, 1, 1),
+            next_due=next_due,
+            is_active=is_active,
+            end_date=end_date,
+        )
+
+    def test_creates_transaction_for_due_recurring(self):
+        from django.core.management import call_command
+        self._make_recurring(next_due=datetime.date(2026, 4, 1))
+        call_command('process_recurring', date='2026-04-16', verbosity=0)
+        self.assertEqual(Transaction.objects.count(), 1)
+        txn = Transaction.objects.get()
+        self.assertTrue(txn.is_recurring)
+        self.assertEqual(txn.amount, Decimal('50.00'))
+        self.assertEqual(txn.date, datetime.date(2026, 4, 1))
+
+    def test_advances_next_due_monthly(self):
+        from django.core.management import call_command
+        rt = self._make_recurring(next_due=datetime.date(2026, 4, 1), frequency='monthly')
+        call_command('process_recurring', date='2026-04-16', verbosity=0)
+        rt.refresh_from_db()
+        self.assertEqual(rt.next_due, datetime.date(2026, 5, 1))
+        self.assertEqual(rt.last_generated, datetime.date(2026, 4, 1))
+
+    def test_advances_next_due_weekly(self):
+        from django.core.management import call_command
+        rt = self._make_recurring(next_due=datetime.date(2026, 4, 1), frequency='weekly')
+        call_command('process_recurring', date='2026-04-16', verbosity=0)
+        rt.refresh_from_db()
+        self.assertEqual(rt.next_due, datetime.date(2026, 4, 8))
+
+    def test_advances_next_due_daily(self):
+        from django.core.management import call_command
+        rt = self._make_recurring(next_due=datetime.date(2026, 4, 16), frequency='daily')
+        call_command('process_recurring', date='2026-04-16', verbosity=0)
+        rt.refresh_from_db()
+        self.assertEqual(rt.next_due, datetime.date(2026, 4, 17))
+
+    def test_advances_next_due_biweekly(self):
+        from django.core.management import call_command
+        rt = self._make_recurring(next_due=datetime.date(2026, 4, 1), frequency='biweekly')
+        call_command('process_recurring', date='2026-04-16', verbosity=0)
+        rt.refresh_from_db()
+        self.assertEqual(rt.next_due, datetime.date(2026, 4, 15))
+
+    def test_advances_next_due_yearly(self):
+        from django.core.management import call_command
+        rt = self._make_recurring(next_due=datetime.date(2026, 1, 15), frequency='yearly')
+        call_command('process_recurring', date='2026-04-16', verbosity=0)
+        rt.refresh_from_db()
+        self.assertEqual(rt.next_due, datetime.date(2027, 1, 15))
+
+    def test_monthly_end_of_month_edge_case(self):
+        from django.core.management import call_command
+        rt = self._make_recurring(next_due=datetime.date(2026, 1, 31), frequency='monthly')
+        call_command('process_recurring', date='2026-04-16', verbosity=0)
+        rt.refresh_from_db()
+        self.assertEqual(rt.next_due, datetime.date(2026, 2, 28))
+
+    def test_skips_future_recurring(self):
+        from django.core.management import call_command
+        self._make_recurring(next_due=datetime.date(2026, 5, 1))
+        call_command('process_recurring', date='2026-04-16', verbosity=0)
+        self.assertEqual(Transaction.objects.count(), 0)
+
+    def test_skips_inactive_recurring(self):
+        from django.core.management import call_command
+        self._make_recurring(next_due=datetime.date(2026, 4, 1), is_active=False)
+        call_command('process_recurring', date='2026-04-16', verbosity=0)
+        self.assertEqual(Transaction.objects.count(), 0)
+
+    def test_skips_past_end_date(self):
+        from django.core.management import call_command
+        self._make_recurring(
+            next_due=datetime.date(2026, 4, 1),
+            end_date=datetime.date(2026, 3, 31),
+        )
+        call_command('process_recurring', date='2026-04-16', verbosity=0)
+        self.assertEqual(Transaction.objects.count(), 0)
+
+    def test_dry_run_makes_no_changes(self):
+        from django.core.management import call_command
+        self._make_recurring(next_due=datetime.date(2026, 4, 1))
+        call_command('process_recurring', date='2026-04-16', dry_run=True, verbosity=0)
+        self.assertEqual(Transaction.objects.count(), 0)
+
+    def test_transaction_fields_match_recurring(self):
+        from django.core.management import call_command
+        rt = self._make_recurring(next_due=datetime.date(2026, 4, 1))
+        rt.vendor = 'Netflix Inc'
+        rt.save()
+        call_command('process_recurring', date='2026-04-16', verbosity=0)
+        txn = Transaction.objects.get()
+        self.assertEqual(txn.user, rt.user)
+        self.assertEqual(txn.account, rt.account)
+        self.assertEqual(txn.description, rt.description)
+        self.assertEqual(txn.vendor, rt.vendor)
+        self.assertEqual(txn.transaction_type, rt.transaction_type)
