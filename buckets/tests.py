@@ -387,3 +387,111 @@ class BucketArchiveViewTest(TestCase):
         self.bucket.save()
         response = self.client.get(reverse('bucket_list') + '?show_archived=1')
         self.assertContains(response, 'Groceries')
+
+
+class QuickAllocateViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='quickalloc@example.com',
+            password='testpass',
+            first_name='Test',
+            last_name='User',
+        )
+        self.user.monthly_income = Decimal('3000.00')
+        self.user.save()
+        self.client.login(email='quickalloc@example.com', password='testpass')
+        Bucket.objects.filter(user=self.user).delete()
+        self.b1 = Bucket.objects.create(
+            user=self.user, name='Groceries', monthly_allocation=Decimal('400.00'), sort_order=0
+        )
+        self.b2 = Bucket.objects.create(
+            user=self.user, name='Rent', monthly_allocation=Decimal('1000.00'), sort_order=1
+        )
+
+    def test_get_returns_200(self):
+        response = self.client.get(reverse('quick_allocate'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_includes_monthly_income_in_context(self):
+        response = self.client.get(reverse('quick_allocate'))
+        self.assertEqual(response.context['monthly_income'], Decimal('3000.00'))
+
+    def test_get_includes_bucket_rows_in_context(self):
+        response = self.client.get(reverse('quick_allocate'))
+        self.assertEqual(len(response.context['bucket_rows']), 2)
+
+    def test_get_shows_bucket_names(self):
+        response = self.client.get(reverse('quick_allocate'))
+        self.assertContains(response, 'Groceries')
+        self.assertContains(response, 'Rent')
+
+    def test_get_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse('quick_allocate'))
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn('quick_allocate', response['Location'])
+
+    def test_post_updates_allocations(self):
+        self.client.post(reverse('quick_allocate'), {
+            f'allocation_{self.b1.pk}': '500.00',
+            f'allocation_{self.b2.pk}': '1200.00',
+        })
+        self.b1.refresh_from_db()
+        self.b2.refresh_from_db()
+        self.assertEqual(self.b1.monthly_allocation, Decimal('500.00'))
+        self.assertEqual(self.b2.monthly_allocation, Decimal('1200.00'))
+
+    def test_post_redirects_to_bucket_list_on_success(self):
+        response = self.client.post(reverse('quick_allocate'), {
+            f'allocation_{self.b1.pk}': '500.00',
+            f'allocation_{self.b2.pk}': '1200.00',
+        })
+        self.assertRedirects(response, reverse('bucket_list'), fetch_redirect_response=False)
+
+    def test_post_invalid_value_does_not_save(self):
+        self.client.post(reverse('quick_allocate'), {
+            f'allocation_{self.b1.pk}': 'not-a-number',
+            f'allocation_{self.b2.pk}': '1200.00',
+        })
+        self.b1.refresh_from_db()
+        self.assertEqual(self.b1.monthly_allocation, Decimal('400.00'))
+
+    def test_post_negative_value_does_not_save(self):
+        self.client.post(reverse('quick_allocate'), {
+            f'allocation_{self.b1.pk}': '-50.00',
+            f'allocation_{self.b2.pk}': '1200.00',
+        })
+        self.b1.refresh_from_db()
+        self.assertEqual(self.b1.monthly_allocation, Decimal('400.00'))
+
+    def test_post_empty_value_treated_as_zero(self):
+        self.client.post(reverse('quick_allocate'), {
+            f'allocation_{self.b1.pk}': '',
+            f'allocation_{self.b2.pk}': '1200.00',
+        })
+        self.b1.refresh_from_db()
+        self.assertEqual(self.b1.monthly_allocation, Decimal('0'))
+
+    def test_post_only_updates_own_buckets(self):
+        other_user = User.objects.create_user(
+            email='other3@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        Bucket.objects.filter(user=other_user).delete()
+        other_bucket = Bucket.objects.create(
+            user=other_user, name='Other', monthly_allocation=Decimal('100'), sort_order=0
+        )
+        self.client.post(reverse('quick_allocate'), {
+            f'allocation_{self.b1.pk}': '500.00',
+            f'allocation_{self.b2.pk}': '1200.00',
+            f'allocation_{other_bucket.pk}': '9999.00',
+        })
+        other_bucket.refresh_from_db()
+        self.assertEqual(other_bucket.monthly_allocation, Decimal('100'))
+
+    def test_bucket_list_has_quick_allocate_link(self):
+        response = self.client.get(reverse('bucket_list'))
+        self.assertContains(response, 'Quick Allocate')
