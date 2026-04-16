@@ -99,82 +99,148 @@
         {% endif %}
     </div>
 
-    <!-- Add Contribution form -->
+    <!-- Add Contribution / Withdraw tabs -->
     <div class="card mb-4">
-        <div class="card-header">
-            <h3 class="card-title">Add Contribution</h3>
+        <div style="display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px;">
+            <button class="action-tab action-tab-active" id="tab-contribute" onclick="switchTab('contribute')" type="button">Add Contribution</button>
+            <button class="action-tab" id="tab-withdraw" onclick="switchTab('withdraw')" type="button">Withdraw</button>
         </div>
 
-        <form method="post" novalidate>
-            {% csrf_token %}
+        <!-- Contribution form -->
+        <div id="panel-contribute">
+            <form method="post" novalidate>
+                {% csrf_token %}
 
-            <div class="form-row">
-                <div class="form-group" style="flex: 1;">
-                    <label for="amount" class="form-label">Amount</label>
-                    <input
-                        type="number"
-                        id="amount"
-                        name="amount"
-                        class="form-control"
-                        value="{{ contribution_form.amount|default:'' }}"
-                        placeholder="0.00"
-                        step="0.01"
-                        min="0.01"
-                    >
-                    {% if errors.amount %}
-                        <p class="form-error">{{ errors.amount }}</p>
-                    {% endif %}
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="amount" class="form-label">Amount</label>
+                        <input
+                            type="number"
+                            id="amount"
+                            name="amount"
+                            class="form-control"
+                            value="{{ contribution_form.amount|default:'' }}"
+                            placeholder="0.00"
+                            step="0.01"
+                            min="0.01"
+                        >
+                        {% if errors.amount %}
+                            <p class="form-error">{{ errors.amount }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group" style="flex: 1;">
+                        <label for="source_account" class="form-label">From account</label>
+                        <select id="source_account" name="source_account" class="form-control">
+                            <option value="">— select account —</option>
+                            {% for account in accounts %}
+                            <option value="{{ account.pk }}" {% if contribution_form.source_account == account.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ account.name }} (${{ account.balance|floatformat:2 }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if errors.source_account %}
+                            <p class="form-error">{{ errors.source_account }}</p>
+                        {% endif %}
+                    </div>
                 </div>
 
-                <div class="form-group" style="flex: 1;">
-                    <label for="source_account" class="form-label">From account</label>
-                    <select id="source_account" name="source_account" class="form-control">
-                        <option value="">— select account —</option>
-                        {% for account in accounts %}
-                        <option value="{{ account.pk }}" {% if contribution_form.source_account == account.pk|stringformat:"s" %}selected{% endif %}>
-                            {{ account.name }} (${{ account.balance|floatformat:2 }})
-                        </option>
-                        {% endfor %}
-                    </select>
-                    {% if errors.source_account %}
-                        <p class="form-error">{{ errors.source_account }}</p>
-                    {% endif %}
-                </div>
-            </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="date" class="form-label">Date</label>
+                        <input
+                            type="date"
+                            id="date"
+                            name="date"
+                            class="form-control"
+                            value="{{ contribution_form.date|default:'' }}"
+                        >
+                        {% if errors.date %}
+                            <p class="form-error">{{ errors.date }}</p>
+                        {% endif %}
+                    </div>
 
-            <div class="form-row">
-                <div class="form-group" style="flex: 1;">
-                    <label for="date" class="form-label">Date</label>
-                    <input
-                        type="date"
-                        id="date"
-                        name="date"
-                        class="form-control"
-                        value="{{ contribution_form.date|default:'' }}"
-                    >
-                    {% if errors.date %}
-                        <p class="form-error">{{ errors.date }}</p>
-                    {% endif %}
+                    <div class="form-group" style="flex: 2;">
+                        <label for="note" class="form-label">Note <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
+                        <input
+                            type="text"
+                            id="note"
+                            name="note"
+                            class="form-control"
+                            value="{{ contribution_form.note|default:'' }}"
+                            placeholder="e.g. Monthly deposit"
+                            maxlength="255"
+                        >
+                    </div>
                 </div>
 
-                <div class="form-group" style="flex: 2;">
-                    <label for="note" class="form-label">Note <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
-                    <input
-                        type="text"
-                        id="note"
-                        name="note"
-                        class="form-control"
-                        value="{{ contribution_form.note|default:'' }}"
-                        placeholder="e.g. Monthly deposit"
-                        maxlength="255"
-                    >
+                <div>
+                    <button type="submit" class="btn btn-primary">Add contribution</button>
                 </div>
-            </div>
+            </form>
+        </div>
 
-            <div>
-                <button type="submit" class="btn btn-primary">Add contribution</button>
-            </div>
-        </form>
+        <!-- Withdraw form -->
+        <div id="panel-withdraw" style="display: none;">
+            <form method="post" action="{% url 'savings:savings_goal_withdraw' goal.pk %}" novalidate>
+                {% csrf_token %}
+
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="withdraw_amount" class="form-label">Amount</label>
+                        <input
+                            type="number"
+                            id="withdraw_amount"
+                            name="amount"
+                            class="form-control"
+                            value="{{ withdraw_form.amount|default:'' }}"
+                            placeholder="0.00"
+                            step="0.01"
+                            min="0.01"
+                            max="{{ goal.current_amount }}"
+                        >
+                        {% if errors.withdraw_amount %}
+                            <p class="form-error">{{ errors.withdraw_amount }}</p>
+                        {% endif %}
+                        <p style="margin: 4px 0 0; font-size: 0.75rem; color: var(--text-secondary);">Available: ${{ goal.current_amount|floatformat:2 }}</p>
+                    </div>
+
+                    <div class="form-group" style="flex: 1;">
+                        <label for="target_account" class="form-label">To account</label>
+                        <select id="target_account" name="target_account" class="form-control">
+                            <option value="">— select account —</option>
+                            {% for account in accounts %}
+                            <option value="{{ account.pk }}" {% if withdraw_form.target_account == account.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ account.name }} (${{ account.balance|floatformat:2 }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if errors.target_account %}
+                            <p class="form-error">{{ errors.target_account }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="withdraw_note" class="form-label">Note <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
+                        <input
+                            type="text"
+                            id="withdraw_note"
+                            name="note"
+                            class="form-control"
+                            value="{{ withdraw_form.note|default:'' }}"
+                            placeholder="e.g. Emergency expense"
+                            maxlength="255"
+                        >
+                    </div>
+                </div>
+
+                <div>
+                    <button type="submit" class="btn" style="background: rgba(255,71,87,0.15); color: var(--accent-red); border: 1px solid rgba(255,71,87,0.3);">Withdraw from goal</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Monthly contributions chart -->
@@ -198,24 +264,28 @@
         </div>
     </div>
 
-    <!-- Contribution history -->
+    <!-- Transaction history -->
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">Contribution History</h3>
-            <span style="font-size: 13px; color: var(--text-secondary);">{{ contributions|length }} contribution{{ contributions|length|pluralize }}</span>
+            <h3 class="card-title">Transaction History</h3>
+            <span style="font-size: 13px; color: var(--text-secondary);">{{ contributions|length }} transaction{{ contributions|length|pluralize }}</span>
         </div>
 
         {% if contributions %}
         <div>
             {% for c in contributions %}
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; {% if not forloop.last %}border-bottom: 1px solid var(--border);{% endif %}">
-                <div>
-                    <div style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">
-                        ${{ c.amount|floatformat:2 }}
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1rem;">{% if c.transaction_type == 'withdrawal' %}↑{% else %}↓{% endif %}</span>
+                    <div>
+                        <div style="font-size: 0.875rem; font-weight: 600; {% if c.transaction_type == 'withdrawal' %}color: var(--accent-red);{% else %}color: var(--accent-green);{% endif %}">
+                            {% if c.transaction_type == 'withdrawal' %}-{% else %}+{% endif %}${{ c.amount|floatformat:2 }}
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 1px;">{{ c.get_transaction_type_display }}</div>
+                        {% if c.note %}
+                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">{{ c.note }}</div>
+                        {% endif %}
                     </div>
-                    {% if c.note %}
-                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">{{ c.note }}</div>
-                    {% endif %}
                 </div>
                 <div style="text-align: right;">
                     <div style="font-size: 0.8rem; color: var(--text-secondary);">{{ c.date|date:"M j, Y" }}</div>
@@ -237,6 +307,28 @@
 
 {% block extra_css %}
 <style>
+.action-tab {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.action-tab:hover {
+    color: var(--text-primary);
+}
+
+.action-tab-active {
+    color: var(--accent-green);
+    border-bottom-color: var(--accent-green);
+}
+
 .contrib-chart {
     display: flex;
     gap: 10px;
@@ -353,6 +445,17 @@
 }
 </style>
 
+<script>
+function switchTab(tab) {
+    document.getElementById('panel-contribute').style.display = tab === 'contribute' ? '' : 'none';
+    document.getElementById('panel-withdraw').style.display = tab === 'withdraw' ? '' : 'none';
+    document.getElementById('tab-contribute').classList.toggle('action-tab-active', tab === 'contribute');
+    document.getElementById('tab-withdraw').classList.toggle('action-tab-active', tab === 'withdraw');
+}
+{% if errors.withdraw_amount or errors.target_account %}
+switchTab('withdraw');
+{% endif %}
+</script>
 {% if goal.is_achieved %}
 <script>
 (function () {

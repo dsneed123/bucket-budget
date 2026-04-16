@@ -30,57 +30,76 @@ def capture_old_contribution_state(sender, instance, **kwargs):
             instance._pre_save_goal_id = old.goal_id
             instance._pre_save_amount = old.amount
             instance._pre_save_account_id = old.source_account_id
+            instance._pre_save_transaction_type = old.transaction_type
         except SavingsContribution.DoesNotExist:
             instance._pre_save_goal_id = None
             instance._pre_save_amount = None
             instance._pre_save_account_id = None
+            instance._pre_save_transaction_type = None
     else:
         instance._pre_save_goal_id = None
         instance._pre_save_amount = None
         instance._pre_save_account_id = None
+        instance._pre_save_transaction_type = None
+
+
+def _apply_contribution(account, goal, amount, tx_type, change_reason, reference_id):
+    """Apply a contribution or withdrawal to account balance and goal current_amount."""
+    if tx_type == 'withdrawal':
+        account.balance += amount
+        account.save(change_reason=change_reason, reference_id=reference_id)
+        goal.current_amount -= amount
+    else:
+        account.balance -= amount
+        account.save(change_reason=change_reason, reference_id=reference_id)
+        goal.current_amount += amount
+    goal.save()
+
+
+def _reverse_contribution(account, goal, amount, tx_type, change_reason, reference_id):
+    """Reverse a previously applied contribution or withdrawal."""
+    if tx_type == 'withdrawal':
+        account.balance -= amount
+        account.save(change_reason=change_reason, reference_id=reference_id)
+        goal.current_amount += amount
+    else:
+        account.balance += amount
+        account.save(change_reason=change_reason, reference_id=reference_id)
+        goal.current_amount -= amount
+    goal.save()
 
 
 @receiver(post_save, sender=SavingsContribution)
 def update_balances_on_save(sender, instance, created, **kwargs):
-    """Deduct from bank account and add to goal's current_amount when a contribution is saved."""
+    """Update bank account balance and goal current_amount when a contribution is saved."""
     from banking.models import BankAccount
     from .models import SavingsGoal
 
+    ref = str(instance.pk)
+
     if created:
         account = BankAccount.objects.get(pk=instance.source_account_id)
-        account.balance -= instance.amount
-        account.save(change_reason='savings_contribution', reference_id=str(instance.pk))
-
         goal = SavingsGoal.objects.get(pk=instance.goal_id)
-        goal.current_amount += instance.amount
-        goal.save()
+        _apply_contribution(account, goal, instance.amount, instance.transaction_type,
+                            'savings_contribution', ref)
     else:
         old_goal_id = instance._pre_save_goal_id
         old_amount = instance._pre_save_amount
         old_account_id = instance._pre_save_account_id
+        old_tx_type = instance._pre_save_transaction_type
 
         if old_amount is None:
             return
 
-        # Reverse old account deduction
         old_account = BankAccount.objects.get(pk=old_account_id)
-        old_account.balance += old_amount
-        old_account.save(change_reason='savings_contribution', reference_id=str(instance.pk))
-
-        # Apply new account deduction
-        new_account = BankAccount.objects.get(pk=instance.source_account_id)
-        new_account.balance -= instance.amount
-        new_account.save(change_reason='savings_contribution', reference_id=str(instance.pk))
-
-        # Reverse old goal addition
         old_goal = SavingsGoal.objects.get(pk=old_goal_id)
-        old_goal.current_amount -= old_amount
-        old_goal.save()
+        _reverse_contribution(old_account, old_goal, old_amount, old_tx_type,
+                              'savings_contribution', ref)
 
-        # Apply new goal addition
+        new_account = BankAccount.objects.get(pk=instance.source_account_id)
         new_goal = SavingsGoal.objects.get(pk=instance.goal_id)
-        new_goal.current_amount += instance.amount
-        new_goal.save()
+        _apply_contribution(new_account, new_goal, instance.amount, instance.transaction_type,
+                            'savings_contribution', ref)
 
 
 @receiver(post_delete, sender=SavingsContribution)
@@ -90,9 +109,6 @@ def update_balances_on_delete(sender, instance, **kwargs):
     from .models import SavingsGoal
 
     account = BankAccount.objects.get(pk=instance.source_account_id)
-    account.balance += instance.amount
-    account.save(change_reason='savings_contribution', reference_id=str(instance.pk))
-
     goal = SavingsGoal.objects.get(pk=instance.goal_id)
-    goal.current_amount -= instance.amount
-    goal.save()
+    _reverse_contribution(account, goal, instance.amount, instance.transaction_type,
+                          'savings_contribution', str(instance.pk))
