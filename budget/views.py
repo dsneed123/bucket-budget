@@ -48,6 +48,14 @@ def budget_overview(request):
             'over': spent > bucket.monthly_allocation,
         })
 
+    bucket_data.sort(key=lambda x: x['pct'], reverse=True)
+
+    total_remaining = total_allocated - total_spent
+    if total_allocated > 0:
+        total_pct = min(int((total_spent / total_allocated) * 100), 100)
+    else:
+        total_pct = 0
+
     return render(request, 'budget/budget_overview.html', {
         'current_month': today.strftime('%B %Y'),
         'monthly_income': monthly_income,
@@ -56,4 +64,6 @@ def budget_overview(request):
         'total_spent': total_spent,
         'remaining_budget': remaining_budget,
         'bucket_data': bucket_data,
+        'total_remaining': total_remaining,
+        'total_pct': total_pct,
     })
