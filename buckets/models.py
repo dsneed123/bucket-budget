@@ -14,6 +14,7 @@ class Bucket(models.Model):
     sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
     rollover = models.BooleanField(default=False)
+    alert_threshold = models.IntegerField(default=90)
     archived_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
