@@ -243,6 +243,43 @@
     });
 })();
 </script>
+<!-- Budget vs Actual Comparison -->
+<div class="card" style="margin-top: 24px; padding: 20px;">
+    <div style="margin-bottom: 20px;">
+        <h2 class="card-title">Budget vs Actual</h2>
+        <p class="card-subtitle">Allocated (blue) vs spent this month — green means under budget, red means over</p>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        {% for item in bucket_data %}
+        <div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="border-left: 3px solid {{ item.bucket.color }}; padding-left: 8px; font-size: 1rem; flex-shrink: 0;">{{ item.bucket.icon }}</span>
+                    <span style="font-size: 13px; font-weight: 600; color: var(--text-primary);">{{ item.bucket.name }}</span>
+                </div>
+                <span style="font-size: 11px; {% if item.over %}color: var(--accent-red);{% else %}color: var(--text-muted);{% endif %} flex-shrink: 0;">
+                    {% if item.over %}{{ item.pct }}% — over budget{% else %}{{ item.pct }}% used{% endif %}
+                </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                <span style="font-size: 11px; color: var(--text-muted); width: 58px; text-align: right; flex-shrink: 0;">Allocated</span>
+                <div style="flex: 1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden;">
+                    <div style="height: 100%; width: {% widthratio item.bucket.monthly_allocation item.bar_max 100 %}%; background: var(--accent-blue); border-radius: 4px;"></div>
+                </div>
+                <span style="font-size: 11px; color: var(--text-secondary); width: 70px; text-align: right; flex-shrink: 0;">{{ item.bucket.monthly_allocation|currency:user.currency }}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 11px; color: var(--text-muted); width: 58px; text-align: right; flex-shrink: 0;">Spent</span>
+                <div style="flex: 1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden;">
+                    <div style="height: 100%; width: {% widthratio item.spent item.bar_max 100 %}%; {% if item.over %}background: var(--accent-red);{% else %}background: var(--accent-green);{% endif %} border-radius: 4px;"></div>
+                </div>
+                <span style="font-size: 11px; {% if item.over %}color: var(--accent-red);{% else %}color: var(--accent-green);{% endif %} width: 70px; text-align: right; flex-shrink: 0;">{{ item.spent|currency:user.currency }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
 {% else %}
 <div class="card" style="text-align: center; padding: 48px 24px;">
     <div style="font-size: 3rem; margin-bottom: 16px;">🪣</div>
