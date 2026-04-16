@@ -170,6 +170,37 @@ def bucket_delete(request, bucket_id):
 
 
 @login_required
+def bucket_reorder(request):
+    if request.method == 'POST':
+        bucket_id = request.POST.get('bucket_id', '')
+        direction = request.POST.get('direction', '')
+
+        buckets = list(
+            Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
+        )
+
+        idx = next((i for i, b in enumerate(buckets) if str(b.pk) == bucket_id), None)
+
+        if idx is not None:
+            swap_idx = None
+            if direction == 'up' and idx > 0:
+                swap_idx = idx - 1
+            elif direction == 'down' and idx < len(buckets) - 1:
+                swap_idx = idx + 1
+
+            if swap_idx is not None:
+                for i, b in enumerate(buckets):
+                    b.sort_order = i
+                buckets[idx].sort_order, buckets[swap_idx].sort_order = (
+                    buckets[swap_idx].sort_order,
+                    buckets[idx].sort_order,
+                )
+                Bucket.objects.bulk_update(buckets, ['sort_order'])
+
+    return redirect('bucket_list')
+
+
+@login_required
 def bucket_edit(request, bucket_id):
     bucket = get_object_or_404(Bucket, pk=bucket_id, user=request.user, is_active=True)
     errors = {}
