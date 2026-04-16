@@ -1,3 +1,4 @@
+import calendar as cal_module
 import csv
 import datetime
 import hashlib
@@ -1959,3 +1960,95 @@ def recurring_delete(request, recurring_id):
             rt.delete()
         return redirect('recurring_list')
     return render(request, 'transactions/recurring_delete.html', {'rt': rt})
+
+
+@login_required
+def recurring_calendar(request):
+    today = datetime.date.today()
+
+    try:
+        year = int(request.GET.get('year', today.year))
+        month = int(request.GET.get('month', today.month))
+    except (ValueError, TypeError):
+        year, month = today.year, today.month
+
+    month = max(1, min(12, month))
+
+    prev_year, prev_month = (year - 1, 12) if month == 1 else (year, month - 1)
+    next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
+
+    days_in_month = cal_module.monthrange(year, month)[1]
+    month_start = datetime.date(year, month, 1)
+    month_end = datetime.date(year, month, days_in_month)
+
+    recurring = RecurringTransaction.objects.filter(
+        user=request.user,
+        is_active=True,
+        start_date__lte=month_end,
+    ).filter(
+        Q(end_date__isnull=True) | Q(end_date__gte=month_start)
+    ).select_related('bucket')
+
+    day_map = {day: [] for day in range(1, days_in_month + 1)}
+
+    for r in recurring:
+        if r.frequency == 'daily':
+            for day in range(1, days_in_month + 1):
+                d = datetime.date(year, month, day)
+                if d >= r.start_date and (r.end_date is None or d <= r.end_date):
+                    day_map[day].append(r)
+
+        elif r.frequency == 'monthly':
+            day = min(r.start_date.day, days_in_month)
+            d = datetime.date(year, month, day)
+            if d >= r.start_date and (r.end_date is None or d <= r.end_date):
+                day_map[day].append(r)
+
+        elif r.frequency == 'yearly':
+            if r.start_date.month == month:
+                day = min(r.start_date.day, days_in_month)
+                d = datetime.date(year, month, day)
+                if d >= r.start_date and (r.end_date is None or d <= r.end_date):
+                    day_map[day].append(r)
+
+        elif r.frequency in ('weekly', 'biweekly'):
+            interval = 7 if r.frequency == 'weekly' else 14
+            for day in range(1, days_in_month + 1):
+                d = datetime.date(year, month, day)
+                if d >= r.start_date and (d - r.start_date).days % interval == 0:
+                    if r.end_date is None or d <= r.end_date:
+                        day_map[day].append(r)
+
+    weeks = cal_module.monthcalendar(year, month)
+    calendar_data = []
+    for week in weeks:
+        week_data = []
+        for day in week:
+            if day == 0:
+                week_data.append({'day': None, 'items': [], 'is_today': False,
+                                  'total_expense': Decimal('0'), 'total_income': Decimal('0')})
+            else:
+                items = day_map[day]
+                is_today = (today.year == year and today.month == month and today.day == day)
+                total_expense = sum(r.amount for r in items if r.transaction_type == 'expense')
+                total_income = sum(r.amount for r in items if r.transaction_type == 'income')
+                week_data.append({
+                    'day': day,
+                    'items': items,
+                    'is_today': is_today,
+                    'total_expense': total_expense,
+                    'total_income': total_income,
+                })
+        calendar_data.append(week_data)
+
+    return render(request, 'transactions/recurring_calendar.html', {
+        'calendar_data': calendar_data,
+        'month': month,
+        'year': year,
+        'month_name': cal_module.month_name[month],
+        'prev_month': prev_month,
+        'prev_year': prev_year,
+        'next_month': next_month,
+        'next_year': next_year,
+        'today': today,
+    })
