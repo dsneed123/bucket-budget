@@ -27,6 +27,76 @@
     </div>
 </div>
 
+{% elif step == 'mapping' %}
+{# ── Column Mapping ───────────────────────────────────────────────────── #}
+<div class="card" style="margin-bottom: 16px;">
+    <div class="card-header">
+        <h2 class="card-title">Map Columns</h2>
+        <p class="card-subtitle">
+            Tell us which CSV column corresponds to each transaction field.
+            {% if saved_mapping_found %}
+                <span style="color: var(--accent-green); font-weight: 600;">&#10003; Loaded saved mapping for this file format.</span>
+            {% endif %}
+            Account: <strong>{{ account.name }}</strong>.
+        </p>
+    </div>
+
+    {% if mapping_errors %}
+    <p class="form-error" style="margin-bottom: 16px;">{{ mapping_errors }}</p>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="mapping">
+        <input type="hidden" name="account_id" value="{{ account_id }}">
+        <input type="hidden" name="source_key" value="{{ source_key }}">
+        <input type="hidden" name="raw_rows_json" value="{{ raw_rows_json }}">
+
+        <div style="overflow-x: auto; margin-bottom: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <th style="padding: 8px 12px; text-align: left; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">CSV Column</th>
+                        <th style="padding: 8px 12px; text-align: left; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Sample Values</th>
+                        <th style="padding: 8px 12px; text-align: left; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Maps to Field</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for col in columns %}
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 8px 12px; font-family: monospace; font-size: 0.8rem; white-space: nowrap;">{{ col.name }}</td>
+                        <td style="padding: 8px 12px; color: var(--text-secondary); font-size: 0.8rem; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            {% for val in col.samples %}{% if val %}<span style="background: var(--bg-secondary); border-radius: 3px; padding: 1px 5px; margin-right: 4px;">{{ val }}</span>{% endif %}{% endfor %}
+                        </td>
+                        <td style="padding: 8px 12px;">
+                            <select name="map_{{ col.name }}" class="form-control" style="min-width: 180px;">
+                                {% for value, label in field_choices %}
+                                <option value="{{ value }}" {% if col.field == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+            <input type="checkbox" id="remember_mapping" name="remember_mapping" value="1"
+                {% if saved_mapping_found %}checked{% endif %}
+                style="width: auto; margin: 0;">
+            <label for="remember_mapping" style="margin: 0; cursor: pointer; font-size: 0.875rem;">
+                Remember this column mapping for future imports from the same format
+            </label>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+            <button type="submit" class="btn btn-primary">Preview Import</button>
+            <a href="{% url 'transaction_import_csv' %}" class="btn">Cancel</a>
+        </div>
+    </form>
+</div>
+
 {% elif step == 'preview' %}
 {# ── Preview ──────────────────────────────────────────────────────────── #}
 <div class="card" style="margin-bottom: 16px;">
@@ -113,8 +183,7 @@
     <div class="card-header">
         <h2 class="card-title">Upload CSV</h2>
         <p class="card-subtitle">
-            Import transactions from a CSV file. Required columns: <code>date</code>, <code>description</code>, <code>amount</code>.
-            Optional: <code>category</code> (or <code>bucket</code>), <code>type</code>, <code>vendor</code>.
+            Import transactions from a CSV file. You will map the columns to transaction fields in the next step.
             Negative amounts are treated as expenses; positive amounts as income.
         </p>
     </div>
@@ -145,18 +214,22 @@
         </div>
 
         <div style="display: flex; gap: 8px; margin-top: 8px;">
-            <button type="submit" class="btn btn-primary">Preview Import</button>
+            <button type="submit" class="btn btn-primary">Next: Map Columns</button>
             <a href="{% url 'transaction_list' %}" class="btn">Cancel</a>
         </div>
     </form>
 </div>
 
 <div class="card" style="margin-top: 16px; padding: 16px 20px;">
-    <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;">Expected CSV format</div>
+    <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;">Example CSV formats</div>
     <pre style="font-size: 0.8rem; color: var(--text-secondary); margin: 0; white-space: pre-wrap;">date,description,amount,category,vendor
 2026-01-15,Grocery Store,-45.99,Groceries,Whole Foods
 2026-01-16,Paycheck,2500.00,,Employer Inc
-2026-01-17,Netflix,-15.99,Entertainment,</pre>
+
+Transaction Date,Memo,Debit Amount,Credit Amount
+01/15/2026,Grocery Store,45.99,
+01/16/2026,Direct Deposit,,2500.00</pre>
+    <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 10px 0 0;">Any CSV format works — you'll match columns to fields on the next screen.</p>
 </div>
 
 {% endif %}

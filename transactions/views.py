@@ -1,5 +1,6 @@
 import csv
 import datetime
+import hashlib
 import io
 import json
 import uuid
@@ -16,7 +17,7 @@ from django.urls import reverse
 from banking.models import BankAccount
 from buckets.models import Bucket
 
-from .models import IncomeSource, Tag, Transaction, VendorMapping
+from .models import CsvColumnMapping, IncomeSource, Tag, Transaction, VendorMapping
 
 VALID_TRANSACTION_TYPES = [c[0] for c in Transaction.TRANSACTION_TYPE_CHOICES]
 
@@ -943,9 +944,153 @@ def transaction_bulk_action(request):
     return redirect(redirect_url)
 
 
+# ── CSV column-mapping helpers ────────────────────────────────────────────────
+
+# Maps normalised CSV header names to transaction fields
+_CSV_AUTO_DETECT = {
+    'date': 'date',
+    'transaction date': 'date',
+    'trans date': 'date',
+    'trans. date': 'date',
+    'posting date': 'date',
+    'value date': 'date',
+    'amount': 'amount',
+    'transaction amount': 'amount',
+    'description': 'description',
+    'desc': 'description',
+    'memo': 'description',
+    'narration': 'description',
+    'details': 'description',
+    'transaction description': 'description',
+    'particulars': 'description',
+    'category': 'category',
+    'bucket': 'category',
+    'type': 'type',
+    'transaction type': 'type',
+    'trans type': 'type',
+    'vendor': 'vendor',
+    'merchant': 'vendor',
+    'payee': 'vendor',
+}
+
+CSV_FIELD_CHOICES = [
+    ('', '— ignore —'),
+    ('date', 'Date'),
+    ('amount', 'Amount'),
+    ('description', 'Description / Memo'),
+    ('category', 'Category / Bucket'),
+    ('type', 'Transaction Type'),
+    ('vendor', 'Vendor / Merchant'),
+]
+
+_CSV_REQUIRED_FIELDS = {'date', 'amount', 'description'}
+
+
+def _csv_source_key(headers):
+    """SHA-1 of sorted normalised headers — fingerprints a CSV format."""
+    normalized = sorted(h.strip().lower() for h in headers)
+    return hashlib.sha1(','.join(normalized).encode()).hexdigest()
+
+
+def _auto_detect_csv_mapping(headers):
+    """Return {header: field} auto-detection for recognised column names."""
+    return {h: _CSV_AUTO_DETECT[h.lower()] for h in headers if h.lower() in _CSV_AUTO_DETECT}
+
+
+def _parse_csv_rows(raw_rows, user_mapping, bucket_map):
+    """Apply user_mapping to raw_rows and return (preview_rows, importable_rows)."""
+    date_col = next((h for h, f in user_mapping.items() if f == 'date'), None)
+    amount_col = next((h for h, f in user_mapping.items() if f == 'amount'), None)
+    desc_col = next((h for h, f in user_mapping.items() if f == 'description'), None)
+    cat_col = next((h for h, f in user_mapping.items() if f == 'category'), None)
+    type_col = next((h for h, f in user_mapping.items() if f == 'type'), None)
+    vendor_col = next((h for h, f in user_mapping.items() if f == 'vendor'), None)
+
+    preview_rows = []
+    importable_rows = []
+
+    for row_num, raw_row in enumerate(raw_rows, start=2):
+        date_raw = raw_row.get(date_col, '') if date_col else ''
+        amount_raw = raw_row.get(amount_col, '') if amount_col else ''
+        description_raw = raw_row.get(desc_col, '') if desc_col else ''
+        category_raw = raw_row.get(cat_col, '') if cat_col else ''
+        vendor_raw = raw_row.get(vendor_col, '') if vendor_col else ''
+
+        parse_errors = []
+
+        # Validate date
+        date_val = None
+        if not date_raw:
+            parse_errors.append('missing date')
+        else:
+            for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m-%d-%Y'):
+                try:
+                    date_val = datetime.datetime.strptime(date_raw, fmt).date()
+                    break
+                except ValueError:
+                    pass
+            if date_val is None:
+                parse_errors.append(f'unrecognised date "{date_raw}"')
+
+        # Validate description
+        if not description_raw:
+            parse_errors.append('missing description')
+
+        # Validate amount
+        amount_val = None
+        if not amount_raw:
+            parse_errors.append('missing amount')
+        else:
+            try:
+                amount_val = Decimal(amount_raw.replace(',', ''))
+            except InvalidOperation:
+                parse_errors.append(f'invalid amount "{amount_raw}"')
+
+        # Derive transaction type
+        txn_type = None
+        if type_col:
+            raw_type = raw_row.get(type_col, '').lower()
+            if raw_type in ('expense', 'debit', 'dr'):
+                txn_type = 'expense'
+            elif raw_type in ('income', 'credit', 'cr'):
+                txn_type = 'income'
+
+        if txn_type is None and amount_val is not None:
+            txn_type = 'income' if amount_val > 0 else 'expense'
+
+        if amount_val is not None:
+            amount_val = abs(amount_val)
+
+        # Match category to bucket
+        matched_bucket = None
+        if category_raw:
+            matched_bucket = bucket_map.get(category_raw.lower())
+
+        status = 'error' if parse_errors else 'ok'
+
+        preview_row = {
+            'row_num': row_num,
+            'date': date_val.isoformat() if date_val else date_raw,
+            'description': description_raw,
+            'vendor': vendor_raw,
+            'amount': str(amount_val) if amount_val is not None else amount_raw,
+            'transaction_type': txn_type or '',
+            'category': category_raw,
+            'bucket_name': matched_bucket.name if matched_bucket else '',
+            'bucket_id': matched_bucket.pk if matched_bucket else None,
+            'status': status,
+            'error': '; '.join(parse_errors),
+        }
+        preview_rows.append(preview_row)
+        if status == 'ok':
+            importable_rows.append(preview_row)
+
+    return preview_rows, importable_rows
+
+
 @login_required
 def transaction_import_csv(request):
-    """Two-step CSV import: upload → preview → confirm → done."""
+    """CSV import: upload → column mapping → preview → confirm → done."""
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
     buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
     bucket_map = {b.name.lower(): b for b in buckets}
@@ -953,7 +1098,7 @@ def transaction_import_csv(request):
     if request.method == 'POST':
         step = request.POST.get('step', 'upload')
 
-        # ── Step 1: parse the uploaded file and show a preview ───────────────
+        # ── Step 1: parse file headers, show column-mapping form ─────────────
         if step == 'upload':
             errors = {}
             account = None
@@ -989,7 +1134,6 @@ def transaction_import_csv(request):
 
             reader = csv.DictReader(io.StringIO(decoded))
 
-            # Normalise header names to lowercase, stripped
             if reader.fieldnames is None:
                 return render(request, 'transactions/transaction_import.html', {
                     'accounts': accounts,
@@ -997,107 +1141,119 @@ def transaction_import_csv(request):
                     'form_data': {'account': account_id},
                 })
 
+            # Normalise headers to lowercase, stripped
             headers = [h.strip().lower() for h in reader.fieldnames]
-            required = {'date', 'description', 'amount'}
-            missing = required - set(headers)
-            if missing:
+
+            # Read all raw rows (use normalised keys)
+            raw_rows = []
+            for raw_row in reader:
+                raw_rows.append({k.strip().lower(): (v.strip() if v else '') for k, v in raw_row.items() if k})
+
+            if not raw_rows:
                 return render(request, 'transactions/transaction_import.html', {
                     'accounts': accounts,
-                    'errors': {'csv_file': f'Missing required columns: {", ".join(sorted(missing))}.'},
+                    'errors': {'csv_file': 'CSV file contains no data rows.'},
                     'form_data': {'account': account_id},
                 })
 
-            # Determine which header aliases exist
-            # category/bucket column name
-            cat_col = next((h for h in headers if h in ('category', 'bucket')), None)
-            type_col = next((h for h in headers if h in ('type', 'transaction_type')), None)
-            vendor_col = next((h for h in headers if h == 'vendor'), None)
+            source_key = _csv_source_key(headers)
 
-            preview_rows = []
-            importable_rows = []
+            # Load saved mapping or auto-detect
+            saved_mapping_found = False
+            try:
+                saved = CsvColumnMapping.objects.get(user=request.user, source_key=source_key)
+                column_mapping = saved.mapping
+                saved_mapping_found = True
+            except CsvColumnMapping.DoesNotExist:
+                column_mapping = _auto_detect_csv_mapping(headers)
 
-            for row_num, raw_row in enumerate(reader, start=2):
-                # Normalise keys
-                row = {k.strip().lower(): v.strip() if v else '' for k, v in raw_row.items() if k}
-
-                date_raw = row.get('date', '')
-                description_raw = row.get('description', '')
-                amount_raw = row.get('amount', '')
-
-                parse_errors = []
-
-                # Validate date
-                date_val = None
-                if not date_raw:
-                    parse_errors.append('missing date')
-                else:
-                    for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m-%d-%Y'):
-                        try:
-                            date_val = datetime.datetime.strptime(date_raw, fmt).date()
-                            break
-                        except ValueError:
-                            pass
-                    if date_val is None:
-                        parse_errors.append(f'unrecognised date "{date_raw}"')
-
-                # Validate description
-                if not description_raw:
-                    parse_errors.append('missing description')
-
-                # Validate amount
-                amount_val = None
-                if not amount_raw:
-                    parse_errors.append('missing amount')
-                else:
-                    try:
-                        amount_val = Decimal(amount_raw.replace(',', ''))
-                    except InvalidOperation:
-                        parse_errors.append(f'invalid amount "{amount_raw}"')
-
-                # Derive transaction type
-                txn_type = None
-                if type_col:
-                    raw_type = row.get(type_col, '').lower()
-                    if raw_type in ('expense', 'debit', 'dr'):
-                        txn_type = 'expense'
-                    elif raw_type in ('income', 'credit', 'cr'):
-                        txn_type = 'income'
-
-                if txn_type is None and amount_val is not None:
-                    txn_type = 'income' if amount_val > 0 else 'expense'
-
-                if amount_val is not None:
-                    amount_val = abs(amount_val)
-
-                # Match category to bucket
-                matched_bucket = None
-                category_raw = ''
-                if cat_col:
-                    category_raw = row.get(cat_col, '')
-                    if category_raw:
-                        matched_bucket = bucket_map.get(category_raw.lower())
-
-                vendor_raw = row.get(vendor_col, '') if vendor_col else ''
-
-                status = 'error' if parse_errors else 'ok'
-
-                preview_row = {
-                    'row_num': row_num,
-                    'date': date_val.isoformat() if date_val else date_raw,
-                    'description': description_raw,
-                    'vendor': vendor_raw,
-                    'amount': str(amount_val) if amount_val is not None else amount_raw,
-                    'transaction_type': txn_type or '',
-                    'category': category_raw,
-                    'bucket_name': matched_bucket.name if matched_bucket else '',
-                    'bucket_id': matched_bucket.pk if matched_bucket else None,
-                    'status': status,
-                    'error': '; '.join(parse_errors),
+            # Build per-column info: name, sample values, suggested field
+            sample_rows = raw_rows[:3]
+            columns = [
+                {
+                    'name': h,
+                    'samples': [r.get(h, '') for r in sample_rows],
+                    'field': column_mapping.get(h, ''),
                 }
-                preview_rows.append(preview_row)
-                if status == 'ok':
-                    importable_rows.append(preview_row)
+                for h in headers
+            ]
 
+            return render(request, 'transactions/transaction_import.html', {
+                'accounts': accounts,
+                'step': 'mapping',
+                'account': account,
+                'account_id': account_id,
+                'columns': columns,
+                'saved_mapping_found': saved_mapping_found,
+                'raw_rows_json': json.dumps(raw_rows),
+                'source_key': source_key,
+                'field_choices': CSV_FIELD_CHOICES,
+            })
+
+        # ── Step 2: apply mapping, show preview ──────────────────────────────
+        elif step == 'mapping':
+            account_id = request.POST.get('account_id', '').strip()
+            raw_rows_json = request.POST.get('raw_rows_json', '[]')
+            source_key = request.POST.get('source_key', '')
+            remember = request.POST.get('remember_mapping') == '1'
+
+            try:
+                account = accounts.get(pk=account_id)
+            except BankAccount.DoesNotExist:
+                return redirect('transaction_import_csv')
+
+            try:
+                raw_rows = json.loads(raw_rows_json)
+            except (json.JSONDecodeError, ValueError):
+                return redirect('transaction_import_csv')
+
+            if not raw_rows:
+                return redirect('transaction_import_csv')
+
+            headers = list(raw_rows[0].keys()) if raw_rows else []
+
+            # Build mapping from POST: map_{header} → field
+            user_mapping = {}
+            for header in headers:
+                field = request.POST.get(f'map_{header}', '').strip()
+                if field:
+                    user_mapping[header] = field
+
+            # Validate required fields are covered
+            mapped_fields = set(user_mapping.values())
+            missing_required = _CSV_REQUIRED_FIELDS - mapped_fields
+            if missing_required:
+                sample_rows = raw_rows[:3]
+                columns = [
+                    {
+                        'name': h,
+                        'samples': [r.get(h, '') for r in sample_rows],
+                        'field': user_mapping.get(h, ''),
+                    }
+                    for h in headers
+                ]
+                return render(request, 'transactions/transaction_import.html', {
+                    'accounts': accounts,
+                    'step': 'mapping',
+                    'account': account,
+                    'account_id': account_id,
+                    'columns': columns,
+                    'saved_mapping_found': False,
+                    'raw_rows_json': raw_rows_json,
+                    'source_key': source_key,
+                    'field_choices': CSV_FIELD_CHOICES,
+                    'mapping_errors': f'Please map the following required fields: {", ".join(sorted(missing_required))}.',
+                })
+
+            # Persist mapping if requested
+            if remember and source_key:
+                CsvColumnMapping.objects.update_or_create(
+                    user=request.user,
+                    source_key=source_key,
+                    defaults={'mapping': user_mapping},
+                )
+
+            preview_rows, importable_rows = _parse_csv_rows(raw_rows, user_mapping, bucket_map)
             ok_count = sum(1 for r in preview_rows if r['status'] == 'ok')
             error_count = sum(1 for r in preview_rows if r['status'] == 'error')
 
@@ -1111,7 +1267,7 @@ def transaction_import_csv(request):
                 'rows_json': json.dumps(importable_rows),
             })
 
-        # ── Step 2: user confirmed — import the valid rows ───────────────────
+        # ── Step 3: user confirmed — import the valid rows ───────────────────
         elif step == 'confirm':
             account_id = request.POST.get('account_id', '').strip()
             rows_json = request.POST.get('rows_json', '[]')
@@ -1142,7 +1298,7 @@ def transaction_import_csv(request):
                         pass
 
                 try:
-                    txn = Transaction.objects.create(
+                    Transaction.objects.create(
                         user=request.user,
                         account=account,
                         bucket=bucket,
