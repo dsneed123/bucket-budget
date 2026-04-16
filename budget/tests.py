@@ -132,6 +132,64 @@ class BudgetOverviewTest(TestCase):
         groceries_item = next(item for item in response.context['bucket_data'] if item['bucket'].name == 'Groceries')
         self.assertTrue(groceries_item['over'])
 
+    def test_month_url_renders_for_specific_month(self):
+        from django.urls import reverse
+        url = reverse('budget_overview_month', kwargs={'year': 2025, 'month': 3})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('current_month', response.context)
+        self.assertEqual(response.context['current_month'], 'March 2025')
+
+    def test_month_url_only_counts_that_months_expenses(self):
+        from django.urls import reverse
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            bucket=self.bucket,
+            amount=Decimal('100.00'),
+            transaction_type='expense',
+            description='Old expense',
+            date=datetime.date(2025, 3, 15),
+        )
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            bucket=self.bucket,
+            amount=Decimal('999.00'),
+            transaction_type='expense',
+            description='Different month',
+            date=datetime.date(2025, 4, 1),
+        )
+        url = reverse('budget_overview_month', kwargs={'year': 2025, 'month': 3})
+        response = self.client.get(url)
+        self.assertEqual(response.context['total_spent'], Decimal('100.00'))
+
+    def test_current_month_url_is_flagged(self):
+        today = datetime.date.today()
+        from django.urls import reverse
+        url = reverse('budget_overview_month', kwargs={'year': today.year, 'month': today.month})
+        response = self.client.get(url)
+        self.assertTrue(response.context['is_current_month'])
+
+    def test_past_month_is_not_flagged_as_current(self):
+        from django.urls import reverse
+        url = reverse('budget_overview_month', kwargs={'year': 2025, 'month': 1})
+        response = self.client.get(url)
+        self.assertFalse(response.context['is_current_month'])
+
+    def test_default_route_is_current_month(self):
+        today = datetime.date.today()
+        response = self.client.get(reverse('budget_overview'))
+        self.assertTrue(response.context['is_current_month'])
+        self.assertEqual(response.context['current_month'], today.strftime('%B %Y'))
+
+    def test_invalid_month_falls_back_to_current(self):
+        today = datetime.date.today()
+        from django.urls import reverse
+        url = reverse('budget_overview_month', kwargs={'year': 2025, 'month': 13})
+        response = self.client.get(url)
+        self.assertTrue(response.context['is_current_month'])
+
     def test_other_users_data_not_included(self):
         other_user = User.objects.create_user(
             email='other@example.com',

@@ -4,7 +4,16 @@
 {% block page_title %}Budget{% endblock %}
 
 {% block content %}
-<p style="color: var(--text-secondary); font-size: 14px; margin: 0 0 20px;">{{ current_month }}</p>
+<div style="display: flex; align-items: center; gap: 12px; margin: 0 0 20px;">
+    <a href="{{ prev_url }}" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-secondary); text-decoration: none; font-size: 14px; flex-shrink: 0;" title="Previous month">&#8249;</a>
+    <span style="color: var(--text-secondary); font-size: 14px; min-width: 100px; text-align: center;">{{ current_month }}</span>
+    {% if is_current_month %}
+    <span style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-muted); font-size: 14px; flex-shrink: 0; cursor: default; opacity: 0.4;">&#8250;</span>
+    {% else %}
+    <a href="{{ next_url }}" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-secondary); text-decoration: none; font-size: 14px; flex-shrink: 0;" title="Next month">&#8250;</a>
+    <a href="{{ current_url }}" style="font-size: 12px; color: var(--text-secondary); text-decoration: none; opacity: 0.7;" title="Go to current month">Today</a>
+    {% endif %}
+</div>
 
 <!-- Top stat cards -->
 <div class="grid grid-4" style="margin-bottom: 28px;">
