@@ -18,7 +18,7 @@ from .recommendations import (
     _spending_quality_recs,
     _vendor_recs,
 )
-from .views import _daily_heatmap, _has_12_months_data, _yoy_comparison
+from .views import _daily_heatmap, _has_12_months_data, _spending_forecast, _yoy_comparison
 
 User = get_user_model()
 
@@ -584,3 +584,81 @@ class VendorRuleTests(TestCase):
         )
         recs = _vendor_recs(self.user, self.today)
         self.assertEqual(len(recs), 0)
+
+
+class SpendingForecastTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='forecast@example.com',
+            password='testpass123',
+        )
+        self.today = datetime.date.today()
+        self.account = BankAccount.objects.create(
+            user=self.user, name='Checking', account_type='checking',
+        )
+
+    def _make_expense(self, amount, date=None):
+        Transaction.objects.create(
+            user=self.user,
+            transaction_type='expense',
+            amount=amount,
+            description='Test',
+            date=date or self.today,
+            account=self.account,
+        )
+
+    def test_no_transactions_returns_zero_projection(self):
+        result = _spending_forecast(self.user, self.today.year, self.today.month, self.today)
+        self.assertEqual(result['projected_amount'], Decimal('0'))
+        self.assertEqual(result['current_spending'], Decimal('0'))
+
+    def test_projection_uses_daily_average(self):
+        import calendar
+        days_elapsed = self.today.day
+        days_in_month = calendar.monthrange(self.today.year, self.today.month)[1]
+        for i in range(days_elapsed):
+            day = self.today.replace(day=i + 1)
+            self._make_expense(Decimal('100.00'), date=day)
+        result = _spending_forecast(self.user, self.today.year, self.today.month, self.today)
+        expected = (Decimal('100.00') * days_in_month).quantize(Decimal('0.01'))
+        self.assertEqual(result['projected_amount'], expected)
+
+    def test_over_budget_flag_set_when_projected_exceeds_budget(self):
+        Bucket.objects.create(
+            user=self.user,
+            name='Test',
+            monthly_allocation=Decimal('50.00'),
+            sort_order=1,
+        )
+        self._make_expense(Decimal('200.00'))
+        result = _spending_forecast(self.user, self.today.year, self.today.month, self.today)
+        self.assertTrue(result['over_budget'])
+
+    def test_under_budget_flag_when_projected_below_budget(self):
+        Bucket.objects.create(
+            user=self.user,
+            name='Test',
+            monthly_allocation=Decimal('10000.00'),
+            sort_order=1,
+        )
+        self._make_expense(Decimal('1.00'))
+        result = _spending_forecast(self.user, self.today.year, self.today.month, self.today)
+        self.assertFalse(result['over_budget'])
+
+    def test_no_budget_returns_none_for_budget_fields(self):
+        self._make_expense(Decimal('50.00'))
+        result = _spending_forecast(self.user, self.today.year, self.today.month, self.today)
+        self.assertIsNone(result['budget_pct'])
+        self.assertIsNone(result['current_pct'])
+        self.assertIsNone(result['over_budget'])
+        self.assertIsNone(result['abs_delta'])
+
+    def test_forecast_in_view_context(self):
+        client = Client()
+        client.login(email='forecast@example.com', password='testpass123')
+        response = client.get(reverse('insights'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('forecast', response.context)
+        forecast = response.context['forecast']
+        self.assertIn('projected_amount', forecast)
+        self.assertIn('days_remaining', forecast)

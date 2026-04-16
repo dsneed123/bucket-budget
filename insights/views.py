@@ -414,6 +414,54 @@ def _daily_heatmap(user, year, month):
     return weeks
 
 
+def _spending_forecast(user, year, month, today):
+    days_in_month = calendar.monthrange(year, month)[1]
+    days_elapsed = today.day
+
+    current_spending = _month_expenses(user, year, month)
+
+    if days_elapsed > 0:
+        daily_avg = current_spending / Decimal(str(days_elapsed))
+        projected = (daily_avg * Decimal(str(days_in_month))).quantize(Decimal('0.01'))
+    else:
+        daily_avg = Decimal('0')
+        projected = Decimal('0')
+
+    total_budget = (
+        Bucket.objects.filter(user=user, is_active=True)
+        .aggregate(s=Sum('monthly_allocation'))['s'] or Decimal('0')
+    )
+
+    days_remaining = days_in_month - days_elapsed
+
+    if total_budget > 0:
+        budget_pct = min(int(float(projected / total_budget) * 100), 200)
+        current_pct = min(int(float(current_spending / total_budget) * 100), 100)
+        over_budget = projected > total_budget
+        raw_delta = projected - total_budget
+        abs_delta = abs(raw_delta)
+        over_budget = raw_delta > 0
+    else:
+        budget_pct = None
+        current_pct = None
+        over_budget = None
+        abs_delta = None
+
+    return {
+        'current_spending': current_spending,
+        'projected_amount': projected,
+        'daily_avg': round(daily_avg, 2),
+        'days_elapsed': days_elapsed,
+        'days_in_month': days_in_month,
+        'days_remaining': days_remaining,
+        'total_budget': total_budget,
+        'budget_pct': budget_pct,
+        'current_pct': current_pct,
+        'over_budget': over_budget,
+        'abs_delta': abs_delta,
+    }
+
+
 def _monthly_trend(user, today):
     months = []
     for i in range(11, -1, -1):
@@ -530,6 +578,9 @@ def insights(request):
     # Daily spending heatmap (current month)
     heatmap_weeks = _daily_heatmap(request.user, this_year, this_month)
 
+    # Spending forecast (current month projection)
+    forecast = _spending_forecast(request.user, this_year, this_month, today)
+
     # Year-over-year comparison (only if user has 12+ months of data)
     yoy_data = _yoy_comparison(request.user, today) if _has_12_months_data(request.user, today) else None
 
@@ -569,6 +620,7 @@ def insights(request):
         'heatmap_weeks': heatmap_weeks,
         'heatmap_dow_labels': _HEATMAP_DOW_LABELS,
         'recommendations': recommendations,
+        'forecast': forecast,
         'yoy_data': yoy_data,
     })
 
