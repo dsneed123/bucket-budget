@@ -82,6 +82,18 @@
             </div>
         </div>
 
+        {% if item.goal.goal_type == 'emergency_fund' %}
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">🛡️ Coverage</span>
+            {% if item.emergency_coverage is not None %}
+            <span style="font-size: 0.8rem; font-weight: 600; color: {% if item.emergency_coverage >= 3 %}var(--accent-green){% elif item.emergency_coverage >= 1 %}var(--accent-gold){% else %}var(--accent-red){% endif %};">
+                {{ item.emergency_coverage|floatformat:1 }} mo.
+            </span>
+            {% else %}
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">No expense data</span>
+            {% endif %}
+        </div>
+        {% endif %}
         {% if item.goal.deadline and not item.goal.is_achieved %}
         <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
             <span style="font-size: 0.78rem; color: var(--text-secondary);">Deadline</span>

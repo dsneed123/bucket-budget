@@ -6,8 +6,9 @@ from django.test import TestCase
 from django.urls import reverse
 
 from banking.models import BankAccount
+from transactions.models import Transaction
 from .models import AutoSaveRule, SavingsContribution, SavingsGoal, SavingsMilestone
-from .views import _calculate_projected_completion, _get_milestone_data
+from .views import _calculate_projected_completion, _get_emergency_fund_coverage, _get_milestone_data, _get_monthly_avg_expenses
 from .management.commands.process_auto_saves import _advance_next_run
 
 User = get_user_model()
@@ -901,3 +902,183 @@ class SavingsGoalSharingTest(TestCase):
         })
         self.goal.refresh_from_db()
         self.assertTrue(self.goal.is_private)
+
+
+class SavingsGoalTypeTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='type@example.com',
+            password='testpass',
+            first_name='Type',
+            last_name='User',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('5000.00'),
+        )
+        self.client.login(email='type@example.com', password='testpass')
+        self.today = datetime.date(2026, 4, 16)
+
+    def _make_goal(self, goal_type='general', current=Decimal('0.00')):
+        return SavingsGoal.objects.create(
+            user=self.user,
+            name='Test Goal',
+            target_amount=Decimal('1000.00'),
+            current_amount=current,
+            goal_type=goal_type,
+        )
+
+    def _add_expense(self, amount, days_ago=10):
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=amount,
+            transaction_type='expense',
+            description='Test expense',
+            date=self.today - datetime.timedelta(days=days_ago),
+        )
+
+    def test_default_goal_type_is_general(self):
+        goal = SavingsGoal.objects.create(
+            user=self.user,
+            name='Default Goal',
+            target_amount=Decimal('500.00'),
+        )
+        self.assertEqual(goal.goal_type, 'general')
+
+    def test_can_set_all_goal_types(self):
+        expected_types = ['general', 'emergency_fund', 'vacation', 'purchase', 'debt_payoff', 'investment', 'education', 'other']
+        for gt in expected_types:
+            goal = SavingsGoal.objects.create(
+                user=self.user,
+                name=f'Goal {gt}',
+                target_amount=Decimal('100.00'),
+                goal_type=gt,
+            )
+            self.assertEqual(goal.goal_type, gt)
+
+    def test_add_view_saves_goal_type(self):
+        url = reverse('savings:savings_goal_add')
+        self.client.post(url, {
+            'name': 'Emergency Fund',
+            'target_amount': '5000.00',
+            'priority': 'high',
+            'goal_type': 'emergency_fund',
+            'color': '#00d4aa',
+            'icon': '🛡️',
+        })
+        goal = SavingsGoal.objects.get(name='Emergency Fund')
+        self.assertEqual(goal.goal_type, 'emergency_fund')
+
+    def test_add_view_invalid_goal_type_falls_back_to_general(self):
+        url = reverse('savings:savings_goal_add')
+        self.client.post(url, {
+            'name': 'Invalid Type Goal',
+            'target_amount': '500.00',
+            'priority': 'medium',
+            'goal_type': 'invalid_type',
+            'color': '#00d4aa',
+            'icon': '🎯',
+        })
+        goal = SavingsGoal.objects.get(name='Invalid Type Goal')
+        self.assertEqual(goal.goal_type, 'general')
+
+    def test_edit_view_saves_goal_type(self):
+        goal = self._make_goal(goal_type='general')
+        url = reverse('savings:savings_goal_edit', kwargs={'goal_id': goal.pk})
+        self.client.post(url, {
+            'name': goal.name,
+            'target_amount': '1000.00',
+            'priority': 'medium',
+            'goal_type': 'vacation',
+            'color': '#00d4aa',
+            'icon': '🎯',
+            'is_private': 'true',
+        })
+        goal.refresh_from_db()
+        self.assertEqual(goal.goal_type, 'vacation')
+
+    def test_get_monthly_avg_expenses_returns_avg(self):
+        self._add_expense(Decimal('300.00'), days_ago=10)
+        self._add_expense(Decimal('300.00'), days_ago=40)
+        self._add_expense(Decimal('300.00'), days_ago=70)
+        avg = _get_monthly_avg_expenses(self.user, self.today)
+        self.assertIsNotNone(avg)
+        self.assertEqual(avg, Decimal('300'))
+
+    def test_get_monthly_avg_expenses_excludes_old_transactions(self):
+        self._add_expense(Decimal('500.00'), days_ago=100)  # outside 91-day window
+        avg = _get_monthly_avg_expenses(self.user, self.today)
+        self.assertIsNone(avg)
+
+    def test_get_monthly_avg_expenses_excludes_income(self):
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('3000.00'),
+            transaction_type='income',
+            description='Salary',
+            date=self.today - datetime.timedelta(days=10),
+        )
+        avg = _get_monthly_avg_expenses(self.user, self.today)
+        self.assertIsNone(avg)
+
+    def test_get_emergency_fund_coverage_returns_months(self):
+        coverage = _get_emergency_fund_coverage(Decimal('900.00'), Decimal('300.00'))
+        self.assertAlmostEqual(coverage, 3.0)
+
+    def test_get_emergency_fund_coverage_none_when_no_avg(self):
+        coverage = _get_emergency_fund_coverage(Decimal('500.00'), None)
+        self.assertIsNone(coverage)
+
+    def test_detail_view_includes_emergency_coverage_for_emergency_fund(self):
+        goal = self._make_goal(goal_type='emergency_fund', current=Decimal('900.00'))
+        self._add_expense(Decimal('300.00'), days_ago=10)
+        self._add_expense(Decimal('300.00'), days_ago=40)
+        self._add_expense(Decimal('300.00'), days_ago=70)
+        url = reverse('savings:savings_goal_detail', kwargs={'goal_id': goal.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('emergency_coverage', response.context)
+        self.assertIsNotNone(response.context['emergency_coverage'])
+        self.assertAlmostEqual(response.context['emergency_coverage'], 3.0)
+
+    def test_detail_view_emergency_coverage_none_for_general_goal(self):
+        goal = self._make_goal(goal_type='general', current=Decimal('500.00'))
+        self._add_expense(Decimal('300.00'), days_ago=10)
+        url = reverse('savings:savings_goal_detail', kwargs={'goal_id': goal.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context['emergency_coverage'])
+
+    def test_list_view_includes_emergency_coverage(self):
+        goal = self._make_goal(goal_type='emergency_fund', current=Decimal('600.00'))
+        self._add_expense(Decimal('300.00'), days_ago=10)
+        self._add_expense(Decimal('300.00'), days_ago=40)
+        self._add_expense(Decimal('300.00'), days_ago=70)
+        url = reverse('savings:savings_list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        goal_data = response.context['goal_data']
+        self.assertEqual(len(goal_data), 1)
+        self.assertIn('emergency_coverage', goal_data[0])
+        self.assertIsNotNone(goal_data[0]['emergency_coverage'])
+        self.assertAlmostEqual(goal_data[0]['emergency_coverage'], 2.0)
+
+    def test_add_view_provides_goal_type_choices(self):
+        url = reverse('savings:savings_goal_add')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('goal_type_choices', response.context)
+        choice_values = [c[0] for c in response.context['goal_type_choices']]
+        self.assertIn('emergency_fund', choice_values)
+        self.assertIn('general', choice_values)
+
+    def test_edit_view_provides_goal_type_choices(self):
+        goal = self._make_goal()
+        url = reverse('savings:savings_goal_edit', kwargs={'goal_id': goal.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('goal_type_choices', response.context)

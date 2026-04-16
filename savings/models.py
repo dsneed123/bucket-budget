@@ -12,6 +12,17 @@ class SavingsGoal(models.Model):
         ('critical', 'Critical'),
     ]
 
+    GOAL_TYPE_CHOICES = [
+        ('general', 'General'),
+        ('emergency_fund', 'Emergency Fund'),
+        ('vacation', 'Vacation'),
+        ('purchase', 'Purchase'),
+        ('debt_payoff', 'Debt Payoff'),
+        ('investment', 'Investment'),
+        ('education', 'Education'),
+        ('other', 'Other'),
+    ]
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='savings_goals')
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -19,6 +30,7 @@ class SavingsGoal(models.Model):
     current_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     deadline = models.DateField(null=True, blank=True)
     priority = models.CharField(max_length=8, choices=PRIORITY_CHOICES, default='medium')
+    goal_type = models.CharField(max_length=20, choices=GOAL_TYPE_CHOICES, default='general')
     color = models.CharField(max_length=7, default='#00d4aa')
     icon = models.CharField(max_length=10, default='🎯')
     is_achieved = models.BooleanField(default=False)
