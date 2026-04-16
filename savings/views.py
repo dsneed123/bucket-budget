@@ -226,6 +226,89 @@ def savings_goal_detail(request, goal_id):
 
 
 @login_required
+def savings_goal_edit(request, goal_id):
+    goal = get_object_or_404(SavingsGoal, pk=goal_id, user=request.user)
+    errors = {}
+    success = False
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '').strip()
+        target_amount = request.POST.get('target_amount', '').strip()
+        deadline = request.POST.get('deadline', '').strip()
+        priority = request.POST.get('priority', 'medium').strip()
+        color = request.POST.get('color', '#00d4aa').strip()
+        icon = request.POST.get('icon', '🎯').strip()
+
+        if not name:
+            errors['name'] = 'Goal name is required.'
+
+        target_amount_val = goal.target_amount
+        if not target_amount:
+            errors['target_amount'] = 'Target amount is required.'
+        else:
+            try:
+                target_amount_val = Decimal(target_amount)
+                if target_amount_val <= 0:
+                    errors['target_amount'] = 'Target amount must be greater than zero.'
+            except Exception:
+                errors['target_amount'] = 'Please enter a valid number.'
+
+        deadline_val = goal.deadline
+        if deadline:
+            try:
+                deadline_val = datetime.strptime(deadline, '%Y-%m-%d').date()
+            except ValueError:
+                errors['deadline'] = 'Please enter a valid date.'
+        else:
+            deadline_val = None
+
+        if priority not in ('low', 'medium', 'high', 'critical'):
+            priority = 'medium'
+
+        if not errors:
+            goal.name = name
+            goal.description = description
+            goal.target_amount = target_amount_val
+            goal.deadline = deadline_val
+            goal.priority = priority
+            goal.color = color or '#00d4aa'
+            goal.icon = icon or '🎯'
+            goal.save()
+            success = True
+
+        return render(request, 'savings/savings_goal_edit.html', {
+            'goal': goal,
+            'errors': errors,
+            'success': success,
+            'form_data': {
+                'name': name,
+                'description': description,
+                'target_amount': target_amount,
+                'deadline': deadline,
+                'priority': priority,
+                'color': color,
+                'icon': icon,
+            },
+        })
+
+    return render(request, 'savings/savings_goal_edit.html', {
+        'goal': goal,
+        'errors': errors,
+        'success': success,
+        'form_data': {
+            'name': goal.name,
+            'description': goal.description,
+            'target_amount': goal.target_amount,
+            'deadline': goal.deadline.strftime('%Y-%m-%d') if goal.deadline else '',
+            'priority': goal.priority,
+            'color': goal.color,
+            'icon': goal.icon,
+        },
+    })
+
+
+@login_required
 @require_POST
 def savings_goal_contribute(request, goal_id):
     goal = get_object_or_404(SavingsGoal, pk=goal_id, user=request.user)

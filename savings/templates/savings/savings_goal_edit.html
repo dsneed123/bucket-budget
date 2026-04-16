@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ goal.name }} — Bucket Budget{% endblock %}
+{% block page_title %}Edit Savings Goal{% endblock %}
+
+{% block content %}
+<div style="max-width: 560px;">
+
+    <div class="mb-4">
+        <a href="{% url 'savings:savings_goal_detail' goal.pk %}" style="font-size: 13px; color: var(--text-secondary); text-decoration: none;">← {{ goal.icon }} {{ goal.name }}</a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Edit Savings Goal</h2>
+            <p class="card-subtitle">Update the details for this goal.</p>
+        </div>
+
+        {% if success %}
+        <div style="background: rgba(0,212,170,0.12); border: 1px solid var(--accent-green); border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; font-size: 0.875rem; color: var(--accent-green); font-weight: 500;">
+            Goal updated successfully.
+        </div>
+        {% endif %}
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="name" class="form-label">Goal name</label>
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    class="form-control"
+                    value="{{ form_data.name|default:'' }}"
+                    placeholder="e.g. Emergency Fund"
+                    autofocus
+                >
+                {% if errors.name %}
+                    <p class="form-error">{{ errors.name }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label for="target_amount" class="form-label">Target amount</label>
+                    <input
+                        type="number"
+                        id="target_amount"
+                        name="target_amount"
+                        class="form-control"
+                        value="{{ form_data.target_amount|default:'' }}"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0.01"
+                    >
+                    {% if errors.target_amount %}
+                        <p class="form-error">{{ errors.target_amount }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="flex: 1;">
+                    <label for="priority" class="form-label">Priority</label>
+                    <select id="priority" name="priority" class="form-control">
+                        <option value="low" {% if form_data.priority == 'low' %}selected{% endif %}>Low</option>
+                        <option value="medium" {% if form_data.priority == 'medium' %}selected{% endif %}>Medium</option>
+                        <option value="high" {% if form_data.priority == 'high' %}selected{% endif %}>High</option>
+                        <option value="critical" {% if form_data.priority == 'critical' %}selected{% endif %}>Critical</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="deadline" class="form-label">Deadline <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
+                <input
+                    type="date"
+                    id="deadline"
+                    name="deadline"
+                    class="form-control"
+                    value="{{ form_data.deadline|default:'' }}"
+                >
+                {% if errors.deadline %}
+                    <p class="form-error">{{ errors.deadline }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label for="color" class="form-label">Color</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input
+                            type="color"
+                            id="color"
+                            name="color"
+                            value="{{ form_data.color|default:'#00d4aa' }}"
+                            style="width: 44px; height: 38px; padding: 2px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 4px; cursor: pointer;"
+                        >
+                        <input
+                            type="text"
+                            id="color_hex"
+                            class="form-control"
+                            value="{{ form_data.color|default:'#00d4aa' }}"
+                            maxlength="7"
+                            placeholder="#00d4aa"
+                            style="flex: 1; font-family: monospace;"
+                        >
+                    </div>
+                </div>
+
+                <div class="form-group" style="flex: 0 0 120px;">
+                    <label for="icon" class="form-label">Icon <span style="color: var(--text-secondary); font-weight: 400;">(emoji)</span></label>
+                    <input
+                        type="text"
+                        id="icon"
+                        name="icon"
+                        class="form-control"
+                        value="{{ form_data.icon|default:'🎯' }}"
+                        placeholder="🎯"
+                        maxlength="10"
+                    >
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description" class="form-label">Description <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
+                <input
+                    type="text"
+                    id="description"
+                    name="description"
+                    class="form-control"
+                    value="{{ form_data.description|default:'' }}"
+                    placeholder="e.g. 3 months of living expenses"
+                >
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                <button type="submit" class="btn btn-primary">Save changes</button>
+                <a href="{% url 'savings:savings_goal_detail' goal.pk %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const colorPicker = document.getElementById('color');
+    const colorHex = document.getElementById('color_hex');
+
+    colorPicker.addEventListener('input', () => {
+        colorHex.value = colorPicker.value;
+    });
+
+    colorHex.addEventListener('input', () => {
+        const val = colorHex.value.trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+            colorPicker.value = val;
+        }
+    });
+</script>
+{% endblock %}
