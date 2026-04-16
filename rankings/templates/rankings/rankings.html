@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% load currency_tags %}
+
+{% block title %}Rankings — Bucket Budget{% endblock %}
+{% block page_title %}Rankings{% endblock %}
+
+{% block content %}
+<div class="rankings-page">
+
+    <!-- Spending Quality Score hero card -->
+    <div class="card rankings-hero">
+        <div class="card-header">
+            <h2 class="card-title">Spending Quality Score</h2>
+            <span class="card-subtitle">{{ this_month_label }}</span>
+        </div>
+
+        <div class="rankings-score-block">
+            {% if current_score %}
+                <span class="rankings-score text-{{ current_color }}">{{ current_score }}</span>
+                <span class="rankings-score-denom">/10</span>
+            {% else %}
+                <span class="rankings-score text-secondary">—</span>
+                <span class="rankings-score-denom">/10</span>
+            {% endif %}
+
+            {% if trend == 'up' %}
+                <span class="rankings-trend rankings-trend-up" title="Up from last month">&#8593;</span>
+            {% elif trend == 'down' %}
+                <span class="rankings-trend rankings-trend-down" title="Down from last month">&#8595;</span>
+            {% elif trend == 'same' %}
+                <span class="rankings-trend rankings-trend-same" title="Same as last month">&#8212;</span>
+            {% endif %}
+        </div>
+
+        {% if current_score %}
+            <p class="rankings-score-label">
+                {% if current_color == 'green' %}
+                    Great spending quality this month — keep it up!
+                {% elif current_color == 'gold' %}
+                    Decent spending quality — room to improve.
+                {% else %}
+                    Low spending quality — consider revisiting your purchases.
+                {% endif %}
+            </p>
+            <p class="rankings-score-meta text-secondary">Based on {{ current_count }} scored transaction{{ current_count|pluralize }}</p>
+        {% else %}
+            <p class="rankings-score-label text-secondary">No scored transactions this month yet. Add a necessity score to your expenses to track quality.</p>
+        {% endif %}
+
+        <!-- Month comparison -->
+        <div class="rankings-comparison">
+            <div class="rankings-comparison-item">
+                <span class="stat-label">This Month</span>
+                {% if current_score %}
+                    <span class="stat-value text-{{ current_color }}">{{ current_score }}/10</span>
+                {% else %}
+                    <span class="stat-value text-secondary">—</span>
+                {% endif %}
+            </div>
+            <div class="rankings-comparison-divider"></div>
+            <div class="rankings-comparison-item">
+                <span class="stat-label">{{ last_month_label }}</span>
+                {% if last_score %}
+                    <span class="stat-value text-{{ last_color }}">{{ last_score }}/10</span>
+                {% else %}
+                    <span class="stat-value text-secondary">—</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Per-bucket breakdown -->
+    {% if bucket_rows %}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Bucket Breakdown</h2>
+            <span class="card-subtitle">{{ this_month_label }} — highest scored first</span>
+        </div>
+        <table class="rankings-table">
+            <thead>
+                <tr>
+                    <th>Bucket</th>
+                    <th>Score</th>
+                    <th>Transactions</th>
+                    <th>Total Spent</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in bucket_rows %}
+                <tr>
+                    <td>
+                        <span class="bucket-chip" style="background: {{ row.color }}20; border-color: {{ row.color }}40;">
+                            {% if row.icon %}<span>{{ row.icon }}</span>{% endif %}
+                            {{ row.name }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="rankings-bucket-score text-{{ row.score_color }}">{{ row.score }}/10</span>
+                    </td>
+                    <td class="text-secondary">{{ row.tx_count }}</td>
+                    <td>{{ row.total_spent|currency:user.currency }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Bucket Breakdown</h2>
+        </div>
+        <p class="text-secondary" style="padding: 16px 0;">No bucket spending data with necessity scores this month.</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.rankings-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.rankings-hero {
+    padding-bottom: 24px;
+}
+
+.rankings-score-block {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin: 24px 0 8px;
+}
+
+.rankings-score {
+    font-size: 4rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -2px;
+}
+
+.rankings-score-denom {
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.rankings-trend {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-left: 12px;
+    line-height: 1;
+}
+
+.rankings-trend-up   { color: var(--accent-green); }
+.rankings-trend-down { color: var(--accent-red); }
+.rankings-trend-same { color: var(--text-secondary); }
+
+.rankings-score-label {
+    font-size: 1rem;
+    margin: 0 0 4px;
+}
+
+.rankings-score-meta {
+    font-size: 0.85rem;
+    margin: 0 0 24px;
+}
+
+.rankings-comparison {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 16px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    margin-top: 8px;
+    width: fit-content;
+}
+
+.rankings-comparison-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rankings-comparison-divider {
+    width: 1px;
+    height: 36px;
+    background: var(--bg-card);
+}
+
+.text-green { color: var(--accent-green); }
+.text-gold  { color: var(--accent-gold); }
+.text-red   { color: var(--accent-red); }
+
+.rankings-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+}
+
+.rankings-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--bg-secondary);
+}
+
+.rankings-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--bg-secondary);
+    font-size: 0.95rem;
+}
+
+.rankings-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.bucket-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    font-size: 0.875rem;
+}
+
+.rankings-bucket-score {
+    font-weight: 600;
+    font-size: 1rem;
+}
+</style>
+{% endblock %}
