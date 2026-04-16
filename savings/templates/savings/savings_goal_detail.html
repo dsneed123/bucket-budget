@@ -166,6 +166,27 @@
         </form>
     </div>
 
+    <!-- Monthly contributions chart -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">Monthly Contributions</h3>
+            <span style="font-size: 13px; color: var(--text-secondary);">Last 6 months</span>
+        </div>
+        <div class="contrib-chart">
+            {% for m in monthly_contributions %}
+            <div class="contrib-chart-col">
+                <div class="contrib-chart-amount">{% if m.total > 0 %}${{ m.total|floatformat:0 }}{% endif %}</div>
+                <div class="contrib-chart-track">
+                    {% if m.bar_height > 0 %}
+                    <div class="contrib-chart-bar" style="height: {{ m.bar_height }}%;" title="{{ m.label }}: ${{ m.total|floatformat:2 }}"></div>
+                    {% endif %}
+                </div>
+                <div class="contrib-chart-label">{{ m.label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
     <!-- Contribution history -->
     <div class="card">
         <div class="card-header">
@@ -201,4 +222,55 @@
     </div>
 
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.contrib-chart {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    padding: 8px 0 4px;
+}
+
+.contrib-chart-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.contrib-chart-amount {
+    font-size: 0.7rem;
+    font-weight: 600;
+    height: 16px;
+    line-height: 16px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.contrib-chart-track {
+    width: 100%;
+    height: 100px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+}
+
+.contrib-chart-bar {
+    width: 100%;
+    border-radius: 4px 4px 0 0;
+    background: var(--accent-green);
+    transition: height 0.4s ease;
+}
+
+.contrib-chart-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: center;
+}
+</style>
 {% endblock %}

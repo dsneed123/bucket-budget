@@ -12,6 +12,27 @@ from banking.models import BankAccount
 from .models import SavingsContribution, SavingsGoal
 
 
+def _get_monthly_contributions(goal, today):
+    """Return contribution totals for the last 6 months as chart data (oldest first)."""
+    months = []
+    for i in range(5, -1, -1):
+        offset = today.month - 1 - i
+        month_num = (offset % 12) + 1
+        year_num = today.year + (offset // 12)
+        total = goal.contributions.filter(
+            date__year=year_num,
+            date__month=month_num,
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        months.append({
+            'label': date(year_num, month_num, 1).strftime('%b'),
+            'total': total,
+        })
+    max_total = max((m['total'] for m in months), default=Decimal('0'))
+    for m in months:
+        m['bar_height'] = int(float(m['total'] / max_total) * 100) if max_total > 0 else 0
+    return months
+
+
 def _calculate_projected_completion(goal, today):
     """Return projected completion info based on avg monthly contributions over last 3 months.
 
@@ -251,6 +272,7 @@ def savings_goal_detail(request, goal_id):
 
     contributions = goal.contributions.select_related('source_account').order_by('-date', '-created_at')
     projected = _calculate_projected_completion(goal, today)
+    monthly_contributions = _get_monthly_contributions(goal, today)
 
     return render(request, 'savings/savings_goal_detail.html', {
         'goal': goal,
@@ -263,6 +285,7 @@ def savings_goal_detail(request, goal_id):
         'errors': errors,
         'contribution_form': contribution_form,
         'projected': projected,
+        'monthly_contributions': monthly_contributions,
     })
 
 
@@ -415,6 +438,7 @@ def savings_goal_contribute(request, goal_id):
         contributions = goal.contributions.select_related('source_account').order_by('-date', '-created_at')
         all_accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
         projected = _calculate_projected_completion(goal, today)
+        monthly_contributions = _get_monthly_contributions(goal, today)
 
         return render(request, 'savings/savings_goal_detail.html', {
             'goal': goal,
@@ -432,6 +456,7 @@ def savings_goal_contribute(request, goal_id):
                 'date': today.strftime('%Y-%m-%d'),
             },
             'projected': projected,
+            'monthly_contributions': monthly_contributions,
         })
 
     SavingsContribution.objects.create(
