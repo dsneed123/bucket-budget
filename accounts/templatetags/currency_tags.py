@@ -5,6 +5,11 @@ register = template.Library()
 
 
 @register.filter
+def get_item(dictionary, key):
+    return dictionary.get(key)
+
+
+@register.filter
 def currency(value, currency_code='USD'):
     """
     Format a number as a currency string.

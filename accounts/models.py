@@ -85,6 +85,24 @@ class UserPreferences(models.Model):
         blank=True,
     )
     timezone = models.CharField(max_length=50, default='UTC')
+    widget_visibility = models.JSONField(default=dict, blank=True)
+
+    WIDGET_DEFAULTS = {
+        'stats': True,
+        'daily_spending': True,
+        'budget_overview': True,
+        'recent_transactions': True,
+        'calendar': True,
+        'savings_goals': True,
+        'upcoming_recurring': True,
+        'recommendations': True,
+        'activity_feed': True,
+    }
+
+    def get_widget_visibility(self):
+        merged = dict(self.WIDGET_DEFAULTS)
+        merged.update(self.widget_visibility or {})
+        return merged
 
     def __str__(self):
         return f'Preferences for {self.user}'

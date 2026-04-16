@@ -10,7 +10,62 @@
 }
 </style>
 
+<!-- Dashboard header with gear icon -->
+<div style="display: flex; justify-content: flex-end; margin-bottom: 16px;">
+    <button type="button" onclick="openWidgetModal()" title="Customize dashboard"
+        style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; cursor: pointer; color: var(--text-secondary); font-size: 16px; display: flex; align-items: center; gap: 6px; transition: color 0.15s;">
+        &#9881; <span style="font-size: 13px; font-weight: 500;">Customize</span>
+    </button>
+</div>
+
+<!-- Widget Customization Modal -->
+<div id="widget-modal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
+    <div style="background: var(--bg-card); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 420px; margin: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">Customize Dashboard</h3>
+            <button type="button" onclick="closeWidgetModal()" style="background: none; border: none; color: var(--text-secondary); font-size: 20px; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+        </div>
+        <form method="post" action="{% url 'save_widget_preferences' %}">
+            {% csrf_token %}
+            <p style="margin: 0 0 16px; font-size: 13px; color: var(--text-secondary);">Toggle which widgets appear on your dashboard.</p>
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+                {% for key, label in widget_labels %}
+                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 10px 12px; background: var(--bg-primary); border-radius: var(--radius-sm);">
+                    <span style="font-size: 14px; font-weight: 500; color: var(--text-primary);">{{ label }}</span>
+                    <input type="checkbox" name="{{ key }}" {% if widgets|get_item:key %}checked{% endif %}
+                        style="width: 16px; height: 16px; accent-color: var(--accent-blue); cursor: pointer;">
+                </label>
+                {% endfor %}
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" onclick="closeWidgetModal()" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+(function() {
+    function openWidgetModal() {
+        var m = document.getElementById('widget-modal');
+        m.style.display = 'flex';
+    }
+    function closeWidgetModal() {
+        document.getElementById('widget-modal').style.display = 'none';
+    }
+    window.openWidgetModal = openWidgetModal;
+    window.closeWidgetModal = closeWidgetModal;
+    document.getElementById('widget-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeWidgetModal();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeWidgetModal();
+    });
+})();
+</script>
+
 <!-- Top Row: Net Worth · Monthly Spending · Savings Rate · Spending Quality -->
+{% if widgets.stats %}
 <div class="grid grid-4" style="margin-bottom: 24px;">
 
     <div class="card" style="padding: 20px;">
@@ -67,9 +122,10 @@
     </div>
 
 </div>
+{% endif %}
 
 <!-- Daily Spending Chart -->
-{% if daily_spending %}
+{% if widgets.daily_spending and daily_spending %}
 <div class="card" style="margin-bottom: 24px;">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
         <div>
@@ -99,7 +155,7 @@
     <div style="display: flex; flex-direction: column; gap: 24px;">
 
         <!-- Budget Overview -->
-        {% if total_allocated > 0 %}
+        {% if widgets.budget_overview and total_allocated > 0 %}
         <div class="card">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
@@ -166,6 +222,7 @@
         {% endif %}
 
         <!-- Recent Transactions -->
+        {% if widgets.recent_transactions %}
         <div class="card">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
@@ -202,6 +259,7 @@
                 <a href="{% url 'transaction_add' %}" class="btn btn-primary btn-sm">+ Add your first transaction</a>
             {% endif %}
         </div>
+        {% endif %}
 
     </div>
 
@@ -209,6 +267,7 @@
     <div style="display: flex; flex-direction: column; gap: 24px;">
 
         <!-- Calendar Widget -->
+        {% if widgets.calendar %}
         <div class="card">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
@@ -307,8 +366,10 @@
             })();
             </script>
         </div>
+        {% endif %}
 
         <!-- Savings Goals -->
+        {% if widgets.savings_goals %}
         <div class="card">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
@@ -355,6 +416,7 @@
                 <p style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 0;">No active savings goals. <a href="{% url 'savings:savings_goal_add' %}" style="color: var(--accent-green);">Create one</a> to get started.</p>
             {% endif %}
         </div>
+        {% endif %}
 
         <!-- Quick Contribute Modal -->
         <div id="contribute-modal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
@@ -412,6 +474,7 @@
         </script>
 
         <!-- Upcoming Recurring -->
+        {% if widgets.upcoming_recurring %}
         <div class="card">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
@@ -445,7 +508,7 @@
         </div>
 
         <!-- Recommendations -->
-        {% if recommendations %}
+        {% if widgets.recommendations and recommendations %}
         <div class="card">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
@@ -480,6 +543,7 @@
         {% endif %}
 
         <!-- Recent Activity Feed -->
+        {% if widgets.activity_feed %}
         <div class="card">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
@@ -509,6 +573,7 @@
                 <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">No recent activity.</p>
             {% endif %}
         </div>
+        {% endif %}
 
     </div>
 
