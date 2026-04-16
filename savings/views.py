@@ -309,6 +309,21 @@ def savings_goal_edit(request, goal_id):
 
 
 @login_required
+def savings_goal_delete(request, goal_id):
+    goal = get_object_or_404(SavingsGoal, pk=goal_id, user=request.user)
+    contribution_count = goal.contributions.count()
+
+    if request.method == 'POST':
+        goal.delete()
+        return redirect('savings:savings_list')
+
+    return render(request, 'savings/savings_goal_delete.html', {
+        'goal': goal,
+        'contribution_count': contribution_count,
+    })
+
+
+@login_required
 @require_POST
 def savings_goal_contribute(request, goal_id):
     goal = get_object_or_404(SavingsGoal, pk=goal_id, user=request.user)
