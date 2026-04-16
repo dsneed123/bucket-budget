@@ -1,3 +1,4 @@
+import csv
 import datetime
 import json
 import uuid
@@ -7,7 +8,7 @@ from urllib.parse import urlencode
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 
@@ -198,6 +199,70 @@ def transaction_list(request):
         'balance_is_absolute': bool(account_id),
         'income_by_source': income_by_source,
     })
+
+
+@login_required
+def transaction_export_csv(request):
+    """Stream filtered transactions as a CSV download."""
+    qs = Transaction.objects.filter(user=request.user).select_related('account', 'bucket').prefetch_related('tags').order_by('-date', '-created_at')
+
+    date_from = request.GET.get('date_from', '').strip()
+    date_to = request.GET.get('date_to', '').strip()
+    bucket_id = request.GET.get('bucket', '').strip()
+    txn_type = request.GET.get('type', '').strip()
+    account_id = request.GET.get('account', '').strip()
+    search = request.GET.get('search', '').strip()
+    tag_id = request.GET.get('tag', '').strip()
+
+    if date_from:
+        try:
+            qs = qs.filter(date__gte=datetime.date.fromisoformat(date_from))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            qs = qs.filter(date__lte=datetime.date.fromisoformat(date_to))
+        except ValueError:
+            pass
+    if bucket_id:
+        qs = qs.filter(bucket_id=bucket_id)
+    if txn_type in ('expense', 'income'):
+        qs = qs.filter(transaction_type=txn_type)
+    if account_id:
+        qs = qs.filter(account_id=account_id)
+    if search:
+        qs = qs.filter(Q(description__icontains=search) | Q(vendor__icontains=search))
+    if tag_id:
+        try:
+            Tag.objects.get(pk=tag_id, user=request.user)
+            qs = qs.filter(tags__id=tag_id).distinct()
+        except Tag.DoesNotExist:
+            pass
+
+    def _csv_rows(queryset):
+        class _EchoBuf:
+            def write(self, val):
+                return val
+
+        writer = csv.writer(_EchoBuf())
+        yield writer.writerow(['date', 'description', 'vendor', 'amount', 'type', 'bucket', 'account', 'necessity_score', 'tags'])
+        for txn in queryset.iterator():
+            tag_names = ', '.join(t.name for t in txn.tags.all())
+            yield writer.writerow([
+                txn.date.isoformat(),
+                txn.description,
+                txn.vendor,
+                str(txn.amount),
+                txn.transaction_type,
+                txn.bucket.name if txn.bucket else '',
+                txn.account.name if txn.account else '',
+                txn.necessity_score if txn.necessity_score is not None else '',
+                tag_names,
+            ])
+
+    response = StreamingHttpResponse(_csv_rows(qs), content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="transactions.csv"'
+    return response
 
 
 @login_required
