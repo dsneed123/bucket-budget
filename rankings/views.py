@@ -339,6 +339,21 @@ def _compute_score_streak(user, today):
     return streak
 
 
+def _build_comparison_arrow(current, last, higher_is_better=True):
+    """Return (arrow_direction, arrow_color) for month-over-month metric comparison.
+
+    arrow_direction: 'up', 'down', 'same', or None (missing data).
+    arrow_color: 'green', 'red', or 'secondary'.
+    """
+    if current is None or last is None:
+        return None, 'secondary'
+    if current > last:
+        return 'up', 'green' if higher_is_better else 'red'
+    if current < last:
+        return 'down', 'red' if higher_is_better else 'green'
+    return 'same', 'secondary'
+
+
 def _get_score_trend(user, today):
     """Return last 6 months of avg necessity scores for the trend bar chart, oldest first."""
     months = []
@@ -371,6 +386,7 @@ def rankings(request):
         last_year, last_month = this_year, this_month - 1
 
     breakdown = _get_necessity_breakdown(request.user, this_year, this_month)
+    last_breakdown = _get_necessity_breakdown(request.user, last_year, last_month)
     impulse_purchases, impulse_total = _get_impulse_purchases(request.user, this_year, this_month)
     essential_purchases, essential_total = _get_essential_purchases(request.user, this_year, this_month)
     current_score, current_count = _get_spending_quality_score(request.user, this_year, this_month)
@@ -441,6 +457,64 @@ def rankings(request):
 
     regret_rate, regret_bucket_rows = _get_regret_stats(request.user, this_year, this_month)
 
+    # Build month-over-month comparison metrics
+    score_arrow, score_arrow_color = _build_comparison_arrow(
+        float(current_score) if current_score is not None else None,
+        float(last_score) if last_score is not None else None,
+        higher_is_better=True,
+    )
+    count_arrow, count_arrow_color = _build_comparison_arrow(
+        current_count, last_count, higher_is_better=True,
+    )
+    need_arrow, need_arrow_color = _build_comparison_arrow(
+        float(breakdown['need']) if breakdown else None,
+        float(last_breakdown['need']) if last_breakdown else None,
+        higher_is_better=True,
+    )
+    useful_arrow, _ = _build_comparison_arrow(
+        float(breakdown['useful']) if breakdown else None,
+        float(last_breakdown['useful']) if last_breakdown else None,
+        higher_is_better=True,
+    )
+    want_arrow, want_arrow_color = _build_comparison_arrow(
+        float(breakdown['want']) if breakdown else None,
+        float(last_breakdown['want']) if last_breakdown else None,
+        higher_is_better=False,
+    )
+
+    monthly_comparison = {
+        'avg_score': {
+            'this': current_score,
+            'last': last_score,
+            'arrow': score_arrow,
+            'arrow_color': score_arrow_color,
+        },
+        'need': {
+            'this': breakdown['need'] if breakdown else None,
+            'last': last_breakdown['need'] if last_breakdown else None,
+            'arrow': need_arrow,
+            'arrow_color': need_arrow_color,
+        },
+        'useful': {
+            'this': breakdown['useful'] if breakdown else None,
+            'last': last_breakdown['useful'] if last_breakdown else None,
+            'arrow': useful_arrow,
+            'arrow_color': 'secondary',
+        },
+        'want': {
+            'this': breakdown['want'] if breakdown else None,
+            'last': last_breakdown['want'] if last_breakdown else None,
+            'arrow': want_arrow,
+            'arrow_color': want_arrow_color,
+        },
+        'total_scored': {
+            'this': current_count,
+            'last': last_count,
+            'arrow': count_arrow,
+            'arrow_color': count_arrow_color,
+        },
+    }
+
     return render(request, 'rankings/rankings.html', {
         'current_score': current_score,
         'current_count': current_count,
@@ -468,6 +542,8 @@ def rankings(request):
         'regret_bucket_rows': regret_bucket_rows,
         'regret_to_review': regret_to_review,
         'score_histogram': score_histogram,
+        'monthly_comparison': monthly_comparison,
+        'last_breakdown': last_breakdown,
     })
 
 
