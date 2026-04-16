@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bucket Budget</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        .landing {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            padding: 32px;
+        }
+
+        .landing-logo {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--accent-green);
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+
+        .landing-tagline {
+            font-size: 20px;
+            color: var(--text-secondary);
+            max-width: 480px;
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="landing">
+        <div class="landing-logo">Bucket Budget</div>
+        <p class="landing-tagline">Know where every dollar goes. Rank what matters. Save for what counts.</p>
+        <a href="/register/" class="btn btn-primary btn-lg">Get Started</a>
+    </div>
+</body>
+</html>
