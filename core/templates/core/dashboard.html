@@ -251,6 +251,39 @@
 
 </div>
 
+<!-- Upcoming Recurring Widget -->
+<div class="card" style="margin-top: 24px;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+            <h2 class="card-title">Upcoming</h2>
+            <p class="card-subtitle">Recurring charges in the next 7 days</p>
+        </div>
+        <a href="{% url 'recurring_list' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
+    </div>
+
+    {% if upcoming_recurring %}
+        <ul style="list-style: none; padding: 0; margin: 0;">
+            {% for item in upcoming_recurring %}
+            <li style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border);">
+                <div style="min-width: 0; flex: 1;">
+                    <p style="margin: 0; font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        {{ item.description }}
+                    </p>
+                    <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-secondary);">
+                        {{ item.next_due }}{% if item.bucket %} &middot; {{ item.bucket.icon }} {{ item.bucket.name }}{% endif %}
+                    </p>
+                </div>
+                <span style="margin-left: 16px; font-size: 14px; font-weight: 600; flex-shrink: 0; color: {% if item.transaction_type == 'income' %}var(--accent-green){% else %}var(--accent-red){% endif %};">
+                    {% if item.transaction_type == 'income' %}+{% else %}-{% endif %}{{ item.amount|currency:user.currency }}
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">No recurring charges due in the next 7 days.</p>
+    {% endif %}
+</div>
+
 <!-- Savings Goals Widget -->
 <div class="card" style="margin-top: 24px;">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">

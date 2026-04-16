@@ -10,7 +10,7 @@ from django.shortcuts import render
 from banking.models import BankAccount
 from buckets.models import Bucket
 from savings.models import SavingsGoal
-from transactions.models import Transaction
+from transactions.models import RecurringTransaction, Transaction
 
 
 def index(request):
@@ -98,6 +98,18 @@ def dashboard(request):
     top_bucket_data.sort(key=lambda x: x['pct'], reverse=True)
     top_buckets = top_bucket_data[:3]
 
+    upcoming_end = today + datetime.timedelta(days=7)
+    upcoming_recurring = (
+        RecurringTransaction.objects.filter(
+            user=request.user,
+            is_active=True,
+            next_due__gte=today,
+            next_due__lte=upcoming_end,
+        )
+        .select_related('bucket')
+        .order_by('next_due')
+    )
+
     return render(request, 'core/dashboard.html', {
         'accounts': accounts,
         'buckets': buckets,
@@ -116,4 +128,5 @@ def dashboard(request):
         'actual_daily_avg': actual_daily_avg,
         'ideal_daily_spend': ideal_daily_spend,
         'top_buckets': top_buckets,
+        'upcoming_recurring': upcoming_recurring,
     })
