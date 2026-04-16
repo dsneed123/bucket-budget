@@ -800,3 +800,104 @@ class SavingsMilestoneTest(TestCase):
         SavingsMilestone.objects.create(goal=self.goal, percentage=50)
         m = SavingsMilestone.objects.get(goal=self.goal, percentage=50)
         self.assertEqual(str(m), 'New Laptop — 50% milestone')
+
+
+class SavingsGoalSharingTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='share@example.com',
+            password='testpass',
+            first_name='Share',
+            last_name='User',
+        )
+        self.other_user = User.objects.create_user(
+            email='other@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        self.goal = SavingsGoal.objects.create(
+            user=self.user,
+            name='Vacation Fund',
+            target_amount=Decimal('2000.00'),
+            current_amount=Decimal('500.00'),
+        )
+
+    def test_is_private_default_true(self):
+        self.assertTrue(self.goal.is_private)
+
+    def test_share_uuid_is_set(self):
+        self.assertIsNotNone(self.goal.share_uuid)
+
+    def test_share_uuid_unique(self):
+        other_goal = SavingsGoal.objects.create(
+            user=self.user,
+            name='Emergency Fund',
+            target_amount=Decimal('5000.00'),
+        )
+        self.assertNotEqual(self.goal.share_uuid, other_goal.share_uuid)
+
+    def test_shared_view_returns_404_when_private(self):
+        url = reverse('savings:savings_goal_shared', kwargs={'share_uuid': self.goal.share_uuid})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_shared_view_returns_200_when_public(self):
+        self.goal.is_private = False
+        self.goal.save()
+        url = reverse('savings:savings_goal_shared', kwargs={'share_uuid': self.goal.share_uuid})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_shared_view_accessible_without_login(self):
+        self.goal.is_private = False
+        self.goal.save()
+        url = reverse('savings:savings_goal_shared', kwargs={'share_uuid': self.goal.share_uuid})
+        self.client.logout()
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_shared_view_accessible_by_other_user(self):
+        self.goal.is_private = False
+        self.goal.save()
+        self.client.login(email='other@example.com', password='testpass')
+        url = reverse('savings:savings_goal_shared', kwargs={'share_uuid': self.goal.share_uuid})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_shared_view_shows_goal_name(self):
+        self.goal.is_private = False
+        self.goal.save()
+        url = reverse('savings:savings_goal_shared', kwargs={'share_uuid': self.goal.share_uuid})
+        response = self.client.get(url)
+        self.assertContains(response, 'Vacation Fund')
+
+    def test_edit_view_saves_is_private_false(self):
+        self.client.login(email='share@example.com', password='testpass')
+        url = reverse('savings:savings_goal_edit', kwargs={'goal_id': self.goal.pk})
+        response = self.client.post(url, {
+            'name': self.goal.name,
+            'target_amount': '2000.00',
+            'priority': 'medium',
+            'color': '#00d4aa',
+            'icon': '🎯',
+            'is_private': 'false',
+        })
+        self.goal.refresh_from_db()
+        self.assertFalse(self.goal.is_private)
+
+    def test_edit_view_saves_is_private_true(self):
+        self.goal.is_private = False
+        self.goal.save()
+        self.client.login(email='share@example.com', password='testpass')
+        url = reverse('savings:savings_goal_edit', kwargs={'goal_id': self.goal.pk})
+        self.client.post(url, {
+            'name': self.goal.name,
+            'target_amount': '2000.00',
+            'priority': 'medium',
+            'color': '#00d4aa',
+            'icon': '🎯',
+            'is_private': 'true',
+        })
+        self.goal.refresh_from_db()
+        self.assertTrue(self.goal.is_private)

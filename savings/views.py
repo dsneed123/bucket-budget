@@ -327,6 +327,7 @@ def savings_goal_edit(request, goal_id):
         priority = request.POST.get('priority', 'medium').strip()
         color = request.POST.get('color', '#00d4aa').strip()
         icon = request.POST.get('icon', '🎯').strip()
+        is_private = request.POST.get('is_private') != 'false'
 
         if not name:
             errors['name'] = 'Goal name is required.'
@@ -362,6 +363,7 @@ def savings_goal_edit(request, goal_id):
             goal.priority = priority
             goal.color = color or '#00d4aa'
             goal.icon = icon or '🎯'
+            goal.is_private = is_private
             goal.save()
             success = True
 
@@ -377,6 +379,7 @@ def savings_goal_edit(request, goal_id):
                 'priority': priority,
                 'color': color,
                 'icon': icon,
+                'is_private': is_private,
             },
         })
 
@@ -392,6 +395,7 @@ def savings_goal_edit(request, goal_id):
             'priority': goal.priority,
             'color': goal.color,
             'icon': goal.icon,
+            'is_private': goal.is_private,
         },
     })
 
@@ -698,3 +702,34 @@ def auto_save_rule_delete(request, rule_id):
         return redirect('savings:auto_save_rules')
 
     return render(request, 'savings/auto_save_rule_delete.html', {'rule': rule})
+
+
+def savings_goal_shared(request, share_uuid):
+    goal = get_object_or_404(SavingsGoal, share_uuid=share_uuid, is_private=False)
+
+    today = date.today()
+    pct = min(int((goal.current_amount / goal.target_amount) * 100), 100) if goal.target_amount > 0 else 0
+    remaining = max(goal.target_amount - goal.current_amount, Decimal('0'))
+
+    days_left = None
+    is_overdue = False
+    if goal.deadline and not goal.is_achieved:
+        delta = (goal.deadline - today).days
+        if delta < 0:
+            is_overdue = True
+        else:
+            days_left = delta
+
+    projected = _calculate_projected_completion(goal, today)
+    monthly_contributions = _get_monthly_contributions(goal, today)
+
+    return render(request, 'savings/savings_goal_shared.html', {
+        'goal': goal,
+        'pct': pct,
+        'remaining': remaining,
+        'days_left': days_left,
+        'is_overdue': is_overdue,
+        'projected': projected,
+        'monthly_contributions': monthly_contributions,
+        'milestones': _get_milestone_data(goal),
+    })

@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
 
@@ -20,6 +22,8 @@ class SavingsGoal(models.Model):
     color = models.CharField(max_length=7, default='#00d4aa')
     icon = models.CharField(max_length=10, default='🎯')
     is_achieved = models.BooleanField(default=False)
+    is_private = models.BooleanField(default=True)
+    share_uuid = models.UUIDField(default=uuid.uuid4, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
