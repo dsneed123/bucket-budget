@@ -90,7 +90,9 @@ def transaction_list(request):
     if account_id:
         qs = qs.filter(account_id=account_id)
     if search:
-        qs = qs.filter(Q(description__icontains=search) | Q(vendor__icontains=search))
+        qs = qs.filter(
+            Q(description__icontains=search) | Q(vendor__icontains=search) | Q(notes__icontains=search)
+        )
     if tag_id:
         try:
             Tag.objects.get(pk=tag_id, user=request.user)
@@ -155,6 +157,7 @@ def transaction_list(request):
     if tag_id:
         filter_params['tag'] = tag_id
     filter_qs = urlencode(filter_params)
+    filter_qs_no_search = urlencode({k: v for k, v in filter_params.items() if k != 'search'})
 
     buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
@@ -198,6 +201,7 @@ def transaction_list(request):
         },
         'active_filter_count': active_filter_count,
         'filter_qs': filter_qs,
+        'filter_qs_no_search': filter_qs_no_search,
         'balance_is_absolute': bool(account_id),
         'income_by_source': income_by_source,
     })
@@ -233,7 +237,9 @@ def transaction_export_csv(request):
     if account_id:
         qs = qs.filter(account_id=account_id)
     if search:
-        qs = qs.filter(Q(description__icontains=search) | Q(vendor__icontains=search))
+        qs = qs.filter(
+            Q(description__icontains=search) | Q(vendor__icontains=search) | Q(notes__icontains=search)
+        )
     if tag_id:
         try:
             Tag.objects.get(pk=tag_id, user=request.user)
