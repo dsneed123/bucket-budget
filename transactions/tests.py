@@ -1624,3 +1624,180 @@ class TransactionImportCsvViewTest(TestCase):
         csv_content = 'xdate,xdesc,xamount\n2026-03-01,Test,-1.00\n'
         mapping_response = self._upload_to_mapping(csv_content)
         self.assertContains(mapping_response, 'Loaded saved mapping')
+
+
+class VendorMappingAutoCategorizeTest(TestCase):
+    """Tests for vendor-to-bucket auto-categorization during CSV import."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='autocat@example.com',
+            password='testpass',
+            first_name='Auto',
+            last_name='Cat',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('500.00'),
+        )
+        self.bucket = Bucket.objects.create(
+            user=self.user,
+            name='Groceries',
+            monthly_allocation=Decimal('300.00'),
+        )
+        self.other_bucket = Bucket.objects.create(
+            user=self.user,
+            name='Dining',
+            monthly_allocation=Decimal('150.00'),
+        )
+        VendorMapping.objects.create(
+            user=self.user, vendor_name='Whole Foods', bucket=self.bucket,
+        )
+        self.client.login(email='autocat@example.com', password='testpass')
+        self.url = reverse('transaction_import_csv')
+
+    def _upload_to_mapping(self, csv_content, filename='test.csv'):
+        f = io.BytesIO(csv_content.encode('utf-8'))
+        f.name = filename
+        return self.client.post(self.url, {
+            'step': 'upload',
+            'account': str(self.account.pk),
+            'csv_file': f,
+        })
+
+    def _post_mapping(self, mapping_response):
+        ctx = mapping_response.context
+        post_data = {
+            'step': 'mapping',
+            'account_id': ctx['account_id'],
+            'source_key': ctx['source_key'],
+            'raw_rows_json': ctx['raw_rows_json'],
+        }
+        for col in ctx['columns']:
+            post_data[f'map_{col["name"]}'] = col['field']
+        return self.client.post(self.url, post_data)
+
+    def test_vendor_column_auto_matches_bucket(self):
+        """A vendor column value matching a VendorMapping auto-assigns the bucket."""
+        csv_content = 'date,description,amount,vendor\n2026-01-15,Grocery run,-45.00,Whole Foods\n'
+        mapping_response = self._upload_to_mapping(csv_content)
+        response = self._post_mapping(mapping_response)
+        row = response.context['preview_rows'][0]
+        self.assertEqual(row['bucket_id'], self.bucket.pk)
+        self.assertEqual(row['match_source'], 'vendor')
+
+    def test_category_column_takes_priority_over_vendor_map(self):
+        """Explicit category column match wins over vendor mapping."""
+        csv_content = 'date,description,amount,category,vendor\n2026-01-15,Dinner,-30.00,Dining,Whole Foods\n'
+        mapping_response = self._upload_to_mapping(csv_content)
+        response = self._post_mapping(mapping_response)
+        row = response.context['preview_rows'][0]
+        self.assertEqual(row['bucket_id'], self.other_bucket.pk)
+        self.assertEqual(row['match_source'], 'category')
+
+    def test_unmatched_vendor_has_no_bucket(self):
+        """A vendor not in VendorMapping leaves bucket_id as None."""
+        csv_content = 'date,description,amount,vendor\n2026-01-15,Buy stuff,-20.00,Unknown Shop\n'
+        mapping_response = self._upload_to_mapping(csv_content)
+        response = self._post_mapping(mapping_response)
+        row = response.context['preview_rows'][0]
+        self.assertIsNone(row['bucket_id'])
+        self.assertEqual(row['match_source'], '')
+
+    def test_confirm_creates_vendor_mapping_for_imported_vendor(self):
+        """Confirming import with vendor+bucket creates a VendorMapping entry."""
+        import json as _json
+        rows_json = _json.dumps([{
+            'row_num': 2,
+            'date': '2026-01-15',
+            'description': 'Grocery run',
+            'vendor': 'Trader Joes',
+            'amount': '30.00',
+            'transaction_type': 'expense',
+            'category': '',
+            'bucket_name': '',
+            'bucket_id': None,
+            'match_source': '',
+            'status': 'ok',
+            'error': '',
+        }])
+        self.client.post(self.url, {
+            'step': 'confirm',
+            'account_id': str(self.account.pk),
+            'rows_json': rows_json,
+            f'bucket_2': str(self.bucket.pk),
+        })
+        self.assertTrue(
+            VendorMapping.objects.filter(user=self.user, vendor_name='Trader Joes').exists()
+        )
+        vm = VendorMapping.objects.get(user=self.user, vendor_name='Trader Joes')
+        self.assertEqual(vm.bucket, self.bucket)
+
+    def test_confirm_no_vendor_mapping_created_without_bucket(self):
+        """If bucket is not assigned, no VendorMapping is created."""
+        import json as _json
+        rows_json = _json.dumps([{
+            'row_num': 2,
+            'date': '2026-01-15',
+            'description': 'Mystery purchase',
+            'vendor': 'Some Shop',
+            'amount': '10.00',
+            'transaction_type': 'expense',
+            'category': '',
+            'bucket_name': '',
+            'bucket_id': None,
+            'match_source': '',
+            'status': 'ok',
+            'error': '',
+        }])
+        self.client.post(self.url, {
+            'step': 'confirm',
+            'account_id': str(self.account.pk),
+            'rows_json': rows_json,
+            'bucket_2': '',  # no bucket selected
+        })
+        self.assertFalse(
+            VendorMapping.objects.filter(user=self.user, vendor_name='Some Shop').exists()
+        )
+
+    def test_confirm_bucket_override_used_over_rows_json(self):
+        """POST bucket override takes precedence over bucket_id in rows_json."""
+        import json as _json
+        rows_json = _json.dumps([{
+            'row_num': 2,
+            'date': '2026-01-15',
+            'description': 'Dinner',
+            'vendor': 'Nice Restaurant',
+            'amount': '50.00',
+            'transaction_type': 'expense',
+            'category': '',
+            'bucket_name': 'Groceries',
+            'bucket_id': self.bucket.pk,  # auto-matched to Groceries
+            'match_source': 'vendor',
+            'status': 'ok',
+            'error': '',
+        }])
+        self.client.post(self.url, {
+            'step': 'confirm',
+            'account_id': str(self.account.pk),
+            'rows_json': rows_json,
+            'bucket_2': str(self.other_bucket.pk),  # user overrides to Dining
+        })
+        txn = Transaction.objects.get(user=self.user, description='Dinner')
+        self.assertEqual(txn.bucket, self.other_bucket)
+
+    def test_description_used_as_vendor_fallback_for_lookup(self):
+        """When no vendor column, description is checked against vendor map."""
+        # VendorMapping uses the description as vendor_name
+        VendorMapping.objects.create(
+            user=self.user, vendor_name='Coffee Shop', bucket=self.other_bucket,
+        )
+        csv_content = 'date,description,amount\n2026-01-15,Coffee Shop,-5.00\n'
+        mapping_response = self._upload_to_mapping(csv_content)
+        response = self._post_mapping(mapping_response)
+        row = response.context['preview_rows'][0]
+        self.assertEqual(row['bucket_id'], self.other_bucket.pk)
+        self.assertEqual(row['match_source'], 'vendor')

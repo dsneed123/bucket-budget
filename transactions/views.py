@@ -997,8 +997,12 @@ def _auto_detect_csv_mapping(headers):
     return {h: _CSV_AUTO_DETECT[h.lower()] for h in headers if h.lower() in _CSV_AUTO_DETECT}
 
 
-def _parse_csv_rows(raw_rows, user_mapping, bucket_map):
-    """Apply user_mapping to raw_rows and return (preview_rows, importable_rows)."""
+def _parse_csv_rows(raw_rows, user_mapping, bucket_map, vendor_map=None):
+    """Apply user_mapping to raw_rows and return (preview_rows, importable_rows).
+
+    vendor_map: optional dict of {vendor_name.lower(): Bucket} built from VendorMapping.
+    When provided, rows without a category-column match are auto-categorized by vendor name.
+    """
     date_col = next((h for h, f in user_mapping.items() if f == 'date'), None)
     amount_col = next((h for h, f in user_mapping.items() if f == 'amount'), None)
     desc_col = next((h for h, f in user_mapping.items() if f == 'description'), None)
@@ -1061,10 +1065,20 @@ def _parse_csv_rows(raw_rows, user_mapping, bucket_map):
         if amount_val is not None:
             amount_val = abs(amount_val)
 
-        # Match category to bucket
+        # Match category to bucket — first by category column, then by vendor mapping
         matched_bucket = None
+        match_source = ''
         if category_raw:
             matched_bucket = bucket_map.get(category_raw.lower())
+            if matched_bucket:
+                match_source = 'category'
+
+        if matched_bucket is None and vendor_map:
+            lookup = vendor_raw or description_raw
+            if lookup:
+                matched_bucket = vendor_map.get(lookup.lower())
+                if matched_bucket:
+                    match_source = 'vendor'
 
         status = 'error' if parse_errors else 'ok'
 
@@ -1078,6 +1092,7 @@ def _parse_csv_rows(raw_rows, user_mapping, bucket_map):
             'category': category_raw,
             'bucket_name': matched_bucket.name if matched_bucket else '',
             'bucket_id': matched_bucket.pk if matched_bucket else None,
+            'match_source': match_source,
             'status': status,
             'error': '; '.join(parse_errors),
         }
@@ -1253,7 +1268,15 @@ def transaction_import_csv(request):
                     defaults={'mapping': user_mapping},
                 )
 
-            preview_rows, importable_rows = _parse_csv_rows(raw_rows, user_mapping, bucket_map)
+            vendor_map = {
+                vm.vendor_name.lower(): vm.bucket
+                for vm in VendorMapping.objects.filter(
+                    user=request.user,
+                ).select_related('bucket')
+                if vm.bucket_id
+            }
+
+            preview_rows, importable_rows = _parse_csv_rows(raw_rows, user_mapping, bucket_map, vendor_map)
             ok_count = sum(1 for r in preview_rows if r['status'] == 'ok')
             error_count = sum(1 for r in preview_rows if r['status'] == 'error')
 
@@ -1264,6 +1287,7 @@ def transaction_import_csv(request):
                 'ok_count': ok_count,
                 'error_count': error_count,
                 'account': account,
+                'buckets': buckets,
                 'rows_json': json.dumps(importable_rows),
             })
 
@@ -1290,12 +1314,23 @@ def transaction_import_csv(request):
                     skipped += 1
                     continue
 
+                # Prefer bucket override from the per-row dropdown in the preview form
+                override_key = f'bucket_{row["row_num"]}'
                 bucket = None
-                if row.get('bucket_id'):
-                    try:
-                        bucket = buckets.get(pk=row['bucket_id'])
-                    except Bucket.DoesNotExist:
-                        pass
+                if override_key in request.POST:
+                    override_val = request.POST[override_key].strip()
+                    if override_val:
+                        try:
+                            bucket = buckets.get(pk=int(override_val))
+                        except (ValueError, Bucket.DoesNotExist):
+                            bucket = None
+                else:
+                    # Fall back to auto-matched bucket stored in rows_json
+                    if row.get('bucket_id'):
+                        try:
+                            bucket = buckets.get(pk=row['bucket_id'])
+                        except Bucket.DoesNotExist:
+                            pass
 
                 try:
                     Transaction.objects.create(
@@ -1309,6 +1344,20 @@ def transaction_import_csv(request):
                         date=datetime.date.fromisoformat(row['date']),
                     )
                     imported += 1
+
+                    # Learn vendor→bucket mapping for future imports
+                    vendor_name = row.get('vendor', '').strip()
+                    if vendor_name and bucket:
+                        existing = VendorMapping.objects.filter(
+                            user=request.user, vendor_name__iexact=vendor_name,
+                        ).first()
+                        if existing:
+                            existing.bucket = bucket
+                            existing.save()
+                        else:
+                            VendorMapping.objects.create(
+                                user=request.user, vendor_name=vendor_name[:100], bucket=bucket,
+                            )
                 except Exception:
                     skipped += 1
 
