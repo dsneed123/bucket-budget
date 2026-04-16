@@ -93,11 +93,14 @@ class UserPreferences(models.Model):
         'budget_overview': True,
         'recent_transactions': True,
         'calendar': True,
+        'no_spend_days': True,
         'savings_goals': True,
         'upcoming_recurring': True,
         'recommendations': True,
         'activity_feed': True,
     }
+
+    no_spend_goal = models.IntegerField(default=0)
 
     def get_widget_visibility(self):
         merged = dict(self.WIDGET_DEFAULTS)

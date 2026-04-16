@@ -537,3 +537,18 @@ def save_widget_preferences(request):
     prefs.widget_visibility = visibility
     prefs.save()
     return redirect('/dashboard/')
+
+
+@login_required
+def save_no_spend_goal(request):
+    if request.method != 'POST':
+        return redirect('/dashboard/')
+
+    prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+    try:
+        goal = int(request.POST.get('no_spend_goal', 0))
+        prefs.no_spend_goal = max(0, goal)
+        prefs.save()
+    except (ValueError, TypeError):
+        pass
+    return redirect('/dashboard/')

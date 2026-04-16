@@ -20,6 +20,7 @@ urlpatterns = [
     path('settings/import/', views.import_csv, name='import_csv'),
     path('settings/import/template/<str:data_type>/', views.download_import_template, name='download_import_template'),
     path('settings/widget-preferences/', views.save_widget_preferences, name='save_widget_preferences'),
+    path('settings/no-spend-goal/', views.save_no_spend_goal, name='save_no_spend_goal'),
     path('password-reset/', PasswordResetView.as_view(
         template_name='accounts/password_reset_form.html',
         email_template_name='accounts/password_reset_email.html',
