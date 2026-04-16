@@ -4,11 +4,14 @@ from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Sum
 from django.db.models.functions import ExtractWeekDay
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect, render
 
 from buckets.models import Bucket
 from savings.models import SavingsContribution
 from transactions.models import Transaction
+
+from .models import Recommendation
+from .recommendations import refresh_recommendations
 
 
 def _score_color(score):
@@ -356,6 +359,14 @@ def insights(request):
     # Savings rate trend — last 12 months
     sr_trend_months, sr_avg_line_px = _savings_rate_trend(request.user, today)
 
+    # Personalized recommendations
+    refresh_recommendations(request.user)
+    _priority_order = {Recommendation.PRIORITY_HIGH: 0, Recommendation.PRIORITY_MEDIUM: 1, Recommendation.PRIORITY_LOW: 2}
+    recommendations = sorted(
+        Recommendation.objects.filter(user=request.user, is_dismissed=False),
+        key=lambda r: _priority_order.get(r.priority, 3),
+    )
+
     return render(request, 'insights/insights.html', {
         'current_month': today.strftime('%B %Y'),
         'last_month_label': last_month_date.strftime('%B %Y'),
@@ -381,4 +392,14 @@ def insights(request):
         'income_expense_trend': income_expense_trend,
         'sr_trend_months': sr_trend_months,
         'sr_avg_line_px': sr_avg_line_px,
+        'recommendations': recommendations,
     })
+
+
+@login_required
+def dismiss_recommendation(request, rec_id):
+    if request.method == 'POST':
+        rec = get_object_or_404(Recommendation, pk=rec_id, user=request.user)
+        rec.is_dismissed = True
+        rec.save()
+    return redirect('insights')
