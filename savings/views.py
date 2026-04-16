@@ -9,7 +9,29 @@ from django.views.decorators.http import require_POST
 
 from banking.models import BankAccount
 
-from .models import AutoSaveRule, SavingsContribution, SavingsGoal
+from .models import AutoSaveRule, SavingsContribution, SavingsGoal, SavingsMilestone
+
+_MILESTONE_META = {
+    25:  {'icon': '🌱', 'label': '25%'},
+    50:  {'icon': '⚡', 'label': '50%'},
+    75:  {'icon': '🔥', 'label': '75%'},
+    100: {'icon': '🏆', 'label': '100%'},
+}
+
+
+def _get_milestone_data(goal):
+    """Return a list of all milestone tiers with achieved status and reached_at."""
+    achieved = {m.percentage: m.reached_at for m in goal.milestones.all()}
+    return [
+        {
+            'percentage': pct,
+            'icon': meta['icon'],
+            'label': meta['label'],
+            'achieved': pct in achieved,
+            'reached_at': achieved.get(pct),
+        }
+        for pct, meta in _MILESTONE_META.items()
+    ]
 
 
 def _get_monthly_contributions(goal, today):
@@ -286,6 +308,7 @@ def savings_goal_detail(request, goal_id):
         'contribution_form': contribution_form,
         'projected': projected,
         'monthly_contributions': monthly_contributions,
+        'milestones': _get_milestone_data(goal),
     })
 
 
@@ -457,6 +480,7 @@ def savings_goal_contribute(request, goal_id):
             },
             'projected': projected,
             'monthly_contributions': monthly_contributions,
+            'milestones': _get_milestone_data(goal),
         })
 
     SavingsContribution.objects.create(
