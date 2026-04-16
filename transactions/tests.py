@@ -1,4 +1,6 @@
+import csv
 import datetime
+import io
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -1169,3 +1171,139 @@ class VendorMappingIntegrationTest(TestCase):
         response = self.client.get(reverse('transaction_add'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Test Market')
+
+
+class TransactionExportCsvViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='export@example.com',
+            password='testpass',
+            first_name='Export',
+            last_name='User',
+        )
+        self.other_user = User.objects.create_user(
+            email='other@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('500.00'),
+        )
+        self.bucket = Bucket.objects.create(
+            user=self.user,
+            name='Groceries',
+            monthly_allocation=Decimal('300.00'),
+        )
+        self.client.login(email='export@example.com', password='testpass')
+        self.url = reverse('transaction_export_csv')
+
+    def _make_transaction(self, **kwargs):
+        defaults = dict(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('50.00'),
+            transaction_type='expense',
+            description='Test transaction',
+            date=datetime.date(2026, 4, 16),
+        )
+        defaults.update(kwargs)
+        return Transaction.objects.create(**defaults)
+
+    def _get_csv_rows(self, response):
+        content = b''.join(response.streaming_content).decode('utf-8')
+        reader = csv.reader(io.StringIO(content))
+        return list(reader)
+
+    def test_redirect_if_not_logged_in(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response['Location'])
+
+    def test_returns_csv_content_type(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv')
+
+    def test_content_disposition_attachment(self):
+        response = self.client.get(self.url)
+        self.assertIn('attachment', response['Content-Disposition'])
+        self.assertIn('transactions.csv', response['Content-Disposition'])
+
+    def test_csv_header_row(self):
+        response = self.client.get(self.url)
+        rows = self._get_csv_rows(response)
+        self.assertEqual(rows[0], ['date', 'description', 'vendor', 'amount', 'type', 'bucket', 'account', 'necessity_score', 'tags'])
+
+    def test_csv_contains_transaction_data(self):
+        self._make_transaction(vendor='Whole Foods', bucket=self.bucket)
+        response = self.client.get(self.url)
+        rows = self._get_csv_rows(response)
+        self.assertEqual(len(rows), 2)  # header + 1 transaction
+        data_row = rows[1]
+        self.assertEqual(data_row[0], '2026-04-16')
+        self.assertEqual(data_row[1], 'Test transaction')
+        self.assertEqual(data_row[2], 'Whole Foods')
+        self.assertEqual(data_row[3], '50.00')
+        self.assertEqual(data_row[4], 'expense')
+        self.assertEqual(data_row[5], 'Groceries')
+        self.assertEqual(data_row[6], 'Checking')
+
+    def test_only_exports_own_transactions(self):
+        other_account = BankAccount.objects.create(
+            user=self.other_user,
+            name='Other Checking',
+            account_type='checking',
+            balance=Decimal('100.00'),
+        )
+        self._make_transaction()
+        Transaction.objects.create(
+            user=self.other_user,
+            account=other_account,
+            amount=Decimal('20.00'),
+            transaction_type='expense',
+            description='Other user transaction',
+            date=datetime.date(2026, 4, 16),
+        )
+        response = self.client.get(self.url)
+        rows = self._get_csv_rows(response)
+        self.assertEqual(len(rows), 2)  # header + 1 (own transaction only)
+
+    def test_filter_by_type(self):
+        self._make_transaction(transaction_type='expense')
+        self._make_transaction(transaction_type='income', amount=Decimal('100.00'))
+        response = self.client.get(self.url + '?type=expense')
+        rows = self._get_csv_rows(response)
+        self.assertEqual(len(rows), 2)  # header + 1 expense
+        self.assertEqual(rows[1][4], 'expense')
+
+    def test_filter_by_date_range(self):
+        self._make_transaction(date=datetime.date(2026, 3, 1))
+        self._make_transaction(date=datetime.date(2026, 4, 16))
+        response = self.client.get(self.url + '?date_from=2026-04-01&date_to=2026-04-30')
+        rows = self._get_csv_rows(response)
+        self.assertEqual(len(rows), 2)  # header + 1
+
+    def test_empty_export_has_only_header(self):
+        response = self.client.get(self.url)
+        rows = self._get_csv_rows(response)
+        self.assertEqual(len(rows), 1)  # header only
+
+    def test_tags_included_in_export(self):
+        txn = self._make_transaction()
+        tag = Tag.objects.create(user=self.user, name='food', color='#ff0000')
+        txn.tags.add(tag)
+        response = self.client.get(self.url)
+        rows = self._get_csv_rows(response)
+        self.assertEqual(rows[1][8], 'food')
+
+    def test_necessity_score_included(self):
+        self._make_transaction(necessity_score=7)
+        response = self.client.get(self.url)
+        rows = self._get_csv_rows(response)
+        self.assertEqual(rows[1][7], '7')

@@ -4,6 +4,7 @@ from . import views
 
 urlpatterns = [
     path('transactions/', views.transaction_list, name='transaction_list'),
+    path('transactions/export/csv/', views.transaction_export_csv, name='transaction_export_csv'),
     path('transactions/bulk/', views.transaction_bulk_action, name='transaction_bulk_action'),
     path('transactions/add/', views.transaction_add, name='transaction_add'),
     path('transactions/vendor-autocomplete/', views.vendor_autocomplete, name='vendor_autocomplete'),
