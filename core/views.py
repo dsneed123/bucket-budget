@@ -1,4 +1,3 @@
-import calendar
 import datetime
 from decimal import Decimal
 
@@ -7,6 +6,7 @@ from django.db.models import Case, IntegerField, Sum, Value, When
 from django.http import HttpResponse
 from django.shortcuts import render
 
+from accounts.utils import get_current_fiscal_month, get_fiscal_month_range, get_user_fiscal_start
 from banking.models import BankAccount
 from buckets.models import Bucket
 from insights.models import Recommendation
@@ -29,8 +29,12 @@ def dashboard(request):
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
     buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
 
+    fiscal_start = get_user_fiscal_start(request.user)
+    fyear, fmonth = get_current_fiscal_month(today, fiscal_start)
+    fstart, fend = get_fiscal_month_range(fyear, fmonth, fiscal_start)
+
     month_qs = Transaction.objects.filter(
-        user=request.user, date__year=today.year, date__month=today.month
+        user=request.user, date__gte=fstart, date__lte=fend
     )
     total_income = month_qs.filter(transaction_type='income').aggregate(s=Sum('amount'))['s'] or Decimal('0')
     total_expenses = month_qs.filter(transaction_type='expense').aggregate(s=Sum('amount'))['s'] or Decimal('0')
@@ -79,9 +83,9 @@ def dashboard(request):
     else:
         budget_pct = 0
 
-    days_in_month = calendar.monthrange(today.year, today.month)[1]
-    days_elapsed = today.day
-    days_left = days_in_month - today.day + 1
+    days_in_month = (fend - fstart).days + 1
+    days_elapsed = (today - fstart).days + 1
+    days_left = (fend - today).days + 1
     actual_daily_avg = (total_expenses / Decimal(days_elapsed)).quantize(Decimal('0.01')) if days_elapsed > 0 else Decimal('0')
     monthly_income = request.user.monthly_income or Decimal('0')
     remaining_budget = monthly_income - total_expenses
@@ -89,7 +93,7 @@ def dashboard(request):
 
     month_expenses_qs = Transaction.objects.filter(
         user=request.user, transaction_type='expense',
-        date__year=today.year, date__month=today.month,
+        date__gte=fstart, date__lte=fend,
     )
     top_bucket_data = []
     for bucket in budget_buckets:

@@ -28,27 +28,30 @@ class Bucket(models.Model):
         if not self.rollover:
             return Decimal('0')
 
+        from accounts.utils import get_current_fiscal_month, get_fiscal_month_range, get_user_fiscal_start
         from django.db.models import Sum
         from transactions.models import Transaction
 
         today = datetime.date.today()
-        if year is None:
-            year = today.year
-        if month is None:
-            month = today.month
+        fiscal_start = get_user_fiscal_start(self.user)
+
+        if year is None or month is None:
+            year, month = get_current_fiscal_month(today, fiscal_start)
 
         if month == 1:
             prev_year, prev_month = year - 1, 12
         else:
             prev_year, prev_month = year, month - 1
 
+        prev_fstart, prev_fend = get_fiscal_month_range(prev_year, prev_month, fiscal_start)
+
         prev_spent = (
             Transaction.objects.filter(
                 user=self.user,
                 bucket=self,
                 transaction_type='expense',
-                date__year=prev_year,
-                date__month=prev_month,
+                date__gte=prev_fstart,
+                date__lte=prev_fend,
             ).aggregate(s=Sum('amount'))['s']
             or Decimal('0')
         )
