@@ -306,6 +306,7 @@ def savings_goal_detail(request, goal_id):
         'accounts': accounts,
         'errors': errors,
         'contribution_form': contribution_form,
+        'withdraw_form': {},
         'projected': projected,
         'monthly_contributions': monthly_contributions,
         'milestones': _get_milestone_data(goal),
@@ -478,6 +479,7 @@ def savings_goal_contribute(request, goal_id):
                 'note': note,
                 'date': today.strftime('%Y-%m-%d'),
             },
+            'withdraw_form': {},
             'projected': projected,
             'monthly_contributions': monthly_contributions,
             'milestones': _get_milestone_data(goal),
@@ -499,6 +501,94 @@ def savings_goal_contribute(request, goal_id):
     else:
         messages.success(request, f'Contribution of ${amount_val:,.2f} added successfully.')
 
+    return redirect('savings:savings_goal_detail', goal_id=goal.pk)
+
+
+@login_required
+@require_POST
+def savings_goal_withdraw(request, goal_id):
+    goal = get_object_or_404(SavingsGoal, pk=goal_id, user=request.user)
+    accounts = BankAccount.objects.filter(user=request.user, is_active=True)
+
+    amount_raw = request.POST.get('amount', '').strip()
+    account_id = request.POST.get('target_account', '').strip()
+    note = request.POST.get('note', '').strip()
+
+    errors = {}
+
+    amount_val = None
+    if not amount_raw:
+        errors['withdraw_amount'] = 'Amount is required.'
+    else:
+        try:
+            amount_val = Decimal(amount_raw)
+            if amount_val <= 0:
+                errors['withdraw_amount'] = 'Amount must be greater than zero.'
+            elif amount_val > goal.current_amount:
+                errors['withdraw_amount'] = f'Cannot withdraw more than the saved amount (${goal.current_amount:,.2f}).'
+        except InvalidOperation:
+            errors['withdraw_amount'] = 'Please enter a valid number.'
+
+    account_obj = None
+    if not account_id:
+        errors['target_account'] = 'Please select an account.'
+    else:
+        try:
+            account_obj = accounts.get(pk=account_id)
+        except BankAccount.DoesNotExist:
+            errors['target_account'] = 'Invalid account.'
+
+    if errors:
+        goal.refresh_from_db()
+        today = date.today()
+        pct = min(int((goal.current_amount / goal.target_amount) * 100), 100) if goal.target_amount > 0 else 0
+        remaining = max(goal.target_amount - goal.current_amount, Decimal('0'))
+
+        days_left = None
+        is_overdue = False
+        if goal.deadline and not goal.is_achieved:
+            delta = (goal.deadline - today).days
+            if delta < 0:
+                is_overdue = True
+            else:
+                days_left = delta
+
+        contributions = goal.contributions.select_related('source_account').order_by('-date', '-created_at')
+        all_accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
+        projected = _calculate_projected_completion(goal, today)
+        monthly_contributions = _get_monthly_contributions(goal, today)
+
+        return render(request, 'savings/savings_goal_detail.html', {
+            'goal': goal,
+            'pct': pct,
+            'remaining': remaining,
+            'days_left': days_left,
+            'is_overdue': is_overdue,
+            'contributions': contributions,
+            'accounts': all_accounts,
+            'errors': errors,
+            'contribution_form': {'date': today.strftime('%Y-%m-%d')},
+            'withdraw_form': {'amount': amount_raw, 'target_account': account_id, 'note': note},
+            'projected': projected,
+            'monthly_contributions': monthly_contributions,
+            'milestones': _get_milestone_data(goal),
+        })
+
+    SavingsContribution.objects.create(
+        goal=goal,
+        amount=amount_val,
+        source_account=account_obj,
+        transaction_type='withdrawal',
+        date=date.today(),
+        note=note,
+    )
+
+    goal.refresh_from_db()
+    if goal.is_achieved and goal.current_amount < goal.target_amount:
+        goal.is_achieved = False
+        goal.save()
+
+    messages.success(request, f'Withdrawal of ${amount_val:,.2f} recorded successfully.')
     return redirect('savings:savings_goal_detail', goal_id=goal.pk)
 
 

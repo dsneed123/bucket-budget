@@ -27,15 +27,22 @@ class SavingsGoal(models.Model):
 
 
 class SavingsContribution(models.Model):
+    TRANSACTION_TYPE_CHOICES = [
+        ('contribution', 'Contribution'),
+        ('withdrawal', 'Withdrawal'),
+    ]
+
     goal = models.ForeignKey(SavingsGoal, on_delete=models.CASCADE, related_name='contributions')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     source_account = models.ForeignKey('banking.BankAccount', on_delete=models.CASCADE, related_name='savings_contributions')
+    transaction_type = models.CharField(max_length=12, choices=TRANSACTION_TYPE_CHOICES, default='contribution')
     date = models.DateField()
     note = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f'{self.goal.name} +{self.amount} on {self.date}'
+        sign = '+' if self.transaction_type == 'contribution' else '-'
+        return f'{self.goal.name} {sign}{self.amount} on {self.date}'
 
 
 class SavingsMilestone(models.Model):
