@@ -47,6 +47,7 @@ def bucket_list(request):
             'pct': min(pct, 100),
             'bar_class': bar_class,
             'rollover_amount': rollover_amount,
+            'alert': pct >= bucket.alert_threshold,
         })
 
     archived_buckets = []
@@ -120,6 +121,7 @@ def bucket_detail(request, bucket_id):
         'remaining': remaining,
         'pct': pct,
         'bar_class': bar_class,
+        'alert': pct >= bucket.alert_threshold,
         'monthly_history': monthly_history,
         'transactions': transactions,
         'current_month': today.strftime('%B %Y'),
@@ -137,6 +139,7 @@ def bucket_add(request):
         color = request.POST.get('color', '#0984e3').strip()
         monthly_allocation = request.POST.get('monthly_allocation', '').strip()
         description = request.POST.get('description', '').strip()
+        alert_threshold_raw = request.POST.get('alert_threshold', '90').strip()
 
         form_data = {
             'name': name,
@@ -144,6 +147,7 @@ def bucket_add(request):
             'color': color,
             'monthly_allocation': monthly_allocation,
             'description': description,
+            'alert_threshold': alert_threshold_raw,
         }
 
         if not name:
@@ -160,6 +164,14 @@ def bucket_add(request):
             except Exception:
                 errors['monthly_allocation'] = 'Please enter a valid number.'
 
+        alert_threshold_val = 90
+        try:
+            alert_threshold_val = int(alert_threshold_raw)
+            if not 1 <= alert_threshold_val <= 100:
+                alert_threshold_val = 90
+        except (ValueError, TypeError):
+            alert_threshold_val = 90
+
         if not errors:
             Bucket.objects.create(
                 user=request.user,
@@ -168,6 +180,7 @@ def bucket_add(request):
                 color=color or '#0984e3',
                 monthly_allocation=allocation_val,
                 description=description,
+                alert_threshold=alert_threshold_val,
             )
             return redirect('bucket_list')
 
@@ -265,6 +278,7 @@ def bucket_edit(request, bucket_id):
         monthly_allocation = request.POST.get('monthly_allocation', '').strip()
         description = request.POST.get('description', '').strip()
         rollover = request.POST.get('rollover') == 'on'
+        alert_threshold_raw = request.POST.get('alert_threshold', str(bucket.alert_threshold)).strip()
 
         if not name:
             errors['name'] = 'Bucket name is required.'
@@ -280,6 +294,14 @@ def bucket_edit(request, bucket_id):
             except Exception:
                 errors['monthly_allocation'] = 'Please enter a valid number.'
 
+        alert_threshold_val = bucket.alert_threshold
+        try:
+            alert_threshold_val = int(alert_threshold_raw)
+            if not 1 <= alert_threshold_val <= 100:
+                alert_threshold_val = bucket.alert_threshold
+        except (ValueError, TypeError):
+            alert_threshold_val = bucket.alert_threshold
+
         if not errors:
             bucket.name = name
             bucket.icon = icon or '💰'
@@ -287,6 +309,7 @@ def bucket_edit(request, bucket_id):
             bucket.monthly_allocation = allocation_val
             bucket.description = description
             bucket.rollover = rollover
+            bucket.alert_threshold = alert_threshold_val
             bucket.save()
             success = True
 

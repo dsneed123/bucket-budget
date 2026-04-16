@@ -558,6 +558,19 @@ table tbody tr:hover td {
 }
 
 /* =====================
+   Alert dot
+   ===================== */
+
+.alert-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--accent-red);
+    flex-shrink: 0;
+}
+
+/* =====================
    Badges / tags
    ===================== */
 

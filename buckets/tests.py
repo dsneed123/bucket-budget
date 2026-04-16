@@ -117,6 +117,94 @@ class BucketRolloverTest(TestCase):
         self.assertEqual(bucket_data[0]['rollover_amount'], Decimal('0'))
 
 
+class BucketAlertThresholdTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='alert@example.com',
+            password='testpass',
+            first_name='Test',
+            last_name='User',
+        )
+        self.client.login(email='alert@example.com', password='testpass')
+        Bucket.objects.filter(user=self.user).delete()
+        self.bucket = Bucket.objects.create(
+            user=self.user,
+            name='Groceries',
+            monthly_allocation=Decimal('500.00'),
+        )
+
+    def test_alert_threshold_defaults_to_90(self):
+        self.assertEqual(self.bucket.alert_threshold, 90)
+
+    def test_bucket_list_includes_alert_flag(self):
+        response = self.client.get(reverse('bucket_list'))
+        self.assertEqual(response.status_code, 200)
+        bucket_data = response.context['bucket_data']
+        self.assertIn('alert', bucket_data[0])
+
+    def test_bucket_list_alert_false_when_spending_below_threshold(self):
+        # spending is 0, so alert should be False
+        response = self.client.get(reverse('bucket_list'))
+        bucket_data = response.context['bucket_data']
+        self.assertFalse(bucket_data[0]['alert'])
+
+    def test_bucket_list_alert_true_when_spending_at_threshold(self):
+        # Set threshold to 0 so any spending (even 0%) would still require pct >= 0
+        # Use threshold=1 and pct=0: alert should be False
+        # Better: set threshold to 0 is invalid; use a bucket where pct >= threshold
+        # Since spending is always 0 (placeholder), set threshold to 0 would be clamped to 1.
+        # We verify alert=False since pct=0 < 90 (default).
+        self.bucket.alert_threshold = 0  # 0 < 1, stored but pct=0 >= 0 would be True
+        self.bucket.save()
+        response = self.client.get(reverse('bucket_list'))
+        bucket_data = response.context['bucket_data']
+        # pct=0, alert_threshold=0: 0 >= 0 is True
+        self.assertTrue(bucket_data[0]['alert'])
+
+    def test_edit_updates_alert_threshold(self):
+        self.client.post(
+            reverse('bucket_edit', args=[self.bucket.pk]),
+            {
+                'name': 'Groceries',
+                'monthly_allocation': '500.00',
+                'icon': '💰',
+                'color': '#0984e3',
+                'description': '',
+                'alert_threshold': '75',
+            },
+        )
+        self.bucket.refresh_from_db()
+        self.assertEqual(self.bucket.alert_threshold, 75)
+
+    def test_edit_invalid_threshold_keeps_existing(self):
+        self.client.post(
+            reverse('bucket_edit', args=[self.bucket.pk]),
+            {
+                'name': 'Groceries',
+                'monthly_allocation': '500.00',
+                'icon': '💰',
+                'color': '#0984e3',
+                'description': '',
+                'alert_threshold': 'not-a-number',
+            },
+        )
+        self.bucket.refresh_from_db()
+        self.assertEqual(self.bucket.alert_threshold, 90)
+
+    def test_alert_dot_shown_in_template_when_alert_true(self):
+        # Force alert by setting threshold to 0
+        self.bucket.alert_threshold = 0
+        self.bucket.save()
+        response = self.client.get(reverse('bucket_list'))
+        self.assertContains(response, 'alert-dot')
+
+    def test_alert_dot_not_shown_when_alert_false(self):
+        # With default threshold 90 and 0% spending, no alert
+        response = self.client.get(reverse('bucket_list'))
+        self.assertNotContains(response, 'alert-dot')
+
+
 class BucketReorderViewTest(TestCase):
     def setUp(self):
         self.client = Client()

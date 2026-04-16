@@ -45,6 +45,7 @@
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 0.75rem; color: var(--text-secondary);">{{ item.pct }}%</span>
+                    {% if item.alert %}<span class="alert-dot" title="Spending alert: {{ item.pct }}% of {{ item.bucket.alert_threshold }}% threshold"></span>{% endif %}
                     <div style="display: flex; flex-direction: column; gap: 2px;">
                         {% if not forloop.first %}
                         <form method="post" action="{% url 'bucket_reorder' %}" style="margin: 0;">
