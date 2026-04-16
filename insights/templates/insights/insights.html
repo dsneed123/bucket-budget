@@ -154,6 +154,21 @@
         {% endif %}
     </div>
 
+    <!-- Day-of-Week Spending Pattern -->
+    <div class="card dow-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Spending by Day of Week — {{ current_month }}</span>
+        </div>
+        <div class="dow-bars-area">
+            {% for day in dow_pattern %}
+            <div class="dow-col">
+                <div class="dow-bar {% if day.is_peak %}dow-bar-peak{% endif %}" style="height: {{ day.bar_height_px }}px"></div>
+                <div class="dow-col-label {% if day.is_peak %}dow-label-peak{% endif %}">{{ day.label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
     <!-- Monthly Spending Trend -->
     <div class="card trend-section">
         <div class="trend-header">
@@ -441,6 +456,56 @@
     .merchant-row {
         grid-template-columns: 90px 1fr 70px 36px 60px;
     }
+}
+
+.dow-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.dow-bars-area {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    height: 128px;
+}
+
+.dow-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    height: 100%;
+}
+
+.dow-bar {
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+    flex-shrink: 0;
+    background-color: var(--accent-blue);
+}
+
+.dow-bar-peak {
+    background-color: var(--accent-red);
+}
+
+.dow-col-label {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    line-height: 1;
+    height: 20px;
+    display: flex;
+    align-items: center;
+}
+
+.dow-label-peak {
+    color: var(--accent-red);
+    font-weight: 700;
 }
 </style>
 {% endblock %}
