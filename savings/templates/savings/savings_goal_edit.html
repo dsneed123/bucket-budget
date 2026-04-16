@@ -132,6 +132,39 @@
                 >
             </div>
 
+            <div class="form-group">
+                <label class="form-label">Visibility</label>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.875rem;">
+                        <input type="radio" name="is_private" value="true" {% if form_data.is_private != False %}checked{% endif %} style="accent-color: var(--accent-green);">
+                        Private
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.875rem;">
+                        <input type="radio" name="is_private" value="false" {% if form_data.is_private == False %}checked{% endif %} style="accent-color: var(--accent-green);">
+                        Public (shareable link)
+                    </label>
+                </div>
+                <p style="margin: 6px 0 0; font-size: 0.78rem; color: var(--text-secondary);">Public goals generate a read-only link you can share for accountability.</p>
+            </div>
+
+            {% if not goal.is_private %}
+            <div id="share-link-section" style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; margin-bottom: 12px;">
+                <div style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 6px; font-weight: 500;">Shareable link</div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input
+                        type="text"
+                        id="share-link-input"
+                        readonly
+                        value="{{ request.scheme }}://{{ request.get_host }}{% url 'savings:savings_goal_shared' goal.share_uuid %}"
+                        class="form-control"
+                        style="font-size: 0.8rem; font-family: monospace; flex: 1;"
+                    >
+                    <button type="button" onclick="copyShareLink()" class="btn btn-primary" style="white-space: nowrap; font-size: 0.8rem; padding: 6px 12px;">Copy</button>
+                </div>
+                <div id="copy-confirm" style="display: none; font-size: 0.75rem; color: var(--accent-green); margin-top: 4px;">Copied!</div>
+            </div>
+            {% endif %}
+
             <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
                 <button type="submit" class="btn btn-primary">Save changes</button>
                 <a href="{% url 'savings:savings_goal_detail' goal.pk %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
@@ -154,5 +187,17 @@
             colorPicker.value = val;
         }
     });
+
+    function copyShareLink() {
+        const input = document.getElementById('share-link-input');
+        if (!input) return;
+        navigator.clipboard.writeText(input.value).then(() => {
+            const confirm = document.getElementById('copy-confirm');
+            if (confirm) {
+                confirm.style.display = 'block';
+                setTimeout(() => { confirm.style.display = 'none'; }, 2000);
+            }
+        });
+    }
 </script>
 {% endblock %}

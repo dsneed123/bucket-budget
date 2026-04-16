@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}{{ goal.icon }} {{ goal.name }} — Savings Goal{% endblock %}
+{% block page_title %}{{ goal.icon }} {{ goal.name }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px;">
+
+    <!-- Shared banner -->
+    <div style="background: rgba(0,212,170,0.08); border: 1px solid var(--accent-green); border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; font-size: 0.8rem; color: var(--accent-green); display: flex; align-items: center; gap: 8px;">
+        <span>🔗</span>
+        <span>This is a shared read-only view of a savings goal.</span>
+    </div>
+
+    <!-- Goal header card -->
+    <div class="card mb-4" style="border-top: 4px solid {{ goal.color }};">
+        <div class="flex items-center justify-between" style="margin-bottom: 20px;">
+            <div>
+                <div style="font-size: 2rem; margin-bottom: 6px;">
+                    {% if goal.is_achieved %}✅{% else %}{{ goal.icon }}{% endif %}
+                </div>
+                <h2 style="margin: 0 0 4px; font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">{{ goal.name }}</h2>
+                {% if goal.description %}
+                <p style="margin: 0; font-size: 0.875rem; color: var(--text-secondary);">{{ goal.description }}</p>
+                {% endif %}
+            </div>
+            <div style="text-align: right;">
+                <span class="badge"
+                      style="{% if goal.priority == 'high' or goal.priority == 'critical' %}background: rgba(255,71,87,0.15); color: var(--accent-red);{% elif goal.priority == 'medium' %}background: rgba(249,202,36,0.15); color: var(--accent-gold);{% else %}background: rgba(0,212,170,0.15); color: var(--accent-green);{% endif %}">
+                    {{ goal.get_priority_display }}
+                </span>
+                {% if goal.is_achieved %}
+                <div style="font-size: 0.8rem; color: var(--accent-green); font-weight: 600; margin-top: 6px;">Goal Achieved!</div>
+                {% elif is_overdue %}
+                <div style="font-size: 0.8rem; color: var(--accent-red); font-weight: 600; margin-top: 6px;">Overdue</div>
+                {% elif days_left is not None %}
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 6px;">{{ days_left }} day{{ days_left|pluralize }} left</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div style="margin-bottom: 20px;">
+            <div class="flex items-center justify-between" style="margin-bottom: 8px;">
+                <span style="font-size: 0.875rem; color: var(--text-secondary);">Progress</span>
+                <span style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">{{ pct }}%</span>
+            </div>
+            <div class="progress" style="height: 12px; border-radius: 6px;">
+                <div class="progress-bar" style="width: {{ pct }}%; background: {{ goal.color }}; height: 100%; border-radius: 6px; transition: width 0.4s ease;"></div>
+            </div>
+        </div>
+
+        <!-- Milestone badges -->
+        <div class="milestone-row">
+            {% for m in milestones %}
+            <div class="milestone-badge {% if m.achieved %}milestone-achieved{% endif %}" title="{% if m.achieved %}Reached {{ m.reached_at|date:'M j, Y' }}{% else %}Not yet reached{% endif %}">
+                <span class="milestone-icon">{{ m.icon }}</span>
+                <span class="milestone-label">{{ m.label }}</span>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Stats grid -->
+        <div class="grid grid-3" style="gap: 12px;">
+            <div class="card card-sm" style="text-align: center; padding: 16px;">
+                <div class="stat-label">Saved</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: var(--accent-green);">${{ goal.current_amount|floatformat:2 }}</div>
+            </div>
+            <div class="card card-sm" style="text-align: center; padding: 16px;">
+                <div class="stat-label">Target</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">${{ goal.target_amount|floatformat:2 }}</div>
+            </div>
+            <div class="card card-sm" style="text-align: center; padding: 16px;">
+                <div class="stat-label">Remaining</div>
+                <div style="font-size: 1.1rem; font-weight: 700; {% if remaining <= 0 %}color: var(--accent-green);{% else %}color: var(--text-primary);{% endif %}">${{ remaining|floatformat:2 }}</div>
+            </div>
+        </div>
+
+        {% if goal.deadline %}
+        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 0.8rem; color: var(--text-secondary);">Deadline</span>
+            <span style="font-size: 0.875rem; font-weight: 600; {% if is_overdue %}color: var(--accent-red);{% else %}color: var(--text-secondary);{% endif %}">
+                {{ goal.deadline|date:"M j, Y" }}
+            </span>
+        </div>
+        {% endif %}
+        {% if projected and not goal.is_achieved %}
+        <div style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 0.8rem; color: var(--text-secondary);">Projected</span>
+            {% if projected.meets_deadline %}
+            <span style="font-size: 0.875rem; font-weight: 600; color: var(--accent-green);">{{ projected.projected_date|date:"M j, Y" }}</span>
+            {% else %}
+            <span style="font-size: 0.8rem; font-weight: 600; color: var(--accent-gold);">Behind schedule</span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Monthly contributions chart -->
+    {% if monthly_contributions %}
+    <div class="card mb-4">
+        <h3 style="margin: 0 0 16px; font-size: 1rem; font-weight: 600;">Monthly Contributions</h3>
+        <div style="display: flex; align-items: flex-end; gap: 8px; height: 80px;">
+            {% for m in monthly_contributions %}
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                <div style="width: 100%; background: {{ goal.color }}; border-radius: 3px 3px 0 0; height: {{ m.bar_height }}%; min-height: {% if m.total > 0 %}4px{% else %}0{% endif %}; opacity: 0.85;"></div>
+                <span style="font-size: 0.65rem; color: var(--text-secondary); white-space: nowrap;">{{ m.label }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
