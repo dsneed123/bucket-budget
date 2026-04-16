@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% load currency_tags %}
+{% block title %}Dashboard — Bucket Budget{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="grid grid-3" style="margin-bottom: 24px;">
+    <div class="card" style="padding: 20px;">
+        <p class="stat-label">{{ current_month }} Income</p>
+        <p class="stat-value stat-positive">{{ total_income|currency:user.currency }}</p>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <p class="stat-label">{{ current_month }} Expenses</p>
+        <p class="stat-value stat-negative">{{ total_expenses|currency:user.currency }}</p>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <p class="stat-label">Net</p>
+        <p class="stat-value {% if net >= 0 %}stat-positive{% else %}stat-negative{% endif %}">{{ net|currency:user.currency }}</p>
+    </div>
+</div>
+
+<div class="grid grid-2" style="align-items: start;">
+
+    <!-- Quick Add Card -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Quick Add</h2>
+            <p class="card-subtitle">Fast transaction entry</p>
+        </div>
+
+        <form method="post" action="{% url 'transaction_add' %}" novalidate>
+            {% csrf_token %}
+            <input type="hidden" name="next" value="/dashboard/">
+            <input type="hidden" name="date" value="{{ quick_add_form_data.date }}">
+
+            <!-- Type toggle -->
+            <div class="form-group">
+                <div style="display: flex; gap: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;">
+                    <label id="lbl-expense" style="flex: 1; text-align: center; padding: 8px 12px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.15s, color 0.15s;">
+                        <input type="radio" name="transaction_type" value="expense" style="display:none;"
+                               {% if quick_add_form_data.transaction_type != 'income' %}checked{% endif %}>
+                        Expense
+                    </label>
+                    <label id="lbl-income" style="flex: 1; text-align: center; padding: 8px 12px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.15s, color 0.15s; border-left: 1px solid var(--border);">
+                        <input type="radio" name="transaction_type" value="income" style="display:none;"
+                               {% if quick_add_form_data.transaction_type == 'income' %}checked{% endif %}>
+                        Income
+                    </label>
+                </div>
+                {% if quick_add_errors.transaction_type %}
+                    <p class="form-error">{{ quick_add_errors.transaction_type }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Amount -->
+            <div class="form-group">
+                <label for="qa-amount" class="form-label">Amount</label>
+                <input
+                    type="number"
+                    id="qa-amount"
+                    name="amount"
+                    class="form-control"
+                    value="{{ quick_add_form_data.amount|default:'' }}"
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0.01"
+                    autofocus
+                >
+                {% if quick_add_errors.amount %}
+                    <p class="form-error">{{ quick_add_errors.amount }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Description -->
+            <div class="form-group">
+                <label for="qa-description" class="form-label">Description</label>
+                <input
+                    type="text"
+                    id="qa-description"
+                    name="description"
+                    class="form-control"
+                    value="{{ quick_add_form_data.description|default:'' }}"
+                    placeholder="e.g. Weekly groceries"
+                >
+                {% if quick_add_errors.description %}
+                    <p class="form-error">{{ quick_add_errors.description }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Account -->
+            <div class="form-group">
+                <label for="qa-account" class="form-label">Account</label>
+                <select id="qa-account" name="account" class="form-control">
+                    <option value="" disabled {% if not quick_add_form_data.account %}selected{% endif %}>Select account…</option>
+                    {% for account in accounts %}
+                        <option value="{{ account.pk }}" {% if quick_add_form_data.account == account.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ account.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                {% if quick_add_errors.account %}
+                    <p class="form-error">{{ quick_add_errors.account }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Bucket -->
+            <div class="form-group">
+                <label for="qa-bucket" class="form-label">Bucket <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
+                <select id="qa-bucket" name="bucket" class="form-control">
+                    <option value="">No bucket</option>
+                    {% for bucket in buckets %}
+                        <option value="{{ bucket.pk }}" {% if quick_add_form_data.bucket == bucket.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ bucket.icon }} {{ bucket.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                {% if quick_add_errors.bucket %}
+                    <p class="form-error">{{ quick_add_errors.bucket }}</p>
+                {% endif %}
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                <button type="submit" class="btn btn-primary">Add transaction</button>
+                <a href="{% url 'transaction_add' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Full form</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="card">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h2 class="card-title">Recent Transactions</h2>
+                <p class="card-subtitle">Last 5 transactions</p>
+            </div>
+            <a href="{% url 'transaction_list' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
+        </div>
+
+        {% if recent_transactions %}
+            <ul style="list-style: none; padding: 0; margin: 0;">
+                {% for txn in recent_transactions %}
+                <li style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border);">
+                    <div style="min-width: 0; flex: 1;">
+                        <p style="margin: 0; font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            {{ txn.description }}
+                        </p>
+                        <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-secondary);">
+                            {{ txn.date }} &middot; {{ txn.account.name }}{% if txn.bucket %} &middot; {{ txn.bucket.icon }} {{ txn.bucket.name }}{% endif %}
+                        </p>
+                    </div>
+                    <span style="margin-left: 16px; font-size: 14px; font-weight: 600; flex-shrink: 0;"
+                          class="{% if txn.transaction_type == 'income' %}text-green{% else %}text-red{% endif %}">
+                        {% if txn.transaction_type == 'income' %}+{% else %}-{% endif %}{{ txn.amount|currency:user.currency }}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">No transactions yet. Add one with Quick Add!</p>
+        {% endif %}
+    </div>
+
+</div>
+
+<script>
+(function () {
+    var radios = document.querySelectorAll('input[name="transaction_type"]');
+    var lblExpense = document.getElementById('lbl-expense');
+    var lblIncome = document.getElementById('lbl-income');
+
+    function updateToggle() {
+        var checked = document.querySelector('input[name="transaction_type"]:checked');
+        if (!checked) return;
+        if (checked.value === 'expense') {
+            lblExpense.style.background = 'var(--accent-red)';
+            lblExpense.style.color = '#fff';
+            lblIncome.style.background = '';
+            lblIncome.style.color = 'var(--text-secondary)';
+        } else {
+            lblIncome.style.background = 'var(--accent-green)';
+            lblIncome.style.color = '#fff';
+            lblExpense.style.background = '';
+            lblExpense.style.color = 'var(--text-secondary)';
+        }
+    }
+
+    radios.forEach(function (r) {
+        r.addEventListener('change', updateToggle);
+    });
+
+    updateToggle();
+}());
+</script>
+{% endblock %}
