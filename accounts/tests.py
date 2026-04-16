@@ -194,3 +194,79 @@ class GetUserFiscalStartTest(TestCase):
         from accounts.models import UserPreferences
         UserPreferences.objects.create(user=self.user, fiscal_month_start=15)
         self.assertEqual(get_user_fiscal_start(self.user), 15)
+
+
+class TimezoneFilterTest(TestCase):
+    def _render(self, dt, tz_name):
+        from django.template import Context, Template
+        tmpl = Template(
+            '{% load timezone_tags %}{{ dt|in_timezone:tz_name|date:"Y-m-d H:i" }}'
+        )
+        return tmpl.render(Context({'dt': dt, 'tz_name': tz_name}))
+
+    def test_converts_utc_to_eastern(self):
+        import pytz
+        from django.utils import timezone
+        utc_dt = datetime.datetime(2024, 6, 15, 18, 0, 0, tzinfo=pytz.UTC)
+        result = self._render(utc_dt, 'America/New_York')
+        self.assertEqual(result, '2024-06-15 14:00')
+
+    def test_converts_utc_to_pacific(self):
+        import pytz
+        utc_dt = datetime.datetime(2024, 6, 15, 18, 0, 0, tzinfo=pytz.UTC)
+        result = self._render(utc_dt, 'America/Los_Angeles')
+        self.assertEqual(result, '2024-06-15 11:00')
+
+    def test_returns_value_unchanged_for_unknown_timezone(self):
+        import pytz
+        utc_dt = datetime.datetime(2024, 6, 15, 18, 0, 0, tzinfo=pytz.UTC)
+        from django.template import Context, Template
+        tmpl = Template('{% load timezone_tags %}{{ dt|in_timezone:tz_name }}')
+        result = tmpl.render(Context({'dt': utc_dt, 'tz_name': 'Invalid/Zone'}))
+        self.assertIn('2024', result)
+
+    def test_returns_none_unchanged(self):
+        from accounts.templatetags.timezone_tags import in_timezone
+        self.assertIsNone(in_timezone(None, 'UTC'))
+
+
+class TimezoneSettingTest(TestCase):
+    def setUp(self):
+        self.user = CustomUser.objects.create_user(
+            email='tzuser@example.com',
+            password='testpass',
+            first_name='TZ',
+        )
+        self.client = Client()
+        self.client.login(username='tzuser@example.com', password='testpass')
+
+    def test_default_timezone_is_utc(self):
+        from accounts.models import UserPreferences
+        prefs, _ = UserPreferences.objects.get_or_create(user=self.user)
+        self.assertEqual(prefs.timezone, 'UTC')
+
+    def test_save_valid_timezone(self):
+        from accounts.models import UserPreferences
+        response = self.client.post('/settings/#preferences', {
+            'tab': 'preferences',
+            'timezone': 'America/New_York',
+            'start_of_week': 'monday',
+            'fiscal_month_start': '1',
+            'theme': 'dark',
+            'default_transaction_type': 'expense',
+        })
+        prefs = UserPreferences.objects.get(user=self.user)
+        self.assertEqual(prefs.timezone, 'America/New_York')
+
+    def test_invalid_timezone_falls_back_to_utc(self):
+        from accounts.models import UserPreferences
+        self.client.post('/settings/#preferences', {
+            'tab': 'preferences',
+            'timezone': 'Not/ATimezone',
+            'start_of_week': 'monday',
+            'fiscal_month_start': '1',
+            'theme': 'dark',
+            'default_transaction_type': 'expense',
+        })
+        prefs = UserPreferences.objects.get(user=self.user)
+        self.assertEqual(prefs.timezone, 'UTC')

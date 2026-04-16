@@ -2,6 +2,8 @@ import csv
 import io
 import zipfile
 
+import pytz
+
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, authenticate, update_session_auth_hash, logout
@@ -15,6 +17,8 @@ from banking.models import BankAccount
 from buckets.models import Bucket
 from .models import UserPreferences
 from .currencies import CURRENCY_CHOICES
+
+TIMEZONE_CHOICES = [(tz, tz) for tz in pytz.common_timezones]
 
 User = get_user_model()
 
@@ -157,6 +161,7 @@ def settings(request):
         theme = request.POST.get('theme', 'dark')
         default_bucket_id = request.POST.get('default_bucket', '')
         default_transaction_type = request.POST.get('default_transaction_type', 'expense')
+        timezone = request.POST.get('timezone', 'UTC')
 
         valid_weeks = [c[0] for c in UserPreferences.START_OF_WEEK_CHOICES]
         if start_of_week not in valid_weeks:
@@ -192,6 +197,10 @@ def settings(request):
         if default_transaction_type not in valid_types:
             default_transaction_type = 'expense'
 
+        valid_timezones = pytz.common_timezones
+        if timezone not in valid_timezones:
+            timezone = 'UTC'
+
         if not errors:
             prefs.email_weekly_digest = email_weekly_digest
             prefs.email_budget_alerts = email_budget_alerts
@@ -202,6 +211,7 @@ def settings(request):
             prefs.theme = theme
             prefs.default_bucket = default_bucket
             prefs.default_transaction_type = default_transaction_type
+            prefs.timezone = timezone
             prefs.save()
             return redirect('/settings/?saved=1#preferences')
 
@@ -214,6 +224,7 @@ def settings(request):
         'week_choices': UserPreferences.START_OF_WEEK_CHOICES,
         'theme_choices': UserPreferences.THEME_CHOICES,
         'transaction_type_choices': UserPreferences.TRANSACTION_TYPE_CHOICES,
+        'timezone_choices': TIMEZONE_CHOICES,
         'bank_accounts': bank_accounts,
         'buckets': buckets,
     })

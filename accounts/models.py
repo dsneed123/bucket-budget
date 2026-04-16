@@ -84,6 +84,7 @@ class UserPreferences(models.Model):
         default='expense',
         blank=True,
     )
+    timezone = models.CharField(max_length=50, default='UTC')
 
     def __str__(self):
         return f'Preferences for {self.user}'
