@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Bucket Budget{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="layout">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <span class="logo">Bucket Budget</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#">Dashboard</a></li>
+                <li><a href="#">Buckets</a></li>
+                <li><a href="#">Transactions</a></li>
+                <li><a href="#">Goals</a></li>
+                <li><a href="#">Reports</a></li>
+            </ul>
+        </nav>
+
+        <div class="main-wrapper">
+            <header class="topbar">
+                <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
+                <div class="user-info">
+                    {% if user.is_authenticated %}
+                        <span class="username">{{ user.username }}</span>
+                    {% else %}
+                        <a href="#" class="user-link">Sign in</a>
+                    {% endif %}
+                </div>
+            </header>
+
+            <main class="content">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
