@@ -280,7 +280,14 @@
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Transaction History</h3>
-            <span style="font-size: 13px; color: var(--text-secondary);">{{ contributions|length }} transaction{{ contributions|length|pluralize }}</span>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 13px; color: var(--text-secondary);">{{ contributions|length }} transaction{{ contributions|length|pluralize }}</span>
+                {% if contributions %}
+                <a href="{% url 'savings:savings_goal_export_csv' goal.pk %}" style="font-size: 13px; color: var(--accent-primary); text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                    <span>↓</span> Export History
+                </a>
+                {% endif %}
+            </div>
         </div>
 
         {% if contributions %}
