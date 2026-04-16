@@ -136,6 +136,31 @@
                 </div>
             </div>
 
+            <!-- Tags -->
+            <div class="form-group">
+                <label for="tags" class="form-label">Tags <span style="color: var(--text-secondary); font-weight: 400;">(optional — comma-separated)</span></label>
+                <input
+                    type="text"
+                    id="tags"
+                    name="tags"
+                    class="form-control"
+                    value="{{ form_data.tags|default:'' }}"
+                    placeholder="e.g. groceries, recurring, travel"
+                    autocomplete="off"
+                >
+                {% if user_tags %}
+                <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;">
+                    {% for tag in user_tags %}
+                        <button type="button"
+                                onclick="addTag('{{ tag.name|escapejs }}')"
+                                style="background-color: {{ tag.color }}; color: #fff; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 20px; border: none; cursor: pointer;">
+                            {{ tag.name }}
+                        </button>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
             <!-- Necessity score (expenses only) -->
             <div id="necessity-section" class="form-group"{% if form_data.transaction_type == 'income' %} style="display: none;"{% endif %}>
                 <label class="form-label">Necessity score <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
@@ -242,5 +267,14 @@
         highlightButtons(isNaN(initialScore) ? null : initialScore);
     });
 }());
+
+window.addTag = function (name) {
+    var input = document.getElementById('tags');
+    var current = input.value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    if (current.indexOf(name) === -1) {
+        current.push(name);
+    }
+    input.value = current.join(', ');
+};
 </script>
 {% endblock %}

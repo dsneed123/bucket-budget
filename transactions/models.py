@@ -4,6 +4,25 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+TAG_COLORS = [
+    '#0984e3', '#00d4aa', '#f9ca24', '#ff4757',
+    '#a29bfe', '#fd79a8', '#55efc4', '#fdcb6e',
+    '#e17055', '#74b9ff',
+]
+
+
+class Tag(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='tags')
+    name = models.CharField(max_length=50)
+    color = models.CharField(max_length=7, default='#0984e3')
+
+    class Meta:
+        unique_together = ('user', 'name')
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
 
 class Transaction(models.Model):
     TRANSACTION_TYPE_CHOICES = [
@@ -29,6 +48,7 @@ class Transaction(models.Model):
     is_recurring = models.BooleanField(default=False)
     split_group = models.UUIDField(null=True, blank=True, db_index=True)
     transfer_id = models.UUIDField(null=True, blank=True, db_index=True)
+    tags = models.ManyToManyField('Tag', blank=True, related_name='transactions')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

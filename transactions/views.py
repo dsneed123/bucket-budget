@@ -11,14 +11,38 @@ from django.shortcuts import render, redirect, get_object_or_404
 from banking.models import BankAccount
 from buckets.models import Bucket
 
-from .models import Transaction
+from .models import Tag, Transaction
 
 VALID_TRANSACTION_TYPES = [c[0] for c in Transaction.TRANSACTION_TYPE_CHOICES]
+
+TAG_COLOR_PALETTE = [
+    '#0984e3', '#00d4aa', '#f9ca24', '#ff4757',
+    '#a29bfe', '#fd79a8', '#55efc4', '#fdcb6e',
+    '#e17055', '#74b9ff',
+]
+
+
+def _resolve_tags(user, raw_names):
+    """Parse comma-separated tag names and get-or-create Tag objects for the user."""
+    tags = []
+    existing_count = Tag.objects.filter(user=user).count()
+    for i, raw in enumerate(raw_names.split(',')):
+        name = raw.strip()
+        if not name:
+            continue
+        color = TAG_COLOR_PALETTE[(existing_count + i) % len(TAG_COLOR_PALETTE)]
+        tag, created = Tag.objects.get_or_create(
+            user=user,
+            name__iexact=name,
+            defaults={'name': name, 'color': color},
+        )
+        tags.append(tag)
+    return tags
 
 
 @login_required
 def transaction_list(request):
-    qs = Transaction.objects.filter(user=request.user).select_related('account', 'bucket')
+    qs = Transaction.objects.filter(user=request.user).select_related('account', 'bucket').prefetch_related('tags')
 
     # Extract filter params
     date_from = request.GET.get('date_from', '').strip()
@@ -27,6 +51,7 @@ def transaction_list(request):
     txn_type = request.GET.get('type', '').strip()
     account_id = request.GET.get('account', '').strip()
     search = request.GET.get('search', '').strip()
+    tag_id = request.GET.get('tag', '').strip()
 
     # Apply filters
     if date_from:
@@ -49,8 +74,14 @@ def transaction_list(request):
         qs = qs.filter(account_id=account_id)
     if search:
         qs = qs.filter(Q(description__icontains=search) | Q(vendor__icontains=search))
+    if tag_id:
+        try:
+            Tag.objects.get(pk=tag_id, user=request.user)
+            qs = qs.filter(tags__id=tag_id).distinct()
+        except Tag.DoesNotExist:
+            tag_id = ''
 
-    active_filter_count = sum(bool(f) for f in [date_from, date_to, bucket_id, txn_type, account_id, search])
+    active_filter_count = sum(bool(f) for f in [date_from, date_to, bucket_id, txn_type, account_id, search, tag_id])
 
     # Compute running balance for all filtered transactions
     # Process oldest-to-newest so balance accumulates in chronological order
@@ -104,10 +135,13 @@ def transaction_list(request):
         filter_params['account'] = account_id
     if search:
         filter_params['search'] = search
+    if tag_id:
+        filter_params['tag'] = tag_id
     filter_qs = urlencode(filter_params)
 
     buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
+    tags = Tag.objects.filter(user=request.user).order_by('name')
 
     return render(request, 'transactions/transaction_list.html', {
         'page_obj': page_obj,
@@ -117,6 +151,7 @@ def transaction_list(request):
         'current_month': today.strftime('%B %Y'),
         'buckets': buckets,
         'accounts': accounts,
+        'tags': tags,
         'filters': {
             'date_from': date_from,
             'date_to': date_to,
@@ -124,6 +159,7 @@ def transaction_list(request):
             'type': txn_type,
             'account': account_id,
             'search': search,
+            'tag': tag_id,
         },
         'active_filter_count': active_filter_count,
         'filter_qs': filter_qs,
@@ -135,11 +171,13 @@ def transaction_list(request):
 def transaction_add(request):
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
     buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
+    user_tags = Tag.objects.filter(user=request.user).order_by('name')
 
     errors = {}
     form_data = {
         'transaction_type': 'expense',
         'date': datetime.date.today().isoformat(),
+        'tags': '',
     }
 
     if request.method == 'POST':
@@ -151,6 +189,7 @@ def transaction_add(request):
         account_id = request.POST.get('account', '').strip()
         date_str = request.POST.get('date', '').strip()
         necessity_score_str = request.POST.get('necessity_score', '').strip()
+        tags_raw = request.POST.get('tags', '').strip()
 
         form_data = {
             'amount': amount,
@@ -161,6 +200,7 @@ def transaction_add(request):
             'account': account_id,
             'date': date_str,
             'necessity_score': necessity_score_str,
+            'tags': tags_raw,
         }
 
         # Validate amount
@@ -244,10 +284,11 @@ def transaction_add(request):
                     'form_data': form_data,
                     'accounts': accounts,
                     'buckets': buckets,
+                    'user_tags': user_tags,
                     'duplicate_warning': duplicate_warning,
                 })
 
-            Transaction.objects.create(
+            txn = Transaction.objects.create(
                 user=request.user,
                 account=account,
                 bucket=bucket,
@@ -258,6 +299,8 @@ def transaction_add(request):
                 date=date_val,
                 necessity_score=necessity_score_val,
             )
+            if tags_raw:
+                txn.tags.set(_resolve_tags(request.user, tags_raw))
 
             next_url = request.POST.get('next', '').strip()
             if next_url == '/dashboard/':
@@ -269,6 +312,7 @@ def transaction_add(request):
         'form_data': form_data,
         'accounts': accounts,
         'buckets': buckets,
+        'user_tags': user_tags,
     })
 
 
@@ -278,6 +322,7 @@ def transaction_edit(request, transaction_id):
 
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
     buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
+    user_tags = Tag.objects.filter(user=request.user).order_by('name')
 
     errors = {}
 
@@ -290,6 +335,7 @@ def transaction_edit(request, transaction_id):
         account_id = request.POST.get('account', '').strip()
         date_str = request.POST.get('date', '').strip()
         necessity_score_str = request.POST.get('necessity_score', '').strip()
+        tags_raw = request.POST.get('tags', '').strip()
 
         form_data = {
             'amount': amount,
@@ -300,6 +346,7 @@ def transaction_edit(request, transaction_id):
             'account': account_id,
             'date': date_str,
             'necessity_score': necessity_score_str,
+            'tags': tags_raw,
         }
 
         # Validate amount
@@ -373,9 +420,11 @@ def transaction_edit(request, transaction_id):
             transaction.date = date_val
             transaction.necessity_score = necessity_score_val
             transaction.save()
+            transaction.tags.set(_resolve_tags(request.user, tags_raw) if tags_raw else [])
 
             return redirect('transaction_list')
     else:
+        existing_tags = ', '.join(transaction.tags.values_list('name', flat=True))
         form_data = {
             'amount': str(transaction.amount),
             'transaction_type': transaction.transaction_type,
@@ -385,6 +434,7 @@ def transaction_edit(request, transaction_id):
             'account': str(transaction.account_id),
             'date': transaction.date.isoformat(),
             'necessity_score': str(transaction.necessity_score) if transaction.necessity_score is not None else '',
+            'tags': existing_tags,
         }
 
     return render(request, 'transactions/transaction_edit.html', {
@@ -393,6 +443,7 @@ def transaction_edit(request, transaction_id):
         'form_data': form_data,
         'accounts': accounts,
         'buckets': buckets,
+        'user_tags': user_tags,
     })
 
 
