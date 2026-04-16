@@ -69,6 +69,60 @@
         </div>
     </div>
 
+    <!-- Necessity score breakdown donut chart -->
+    {% if breakdown %}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Necessity Breakdown</h2>
+            <span class="card-subtitle">{{ this_month_label }}</span>
+        </div>
+        <div class="necessity-breakdown">
+            <!-- CSS-only donut chart via conic-gradient -->
+            <div class="necessity-donut-wrap">
+                <div class="necessity-donut" style="background: conic-gradient(
+                    var(--accent-green) 0% {{ breakdown.need_end }}%,
+                    var(--accent-gold) {{ breakdown.need_end }}% {{ breakdown.useful_end }}%,
+                    var(--accent-red) {{ breakdown.useful_end }}% {{ breakdown.want_end }}%,
+                    #666 {{ breakdown.want_end }}% 100%
+                );">
+                    <div class="necessity-donut-hole"></div>
+                </div>
+            </div>
+            <!-- Legend -->
+            <div class="necessity-legend">
+                <div class="necessity-legend-item">
+                    <span class="necessity-legend-dot" style="background: var(--accent-green);"></span>
+                    <span class="necessity-legend-label">Need</span>
+                    <span class="necessity-legend-range text-secondary">(7–10)</span>
+                    <span class="necessity-legend-amount">{{ breakdown.need|currency:user.currency }}</span>
+                    <span class="necessity-legend-pct text-secondary">{{ breakdown.need_pct }}%</span>
+                </div>
+                <div class="necessity-legend-item">
+                    <span class="necessity-legend-dot" style="background: var(--accent-gold);"></span>
+                    <span class="necessity-legend-label">Useful</span>
+                    <span class="necessity-legend-range text-secondary">(4–6)</span>
+                    <span class="necessity-legend-amount">{{ breakdown.useful|currency:user.currency }}</span>
+                    <span class="necessity-legend-pct text-secondary">{{ breakdown.useful_pct }}%</span>
+                </div>
+                <div class="necessity-legend-item">
+                    <span class="necessity-legend-dot" style="background: var(--accent-red);"></span>
+                    <span class="necessity-legend-label">Want</span>
+                    <span class="necessity-legend-range text-secondary">(1–3)</span>
+                    <span class="necessity-legend-amount">{{ breakdown.want|currency:user.currency }}</span>
+                    <span class="necessity-legend-pct text-secondary">{{ breakdown.want_pct }}%</span>
+                </div>
+                <div class="necessity-legend-item">
+                    <span class="necessity-legend-dot" style="background: #666;"></span>
+                    <span class="necessity-legend-label">Unscored</span>
+                    <span class="necessity-legend-range text-secondary"></span>
+                    <span class="necessity-legend-amount">{{ breakdown.unscored|currency:user.currency }}</span>
+                    <span class="necessity-legend-pct text-secondary">{{ breakdown.unscored_pct }}%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Per-bucket breakdown -->
     {% if bucket_rows %}
     <div class="card">
@@ -235,6 +289,78 @@
 .rankings-bucket-score {
     font-weight: 600;
     font-size: 1rem;
+}
+
+/* Necessity breakdown donut chart */
+.necessity-breakdown {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    padding: 16px 0 8px;
+    flex-wrap: wrap;
+}
+
+.necessity-donut-wrap {
+    flex-shrink: 0;
+}
+
+.necessity-donut {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    position: relative;
+}
+
+.necessity-donut-hole {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 96px;
+    height: 96px;
+    background: var(--bg-card);
+    border-radius: 50%;
+}
+
+.necessity-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+    min-width: 220px;
+}
+
+.necessity-legend-item {
+    display: grid;
+    grid-template-columns: 12px 70px 50px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.necessity-legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.necessity-legend-label {
+    font-weight: 600;
+}
+
+.necessity-legend-range {
+    font-size: 0.8rem;
+}
+
+.necessity-legend-amount {
+    font-variant-numeric: tabular-nums;
+}
+
+.necessity-legend-pct {
+    font-size: 0.85rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 </style>
 {% endblock %}
