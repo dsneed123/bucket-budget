@@ -242,6 +242,9 @@ def transaction_add(request):
                 account.balance = account.balance + amount_val
             account.save(change_reason='transaction')
 
+            next_url = request.POST.get('next', '').strip()
+            if next_url == '/dashboard/':
+                return redirect('dashboard')
             return redirect('transaction_list')
 
     return render(request, 'transactions/transaction_add.html', {
