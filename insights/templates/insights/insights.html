@@ -93,6 +93,43 @@
 
     </div>
 
+    <!-- Financial Health Score -->
+    <div class="card health-score-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Financial Health Score — {{ current_month }}</span>
+        </div>
+        <div class="health-score-body">
+            <div class="health-gauge-wrap">
+                <div class="health-gauge-outer">
+                    <div class="health-gauge-circle" style="background: conic-gradient(from 270deg, {{ health_score.gauge_color }} 0deg {{ health_score.gauge_filled_deg }}deg, var(--bg-secondary) {{ health_score.gauge_filled_deg }}deg 180deg, transparent 180deg);"></div>
+                    <div class="health-gauge-cover"></div>
+                    <div class="health-gauge-label">
+                        <span class="health-gauge-number" style="color: {{ health_score.gauge_color }};">{{ health_score.score }}</span>
+                        <span class="health-gauge-grade" style="color: {{ health_score.gauge_color }};">{{ health_score.grade }}</span>
+                    </div>
+                </div>
+                <div class="health-gauge-scale">
+                    <span class="text-secondary">0</span>
+                    <span class="text-secondary">100</span>
+                </div>
+            </div>
+            <div class="health-components">
+                {% for comp in health_score.components %}
+                <div class="health-comp-row">
+                    <div class="health-comp-label text-secondary">{{ comp.label }}</div>
+                    <div class="health-comp-bar-track">
+                        <div class="health-comp-bar" style="width: {{ comp.bar_pct }}%;"></div>
+                    </div>
+                    <div class="health-comp-pts">{{ comp.pts }}<span class="health-comp-max">/{{ comp.max }}</span></div>
+                </div>
+                {% if comp.flag %}
+                <div class="health-comp-flag text-secondary">{{ comp.flag }}</div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
     <!-- Spending Forecast -->
     <div class="card forecast-section">
         <div class="trend-header">
@@ -591,6 +628,148 @@
 .insights-arrow-green { color: var(--accent-green); }
 .insights-arrow-red   { color: var(--accent-red); }
 .insights-arrow-secondary { color: var(--text-secondary); }
+
+/* Financial Health Score */
+.health-score-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.health-score-body {
+    display: flex;
+    gap: 2.5rem;
+    align-items: flex-start;
+}
+
+.health-gauge-wrap {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.health-gauge-outer {
+    position: relative;
+    width: 180px;
+    height: 90px;
+    overflow: hidden;
+}
+
+.health-gauge-circle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+}
+
+.health-gauge-cover {
+    position: absolute;
+    top: 22px;
+    left: 22px;
+    width: 136px;
+    height: 136px;
+    border-radius: 50%;
+    background: var(--bg-card);
+}
+
+.health-gauge-label {
+    position: absolute;
+    bottom: 4px;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+    gap: 2px;
+    z-index: 1;
+}
+
+.health-gauge-number {
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.health-gauge-grade {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.health-gauge-scale {
+    width: 180px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    padding: 0 4px;
+}
+
+.health-components {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    justify-content: center;
+}
+
+.health-comp-row {
+    display: grid;
+    grid-template-columns: 130px 1fr 48px;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.health-comp-label {
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+.health-comp-bar-track {
+    height: 6px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.health-comp-bar {
+    height: 100%;
+    background: var(--accent-green);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.health-comp-pts {
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-align: right;
+    color: var(--text-primary);
+}
+
+.health-comp-max {
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+.health-comp-flag {
+    font-size: 0.72rem;
+    margin-top: -0.35rem;
+    margin-left: calc(130px + 0.6rem);
+    margin-bottom: 0.1rem;
+}
+
+@media (max-width: 700px) {
+    .health-score-body {
+        flex-direction: column;
+        align-items: center;
+    }
+    .health-comp-flag {
+        margin-left: 0;
+    }
+}
 
 @media (max-width: 900px) {
     .grid-4.insights-summary-cards {

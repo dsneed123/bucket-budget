@@ -8,7 +8,7 @@ from django.db.models.functions import ExtractWeekDay
 from django.shortcuts import get_object_or_404, redirect, render
 
 from buckets.models import Bucket
-from savings.models import SavingsContribution
+from savings.models import SavingsContribution, SavingsGoal
 from transactions.models import Transaction
 
 from .models import Recommendation
@@ -608,6 +608,139 @@ def _monthly_trend(user, today):
     return months, trend_avg
 
 
+def _financial_health_score(user, year, month, cur_savings_rate, quality_score, forecast):
+    """Return 0-100 health score with per-component breakdown."""
+
+    # 1. Savings Rate — 25 pts (target: ≥20%)
+    if cur_savings_rate is None:
+        sr_pts = 0
+        sr_flag = 'No income recorded'
+    else:
+        sr_pts = min(25, round(float(cur_savings_rate) / 20.0 * 25))
+        sr_flag = None
+
+    # 2. Spending Quality — 20 pts (necessity score 1-10 → 0-20)
+    if quality_score is None:
+        sq_pts = 0
+        sq_flag = 'No scored transactions'
+    else:
+        sq_pts = round(float(quality_score) / 10.0 * 20)
+        sq_flag = None
+
+    # 3. Budget Adherence — 20 pts (under budget = full pts; 50%+ over = 0)
+    if not forecast['total_budget']:
+        ba_pts = 0
+        ba_flag = 'No budget set'
+    else:
+        ratio = float(forecast['current_spending']) / float(forecast['total_budget'])
+        if ratio <= 1.0:
+            ba_pts = 20
+        elif ratio <= 1.5:
+            ba_pts = round(20 * (1.5 - ratio) / 0.5)
+        else:
+            ba_pts = 0
+        ba_flag = None
+
+    # 4. Emergency Fund Progress — 15 pts
+    ef_goals = list(SavingsGoal.objects.filter(user=user, goal_type='emergency_fund', is_achieved=False))
+    if not ef_goals:
+        ef_goals = list(SavingsGoal.objects.filter(user=user, is_achieved=False))
+    if ef_goals:
+        total_target = sum(float(g.target_amount) for g in ef_goals)
+        total_current = sum(float(g.current_amount) for g in ef_goals)
+        progress = min(1.0, total_current / total_target) if total_target > 0 else 0.0
+        ef_pts = round(progress * 15)
+        ef_flag = None
+    elif SavingsGoal.objects.filter(user=user, is_achieved=True).exists():
+        ef_pts = 15
+        ef_flag = None
+    else:
+        ef_pts = 0
+        ef_flag = 'No savings goals set'
+
+    # 5. Expense Trend — 10 pts (current vs 3-month prior average)
+    prior = []
+    for i in range(1, 4):
+        m = month - i
+        y = year
+        while m <= 0:
+            m += 12
+            y -= 1
+        prior.append(_month_expenses(user, y, m))
+    prior_avg = sum(prior) / Decimal('3')
+    current_expenses = _month_expenses(user, year, month)
+    if prior_avg <= 0:
+        trend_pts = 5
+        trend_flag = 'Insufficient history'
+    else:
+        ratio = float(current_expenses) / float(prior_avg)
+        if ratio <= 1.0:
+            trend_pts = 10
+        elif ratio <= 1.3:
+            trend_pts = round(10 * (1.3 - ratio) / 0.3)
+        else:
+            trend_pts = 0
+        trend_flag = None
+
+    # 6. Consistency — 10 pts (months with transactions in past 6 months)
+    active = 0
+    for i in range(1, 7):
+        m = month - i
+        y = year
+        while m <= 0:
+            m += 12
+            y -= 1
+        if Transaction.objects.filter(user=user, date__year=y, date__month=m).exists():
+            active += 1
+    consistency_pts = round(active / 6 * 10)
+    consistency_flag = None if active >= 3 else 'Limited transaction history'
+
+    total = max(0, min(100, sr_pts + sq_pts + ba_pts + ef_pts + trend_pts + consistency_pts))
+
+    if total >= 90:
+        grade = 'A'
+    elif total >= 80:
+        grade = 'B'
+    elif total >= 70:
+        grade = 'C'
+    elif total >= 60:
+        grade = 'D'
+    else:
+        grade = 'F'
+
+    if total >= 80:
+        gauge_color = 'var(--accent-green)'
+    elif total >= 60:
+        gauge_color = 'var(--accent-gold)'
+    else:
+        gauge_color = 'var(--accent-red)'
+
+    gauge_filled_deg = round(total / 100 * 180, 1)
+
+    components = [
+        {'label': 'Savings Rate', 'pts': sr_pts, 'max': 25, 'flag': sr_flag,
+         'bar_pct': round(sr_pts / 25 * 100)},
+        {'label': 'Spending Quality', 'pts': sq_pts, 'max': 20, 'flag': sq_flag,
+         'bar_pct': round(sq_pts / 20 * 100)},
+        {'label': 'Budget Adherence', 'pts': ba_pts, 'max': 20, 'flag': ba_flag,
+         'bar_pct': round(ba_pts / 20 * 100)},
+        {'label': 'Emergency Fund', 'pts': ef_pts, 'max': 15, 'flag': ef_flag,
+         'bar_pct': round(ef_pts / 15 * 100)},
+        {'label': 'Expense Trend', 'pts': trend_pts, 'max': 10, 'flag': trend_flag,
+         'bar_pct': round(trend_pts / 10 * 100)},
+        {'label': 'Consistency', 'pts': consistency_pts, 'max': 10, 'flag': consistency_flag,
+         'bar_pct': round(consistency_pts / 10 * 100)},
+    ]
+
+    return {
+        'score': total,
+        'grade': grade,
+        'gauge_color': gauge_color,
+        'gauge_filled_deg': gauge_filled_deg,
+        'components': components,
+    }
+
+
 @login_required
 def insights(request):
     today = datetime.date.today()
@@ -712,6 +845,12 @@ def insights(request):
     # Expense ratio analysis
     expense_ratio = _expense_ratio_analysis(request.user, this_year, this_month)
 
+    # Financial health score
+    health_score = _financial_health_score(
+        request.user, this_year, this_month,
+        cur_savings_rate, quality_score, forecast,
+    )
+
     # Personalized recommendations
     refresh_recommendations(request.user)
     _priority_order = {Recommendation.PRIORITY_HIGH: 0, Recommendation.PRIORITY_MEDIUM: 1, Recommendation.PRIORITY_LOW: 2}
@@ -751,6 +890,7 @@ def insights(request):
         'forecast': forecast,
         'yoy_data': yoy_data,
         'expense_ratio': expense_ratio,
+        'health_score': health_score,
     })
 
 
