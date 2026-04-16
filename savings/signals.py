@@ -1,7 +1,24 @@
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 
-from .models import SavingsContribution
+from .models import SavingsContribution, SavingsGoal
+
+_MILESTONE_THRESHOLDS = (25, 50, 75, 100)
+
+
+@receiver(post_save, sender=SavingsGoal)
+def check_milestones(sender, instance, **kwargs):
+    """Create milestone records when a goal crosses 25%, 50%, 75%, or 100% thresholds."""
+    from .models import SavingsMilestone
+
+    if instance.target_amount <= 0:
+        return
+
+    current_pct = int((instance.current_amount / instance.target_amount) * 100)
+
+    for threshold in _MILESTONE_THRESHOLDS:
+        if current_pct >= threshold:
+            SavingsMilestone.objects.get_or_create(goal=instance, percentage=threshold)
 
 
 @receiver(pre_save, sender=SavingsContribution)

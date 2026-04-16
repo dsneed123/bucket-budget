@@ -6,8 +6,8 @@ from django.test import TestCase
 from django.urls import reverse
 
 from banking.models import BankAccount
-from .models import AutoSaveRule, SavingsContribution, SavingsGoal
-from .views import _calculate_projected_completion
+from .models import AutoSaveRule, SavingsContribution, SavingsGoal, SavingsMilestone
+from .views import _calculate_projected_completion, _get_milestone_data
 from .management.commands.process_auto_saves import _advance_next_run
 
 User = get_user_model()
@@ -696,3 +696,107 @@ class ProcessAutoSavesCommandTest(TestCase):
         call_command('process_auto_saves', date='2026-04-16', verbosity=0)
         self.goal.refresh_from_db()
         self.assertTrue(self.goal.is_achieved)
+
+
+class SavingsMilestoneTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='ms@example.com',
+            password='testpass',
+            first_name='Mile',
+            last_name='Stone',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('5000.00'),
+        )
+        self.goal = SavingsGoal.objects.create(
+            user=self.user,
+            name='New Laptop',
+            target_amount=Decimal('1000.00'),
+            current_amount=Decimal('0.00'),
+        )
+
+    def _contribute(self, amount):
+        SavingsContribution.objects.create(
+            goal=self.goal,
+            amount=amount,
+            source_account=self.account,
+            date=datetime.date.today(),
+        )
+        self.goal.refresh_from_db()
+
+    def test_no_milestones_below_25_percent(self):
+        self._contribute(Decimal('200.00'))  # 20%
+        self.assertEqual(SavingsMilestone.objects.filter(goal=self.goal).count(), 0)
+
+    def test_25_percent_milestone_created(self):
+        self._contribute(Decimal('250.00'))  # exactly 25%
+        self.assertTrue(SavingsMilestone.objects.filter(goal=self.goal, percentage=25).exists())
+
+    def test_50_percent_milestone_created(self):
+        self._contribute(Decimal('500.00'))  # exactly 50%
+        self.assertTrue(SavingsMilestone.objects.filter(goal=self.goal, percentage=25).exists())
+        self.assertTrue(SavingsMilestone.objects.filter(goal=self.goal, percentage=50).exists())
+        self.assertFalse(SavingsMilestone.objects.filter(goal=self.goal, percentage=75).exists())
+
+    def test_100_percent_creates_all_milestones(self):
+        self._contribute(Decimal('1000.00'))  # 100%
+        percentages = set(SavingsMilestone.objects.filter(goal=self.goal).values_list('percentage', flat=True))
+        self.assertEqual(percentages, {25, 50, 75, 100})
+
+    def test_milestones_not_duplicated_on_further_contributions(self):
+        self._contribute(Decimal('300.00'))  # 30% → only 25% milestone
+        self._contribute(Decimal('200.00'))  # 50% → 25%, 50% milestones
+        self.assertEqual(SavingsMilestone.objects.filter(goal=self.goal, percentage=25).count(), 1)
+
+    def test_milestone_not_created_for_zero_target(self):
+        zero_goal = SavingsGoal.objects.create(
+            user=self.user,
+            name='Zero Target',
+            target_amount=Decimal('0.00'),
+        )
+        # Saving to SavingsGoal with zero target should not raise or create milestones
+        zero_goal.current_amount = Decimal('100.00')
+        zero_goal.save()
+        self.assertEqual(SavingsMilestone.objects.filter(goal=zero_goal).count(), 0)
+
+    def test_get_milestone_data_returns_all_tiers(self):
+        data = _get_milestone_data(self.goal)
+        self.assertEqual(len(data), 4)
+        percentages = [d['percentage'] for d in data]
+        self.assertEqual(percentages, [25, 50, 75, 100])
+
+    def test_get_milestone_data_achieved_flag(self):
+        self._contribute(Decimal('500.00'))  # 50%
+        data = _get_milestone_data(self.goal)
+        achieved = {d['percentage']: d['achieved'] for d in data}
+        self.assertTrue(achieved[25])
+        self.assertTrue(achieved[50])
+        self.assertFalse(achieved[75])
+        self.assertFalse(achieved[100])
+
+    def test_get_milestone_data_reached_at_populated(self):
+        self._contribute(Decimal('750.00'))  # 75%
+        data = _get_milestone_data(self.goal)
+        for d in data:
+            if d['percentage'] <= 75:
+                self.assertIsNotNone(d['reached_at'])
+            else:
+                self.assertIsNone(d['reached_at'])
+
+    def test_detail_view_includes_milestones(self):
+        self.client.login(email='ms@example.com', password='testpass')
+        self._contribute(Decimal('500.00'))
+        url = reverse('savings:savings_goal_detail', kwargs={'goal_id': self.goal.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('milestones', response.context)
+        self.assertEqual(len(response.context['milestones']), 4)
+
+    def test_str(self):
+        SavingsMilestone.objects.create(goal=self.goal, percentage=50)
+        m = SavingsMilestone.objects.get(goal=self.goal, percentage=50)
+        self.assertEqual(str(m), 'New Laptop — 50% milestone')

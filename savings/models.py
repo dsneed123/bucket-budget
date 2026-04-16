@@ -38,6 +38,26 @@ class SavingsContribution(models.Model):
         return f'{self.goal.name} +{self.amount} on {self.date}'
 
 
+class SavingsMilestone(models.Model):
+    MILESTONE_CHOICES = [
+        (25, '25%'),
+        (50, '50%'),
+        (75, '75%'),
+        (100, '100%'),
+    ]
+
+    goal = models.ForeignKey(SavingsGoal, on_delete=models.CASCADE, related_name='milestones')
+    percentage = models.IntegerField(choices=MILESTONE_CHOICES)
+    reached_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('goal', 'percentage')
+        ordering = ['percentage']
+
+    def __str__(self):
+        return f'{self.goal.name} — {self.percentage}% milestone'
+
+
 class AutoSaveRule(models.Model):
     FREQUENCY_CHOICES = [
         ('weekly', 'Weekly'),
