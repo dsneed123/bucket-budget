@@ -90,6 +90,7 @@
                 <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Bucket</th>
                 <th style="padding: 10px 12px; text-align: right; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Amount</th>
                 <th style="padding: 10px 12px; text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Score</th>
+                <th style="padding: 10px 12px; text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;"></th>
             </tr>
         </thead>
         <tbody>
@@ -110,6 +111,9 @@
                 </td>
                 <td style="padding: 12px; text-align: center; font-size: 0.85rem; color: var(--text-secondary);">
                     {% if txn.necessity_score %}{{ txn.necessity_score }}{% else %}—{% endif %}
+                </td>
+                <td style="padding: 12px; text-align: center;">
+                    <a href="{% url 'transaction_edit' txn.pk %}" style="font-size: 0.8rem; color: var(--text-secondary); text-decoration: none;">Edit</a>
                 </td>
             </tr>
             {% endfor %}

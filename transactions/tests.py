@@ -238,3 +238,179 @@ class TransactionAddViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'between 1 and 10')
         self.assertEqual(Transaction.objects.count(), 0)
+
+
+class TransactionEditViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='edit@example.com',
+            password='testpass',
+            first_name='Edit',
+            last_name='User',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('500.00'),
+        )
+        self.bucket = Bucket.objects.create(
+            user=self.user,
+            name='Groceries',
+            monthly_allocation=Decimal('300.00'),
+        )
+        self.client.login(email='edit@example.com', password='testpass')
+        # Create a transaction directly (bypassing view so balance stays at 500)
+        self.transaction = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('50.00'),
+            transaction_type='expense',
+            description='Initial purchase',
+            date=datetime.date(2026, 4, 16),
+        )
+        # Manually set balance to reflect the existing transaction
+        self.account.balance = Decimal('450.00')
+        self.account.save()
+        self.url = reverse('transaction_edit', args=[self.transaction.pk])
+
+    def _post(self, **overrides):
+        data = {
+            'amount': '50.00',
+            'transaction_type': 'expense',
+            'description': 'Initial purchase',
+            'vendor': '',
+            'bucket': '',
+            'account': str(self.account.pk),
+            'date': '2026-04-16',
+        }
+        data.update(overrides)
+        return self.client.post(self.url, data)
+
+    def test_get_renders_prepopulated_form(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Edit Transaction')
+        self.assertContains(response, 'Initial purchase')
+
+    def test_redirect_if_not_logged_in(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response['Location'])
+
+    def test_cannot_edit_other_users_transaction(self):
+        other_user = User.objects.create_user(
+            email='other2@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        other_account = BankAccount.objects.create(
+            user=other_user,
+            name='Other Checking',
+            account_type='checking',
+            balance=Decimal('200.00'),
+        )
+        other_txn = Transaction.objects.create(
+            user=other_user,
+            account=other_account,
+            amount=Decimal('20.00'),
+            transaction_type='expense',
+            description='Other transaction',
+            date=datetime.date(2026, 4, 16),
+        )
+        url = reverse('transaction_edit', args=[other_txn.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_edit_updates_description(self):
+        response = self._post(description='Updated purchase')
+        self.assertRedirects(response, reverse('transaction_list'))
+        self.transaction.refresh_from_db()
+        self.assertEqual(self.transaction.description, 'Updated purchase')
+
+    def test_edit_expense_same_amount_balance_unchanged(self):
+        response = self._post()
+        self.assertRedirects(response, reverse('transaction_list'))
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('450.00'))
+
+    def test_edit_expense_new_amount_adjusts_balance(self):
+        response = self._post(amount='30.00')
+        self.assertRedirects(response, reverse('transaction_list'))
+        # Old: -50, reverse: +50 → 500; new: -30 → 470
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('470.00'))
+
+    def test_edit_expense_to_income_adjusts_balance(self):
+        response = self._post(transaction_type='income', amount='50.00')
+        self.assertRedirects(response, reverse('transaction_list'))
+        # Old expense -50, reverse: +50 → 500; new income +50 → 550
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('550.00'))
+
+    def test_edit_to_different_account_adjusts_both_balances(self):
+        second_account = BankAccount.objects.create(
+            user=self.user,
+            name='Savings',
+            account_type='savings',
+            balance=Decimal('1000.00'),
+        )
+        response = self._post(account=str(second_account.pk))
+        self.assertRedirects(response, reverse('transaction_list'))
+        # Old account: reverse expense +50 → 500
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('500.00'))
+        # New account: apply expense -50 → 950
+        second_account.refresh_from_db()
+        self.assertEqual(second_account.balance, Decimal('950.00'))
+
+    def test_edit_balance_history_created(self):
+        from banking.models import BalanceHistory
+        count_before = BalanceHistory.objects.filter(account=self.account).count()
+        self._post(amount='30.00')
+        count_after = BalanceHistory.objects.filter(account=self.account).count()
+        self.assertGreater(count_after, count_before)
+
+    def test_missing_amount_shows_error(self):
+        response = self._post(amount='')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Amount is required')
+
+    def test_missing_description_shows_error(self):
+        response = self._post(description='')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Description is required')
+
+    def test_cannot_use_another_users_account(self):
+        other_user = User.objects.create_user(
+            email='other3@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        other_account = BankAccount.objects.create(
+            user=other_user,
+            name='Other Checking',
+            account_type='checking',
+            balance=Decimal('1000.00'),
+        )
+        response = self._post(account=str(other_account.pk))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'valid account')
+
+    def test_necessity_score_updated(self):
+        response = self._post(necessity_score='8')
+        self.assertRedirects(response, reverse('transaction_list'))
+        self.transaction.refresh_from_db()
+        self.assertEqual(self.transaction.necessity_score, 8)
+
+    def test_necessity_score_cleared_when_type_changes_to_income(self):
+        self.transaction.necessity_score = 7
+        self.transaction.save()
+        response = self._post(transaction_type='income', necessity_score='7')
+        self.assertRedirects(response, reverse('transaction_list'))
+        self.transaction.refresh_from_db()
+        self.assertIsNone(self.transaction.necessity_score)

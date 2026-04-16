@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}Edit Transaction — Bucket Budget{% endblock %}
+{% block page_title %}Edit Transaction{% endblock %}
+
+{% block content %}
+<div style="max-width: 560px;">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Edit Transaction</h2>
+            <p class="card-subtitle">Update the details for this transaction.</p>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label class="form-label">Transaction type</label>
+                <div style="display: flex; gap: 16px; margin-top: 4px;">
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
+                        <input
+                            type="radio"
+                            name="transaction_type"
+                            value="expense"
+                            {% if form_data.transaction_type != 'income' %}checked{% endif %}
+                        >
+                        Expense
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
+                        <input
+                            type="radio"
+                            name="transaction_type"
+                            value="income"
+                            {% if form_data.transaction_type == 'income' %}checked{% endif %}
+                        >
+                        Income
+                    </label>
+                </div>
+                {% if errors.transaction_type %}
+                    <p class="form-error">{{ errors.transaction_type }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label for="amount" class="form-label">Amount</label>
+                    <input
+                        type="number"
+                        id="amount"
+                        name="amount"
+                        class="form-control"
+                        value="{{ form_data.amount|default:'' }}"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0.01"
+                        autofocus
+                    >
+                    {% if errors.amount %}
+                        <p class="form-error">{{ errors.amount }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="flex: 1;">
+                    <label for="date" class="form-label">Date</label>
+                    <input
+                        type="date"
+                        id="date"
+                        name="date"
+                        class="form-control"
+                        value="{{ form_data.date|default:'' }}"
+                    >
+                    {% if errors.date %}
+                        <p class="form-error">{{ errors.date }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description" class="form-label">Description</label>
+                <input
+                    type="text"
+                    id="description"
+                    name="description"
+                    class="form-control"
+                    value="{{ form_data.description|default:'' }}"
+                    placeholder="e.g. Weekly groceries"
+                >
+                {% if errors.description %}
+                    <p class="form-error">{{ errors.description }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="vendor" class="form-label">Vendor <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
+                <input
+                    type="text"
+                    id="vendor"
+                    name="vendor"
+                    class="form-control"
+                    value="{{ form_data.vendor|default:'' }}"
+                    placeholder="e.g. Whole Foods"
+                >
+                {% if errors.vendor %}
+                    <p class="form-error">{{ errors.vendor }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label for="account" class="form-label">Account</label>
+                    <select id="account" name="account" class="form-control">
+                        <option value="" disabled {% if not form_data.account %}selected{% endif %}>Select account…</option>
+                        {% for account in accounts %}
+                            <option value="{{ account.pk }}" {% if form_data.account == account.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ account.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if errors.account %}
+                        <p class="form-error">{{ errors.account }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="flex: 1;">
+                    <label for="bucket" class="form-label">Bucket <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
+                    <select id="bucket" name="bucket" class="form-control">
+                        <option value="">No bucket</option>
+                        {% for bucket in buckets %}
+                            <option value="{{ bucket.pk }}" {% if form_data.bucket == bucket.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ bucket.icon }} {{ bucket.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if errors.bucket %}
+                        <p class="form-error">{{ errors.bucket }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Necessity score (expenses only) -->
+            <div id="necessity-section" class="form-group"{% if form_data.transaction_type == 'income' %} style="display: none;"{% endif %}>
+                <label class="form-label">Necessity score <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
+                <p style="font-size: 13px; color: var(--text-secondary); margin: 2px 0 10px;">How necessary was this expense?</p>
+                <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                    <button type="button" id="btn-want"
+                            style="flex: 1; padding: 8px 4px; font-size: 13px; border-radius: 6px; border: 1px solid #ff4757; background: rgba(255,71,87,0.12); color: #ff4757; cursor: pointer;"
+                            onclick="setNecessityCategory('want', 2)">
+                        Want <span style="opacity: 0.7; font-size: 11px;">(1–3)</span>
+                    </button>
+                    <button type="button" id="btn-useful"
+                            style="flex: 1; padding: 8px 4px; font-size: 13px; border-radius: 6px; border: 1px solid #f9ca24; background: rgba(249,202,36,0.12); color: #f9ca24; cursor: pointer;"
+                            onclick="setNecessityCategory('useful', 5)">
+                        Useful <span style="opacity: 0.7; font-size: 11px;">(4–6)</span>
+                    </button>
+                    <button type="button" id="btn-need"
+                            style="flex: 1; padding: 8px 4px; font-size: 13px; border-radius: 6px; border: 1px solid #00d4aa; background: rgba(0,212,170,0.12); color: #00d4aa; cursor: pointer;"
+                            onclick="setNecessityCategory('need', 9)">
+                        Need <span style="opacity: 0.7; font-size: 11px;">(7–10)</span>
+                    </button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <input type="range" id="necessity-slider" min="1" max="10" step="1"
+                           value="{{ form_data.necessity_score|default:'5' }}"
+                           style="flex: 1; cursor: pointer; accent-color: var(--accent-green);"
+                           oninput="onSliderInput(this.value)">
+                    <input type="number" id="necessity-score" name="necessity_score"
+                           class="form-control" min="1" max="10" step="1"
+                           value="{{ form_data.necessity_score|default:'' }}"
+                           placeholder="—"
+                           style="width: 68px; text-align: center;"
+                           oninput="onScoreInput(this.value)">
+                </div>
+                {% if errors.necessity_score %}
+                    <p class="form-error">{{ errors.necessity_score }}</p>
+                {% endif %}
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                <button type="submit" class="btn btn-primary">Save changes</button>
+                <a href="{% url 'transaction_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    var CATEGORIES = {
+        want:   { id: 'btn-want',   min: 1, max: 3,  activeBg: 'rgba(255,71,87,0.35)'  },
+        useful: { id: 'btn-useful', min: 4, max: 6,  activeBg: 'rgba(249,202,36,0.35)' },
+        need:   { id: 'btn-need',   min: 7, max: 10, activeBg: 'rgba(0,212,170,0.35)'  },
+    };
+    var INACTIVE_BG = {
+        want:   'rgba(255,71,87,0.12)',
+        useful: 'rgba(249,202,36,0.12)',
+        need:   'rgba(0,212,170,0.12)',
+    };
+
+    function highlightButtons(score) {
+        for (var cat in CATEGORIES) {
+            var cfg = CATEGORIES[cat];
+            var btn = document.getElementById(cfg.id);
+            var active = score !== null && score >= cfg.min && score <= cfg.max;
+            btn.style.background = active ? cfg.activeBg : INACTIVE_BG[cat];
+            btn.style.fontWeight = active ? '600' : '400';
+        }
+    }
+
+    window.setNecessityCategory = function (cat, value) {
+        document.getElementById('necessity-score').value = value;
+        document.getElementById('necessity-slider').value = value;
+        highlightButtons(value);
+    };
+
+    window.onSliderInput = function (value) {
+        var v = parseInt(value);
+        document.getElementById('necessity-score').value = v;
+        highlightButtons(v);
+    };
+
+    window.onScoreInput = function (value) {
+        var v = parseInt(value);
+        if (!isNaN(v) && v >= 1 && v <= 10) {
+            document.getElementById('necessity-slider').value = v;
+            highlightButtons(v);
+        } else {
+            highlightButtons(null);
+        }
+    };
+
+    function toggleNecessitySection() {
+        var checked = document.querySelector('input[name="transaction_type"]:checked');
+        var section = document.getElementById('necessity-section');
+        section.style.display = (checked && checked.value === 'expense') ? '' : 'none';
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('input[name="transaction_type"]').forEach(function (r) {
+            r.addEventListener('change', toggleNecessitySection);
+        });
+
+        var initialScore = parseInt(document.getElementById('necessity-score').value);
+        highlightButtons(isNaN(initialScore) ? null : initialScore);
+    });
+}());
+</script>
+{% endblock %}
