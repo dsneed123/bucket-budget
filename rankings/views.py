@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Sum
+from django.db.models.functions import ExtractWeekDay
 from django.shortcuts import redirect, render
 
 from transactions.models import Transaction
@@ -149,6 +150,64 @@ def _get_vendor_averages(user, year, month):
     return rows
 
 
+def _get_daily_spending_quality(user):
+    """Return day-of-week spending quality stats (Mon–Sun), using all scored expense history."""
+    # Django ExtractWeekDay: 1=Sunday, 2=Monday, ..., 7=Saturday
+    day_stats = (
+        Transaction.objects.filter(
+            user=user,
+            transaction_type='expense',
+            necessity_score__isnull=False,
+        )
+        .annotate(weekday=ExtractWeekDay('date'))
+        .values('weekday')
+        .annotate(avg_score=Avg('necessity_score'), tx_count=Count('id'), total_spent=Sum('amount'))
+    )
+
+    day_names = {1: 'Sun', 2: 'Mon', 3: 'Tue', 4: 'Wed', 5: 'Thu', 6: 'Fri', 7: 'Sat'}
+    day_order = [2, 3, 4, 5, 6, 7, 1]  # Mon first
+
+    rows_by_weekday = {}
+    for row in day_stats:
+        score = round(Decimal(str(row['avg_score'])), 1)
+        if score < 4:
+            insight = 'impulse day!'
+        elif score < 7:
+            insight = 'mixed spending'
+        else:
+            insight = 'strong day'
+        rows_by_weekday[row['weekday']] = {
+            'day': day_names[row['weekday']],
+            'score': score,
+            'score_color': _score_color(score),
+            'tx_count': row['tx_count'],
+            'total_spent': row['total_spent'],
+            'insight': insight,
+            'bar_height': round(float(score) / 10 * 100),
+        }
+
+    rows = []
+    for wd in day_order:
+        if wd in rows_by_weekday:
+            rows.append(rows_by_weekday[wd])
+        else:
+            rows.append({
+                'day': day_names[wd],
+                'score': None,
+                'score_color': 'secondary',
+                'tx_count': 0,
+                'total_spent': Decimal('0'),
+                'insight': '',
+                'bar_height': 0,
+            })
+
+    # Find the worst day (lowest score with data) for the headline insight
+    scored = [r for r in rows if r['score'] is not None]
+    worst_day = min(scored, key=lambda r: r['score']) if scored else None
+
+    return rows, worst_day
+
+
 def _get_score_trend(user, today):
     """Return last 6 months of avg necessity scores for the trend bar chart, oldest first."""
     months = []
@@ -226,6 +285,7 @@ def rankings(request):
         })
 
     vendor_rows = _get_vendor_averages(request.user, this_year, this_month)
+    daily_quality, worst_day = _get_daily_spending_quality(request.user)
 
     return render(request, 'rankings/rankings.html', {
         'current_score': current_score,
@@ -245,6 +305,8 @@ def rankings(request):
         'last_month_label': date(last_year, last_month, 1).strftime('%B %Y'),
         'score_trend': score_trend,
         'vendor_rows': vendor_rows,
+        'daily_quality': daily_quality,
+        'worst_day': worst_day,
     })
 
 
