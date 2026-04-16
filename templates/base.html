@@ -44,6 +44,9 @@
             </ul>
             <div class="nav-bottom">
                 <ul class="nav-links">
+                    <li><a href="/profile/" {% if request.path == '/profile/' %}class="active"{% endif %}>
+                        <span class="nav-icon">👤</span>Profile
+                    </a></li>
                     <li><a href="/settings/" {% if request.path == '/settings/' %}class="active"{% endif %}>
                         <span class="nav-icon">⚙️</span>Settings
                     </a></li>
