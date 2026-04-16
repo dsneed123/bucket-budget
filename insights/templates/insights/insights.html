@@ -9,14 +9,34 @@
 
     <div class="page-header">
         <h1 class="page-title-inline">Insights</h1>
-        <span class="page-subtitle text-secondary">{{ current_month }}</span>
+        <span class="page-subtitle text-secondary">{{ period_label }}</span>
+    </div>
+
+    <!-- Date Range Picker -->
+    <div class="date-range-bar">
+        <div class="date-range-presets">
+            <a href="?preset=this_month" class="date-preset-btn {% if preset == 'this_month' %}date-preset-active{% endif %}">This month</a>
+            <a href="?preset=last_month" class="date-preset-btn {% if preset == 'last_month' %}date-preset-active{% endif %}">Last month</a>
+            <a href="?preset=last_3_months" class="date-preset-btn {% if preset == 'last_3_months' %}date-preset-active{% endif %}">Last 3 months</a>
+            <a href="?preset=last_6_months" class="date-preset-btn {% if preset == 'last_6_months' %}date-preset-active{% endif %}">Last 6 months</a>
+            <a href="?preset=this_year" class="date-preset-btn {% if preset == 'this_year' %}date-preset-active{% endif %}">This year</a>
+            <button type="button" class="date-preset-btn {% if preset == 'custom' %}date-preset-active{% endif %}" id="custom-range-toggle">Custom</button>
+        </div>
+        <form method="get" action="" id="custom-range-form" class="date-range-custom {% if preset != 'custom' %}date-range-hidden{% endif %}">
+            <input type="hidden" name="preset" value="custom">
+            <label class="date-range-label text-secondary">From</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="date-range-input" required>
+            <label class="date-range-label text-secondary">To</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="date-range-input" required>
+            <button type="submit" class="date-range-apply">Apply</button>
+        </form>
     </div>
 
     <div class="grid grid-4 insights-summary-cards">
 
-        <!-- This Month's Spending -->
+        <!-- Period Spending -->
         <div class="card insights-card">
-            <div class="insights-card-label">This Month's Spending</div>
+            <div class="insights-card-label">Spending</div>
             <div class="insights-card-value">{{ this_spending|currency }}</div>
             <div class="insights-card-meta">
                 {% if spending_pct_change is not None %}
@@ -24,19 +44,19 @@
                         {% if spending_arrow == 'up' %}&#8593;{% elif spending_arrow == 'down' %}&#8595;{% else %}&mdash;{% endif %}
                     </span>
                     <span class="text-{{ spending_arrow_color }}">
-                        {% if spending_pct_change > 0 %}+{% endif %}{{ spending_pct_change }}% vs {{ last_month_label }}
+                        {% if spending_pct_change > 0 %}+{% endif %}{{ spending_pct_change }}% vs {{ prev_period_label }}
                     </span>
                 {% else %}
-                    <span class="text-secondary">No data for {{ last_month_label }}</span>
+                    <span class="text-secondary">No data for {{ prev_period_label }}</span>
                 {% endif %}
             </div>
         </div>
 
-        <!-- vs Last Month -->
+        <!-- Previous Period -->
         <div class="card insights-card">
-            <div class="insights-card-label">Last Month's Spending</div>
+            <div class="insights-card-label">Previous Period</div>
             <div class="insights-card-value">{{ last_spending|currency }}</div>
-            <div class="insights-card-meta text-secondary">{{ last_month_label }}</div>
+            <div class="insights-card-meta text-secondary">{{ prev_period_label }}</div>
         </div>
 
         <!-- Savings Rate -->
@@ -55,10 +75,10 @@
                         {% if savings_arrow == 'up' %}&#8593;{% elif savings_arrow == 'down' %}&#8595;{% else %}&mdash;{% endif %}
                     </span>
                     {% if prev_savings_rate is not None %}
-                        <span class="text-secondary">was {{ prev_savings_rate }}% last month</span>
+                        <span class="text-secondary">was {{ prev_savings_rate }}% prior period</span>
                     {% endif %}
                 {% elif cur_savings_rate is None %}
-                    <span class="text-secondary">No income recorded this month</span>
+                    <span class="text-secondary">No income recorded this period</span>
                 {% else %}
                     <span class="text-secondary">No prior month data</span>
                 {% endif %}
@@ -81,7 +101,7 @@
                         {% if quality_arrow == 'up' %}&#8593;{% elif quality_arrow == 'down' %}&#8595;{% else %}&mdash;{% endif %}
                     </span>
                     {% if last_quality_score is not None %}
-                        <span class="text-secondary">was {{ last_quality_score }}/10 last month</span>
+                        <span class="text-secondary">was {{ last_quality_score }}/10 prior period</span>
                     {% endif %}
                 {% elif quality_score is not None %}
                     <span class="text-secondary">Based on {{ quality_count }} scored transaction{{ quality_count|pluralize }}</span>
@@ -96,7 +116,7 @@
     <!-- Financial Health Score -->
     <div class="card health-score-section">
         <div class="trend-header">
-            <span class="insights-card-label">Financial Health Score — {{ current_month }}</span>
+            <span class="insights-card-label">Financial Health Score — Current Month</span>
         </div>
         <div class="health-score-body">
             <div class="health-gauge-wrap">
@@ -131,9 +151,10 @@
     </div>
 
     <!-- Spending Forecast -->
+    {% if forecast %}
     <div class="card forecast-section">
         <div class="trend-header">
-            <span class="insights-card-label">Month-End Forecast — {{ current_month }}</span>
+            <span class="insights-card-label">Month-End Forecast — Current Month</span>
             <span class="text-secondary forecast-pace-label">Based on {{ forecast.days_elapsed }}-day avg of {{ forecast.daily_avg|currency }}/day</span>
         </div>
         <div class="forecast-body">
@@ -170,6 +191,7 @@
             {% endif %}
         </div>
     </div>
+    {% endif %}
 
     <!-- Personalized Recommendations -->
     {% if recommendations %}
@@ -296,7 +318,7 @@
     {% if expense_ratio %}
     <div class="card ratio-section">
         <div class="trend-header">
-            <span class="insights-card-label">Expense Ratio Analysis — {{ current_month }}</span>
+            <span class="insights-card-label">Expense Ratio Analysis — {{ period_label }}</span>
             {% if expense_ratio.flagged_count %}
             <span class="ratio-flag-badge">{{ expense_ratio.flagged_count }} categor{{ expense_ratio.flagged_count|pluralize:"y,ies" }} above recommended</span>
             {% else %}
@@ -304,7 +326,7 @@
             {% endif %}
         </div>
         <div class="ratio-income-note text-secondary">
-            Based on {{ expense_ratio.income|currency }} income this month
+            Based on {{ expense_ratio.income|currency }} income this period
         </div>
         <div class="ratio-list">
             {% for row in expense_ratio.rows %}
@@ -398,7 +420,7 @@
     <!-- Spending by Bucket -->
     <div class="card bucket-breakdown-section">
         <div class="trend-header">
-            <span class="insights-card-label">Spending by Bucket — {{ current_month }}</span>
+            <span class="insights-card-label">Spending by Bucket — {{ period_label }}</span>
         </div>
         {% if bucket_breakdown %}
         <div class="bucket-breakdown-list">
@@ -413,14 +435,14 @@
             {% endfor %}
         </div>
         {% else %}
-        <p class="text-secondary" style="margin:0;font-size:0.9rem;">No expense transactions this month.</p>
+        <p class="text-secondary" style="margin:0;font-size:0.9rem;">No expense transactions this period.</p>
         {% endif %}
     </div>
 
     <!-- Top Merchants -->
     <div class="card merchant-section">
         <div class="trend-header">
-            <span class="insights-card-label">Top Merchants — {{ current_month }}</span>
+            <span class="insights-card-label">Top Merchants — {{ period_label }}</span>
         </div>
         {% if top_merchants %}
         <div class="merchant-list">
@@ -452,14 +474,14 @@
             {% endfor %}
         </div>
         {% else %}
-        <p class="text-secondary" style="margin:0;font-size:0.9rem;">No expense transactions with vendor names this month.</p>
+        <p class="text-secondary" style="margin:0;font-size:0.9rem;">No expense transactions with vendor names this period.</p>
         {% endif %}
     </div>
 
     <!-- Day-of-Week Spending Pattern -->
     <div class="card dow-section">
         <div class="trend-header">
-            <span class="insights-card-label">Spending by Day of Week — {{ current_month }}</span>
+            <span class="insights-card-label">Spending by Day of Week — {{ period_label }}</span>
         </div>
         <div class="dow-bars-area">
             {% for day in dow_pattern %}
@@ -472,6 +494,7 @@
     </div>
 
     <!-- Daily Spending Heatmap -->
+    {% if heatmap_weeks %}
     <div class="card heatmap-section">
         <div class="trend-header">
             <span class="insights-card-label">Daily Spending — {{ current_month }}</span>
@@ -508,6 +531,7 @@
             {% endfor %}
         </div>
     </div>
+    {% endif %}
 
     <!-- Savings Rate Trend — Last 12 Months -->
     <div class="card sr-trend-section">
@@ -1632,6 +1656,102 @@
     margin-top: 0.25rem;
 }
 
+/* Date Range Picker */
+.date-range-bar {
+    margin-bottom: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.date-range-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.date-preset-btn {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    cursor: pointer;
+    line-height: 1.4;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.date-preset-btn:hover {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-color: var(--accent-blue);
+}
+
+.date-preset-active {
+    background: var(--accent-blue) !important;
+    color: #fff !important;
+    border-color: var(--accent-blue) !important;
+}
+
+.date-range-custom {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.date-range-hidden {
+    display: none;
+}
+
+.date-range-label {
+    font-size: 0.82rem;
+}
+
+.date-range-input {
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    outline: none;
+}
+
+.date-range-input:focus {
+    border-color: var(--accent-blue);
+}
+
+.date-range-apply {
+    padding: 0.3rem 0.85rem;
+    border-radius: 6px;
+    border: 1px solid var(--accent-blue);
+    background: var(--accent-blue);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.date-range-apply:hover {
+    opacity: 0.85;
+}
+
+@media (max-width: 540px) {
+    .date-range-presets {
+        gap: 0.3rem;
+    }
+    .date-preset-btn {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.78rem;
+    }
+}
+
 /* Expense Ratio Analysis */
 .ratio-section {
     padding: 1.25rem 1.5rem;
@@ -1782,4 +1902,20 @@
     }
 }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var toggle = document.getElementById('custom-range-toggle');
+    var form = document.getElementById('custom-range-form');
+    if (toggle && form) {
+        toggle.addEventListener('click', function () {
+            var hidden = form.classList.contains('date-range-hidden');
+            form.classList.toggle('date-range-hidden', !hidden);
+            toggle.classList.toggle('date-preset-active', hidden);
+        });
+    }
+})();
+</script>
 {% endblock %}
