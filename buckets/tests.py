@@ -9,6 +9,89 @@ from .models import Bucket
 User = get_user_model()
 
 
+class UncategorizedBucketTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='uncat@example.com',
+            password='testpass',
+            first_name='Test',
+            last_name='User',
+        )
+        self.client.login(email='uncat@example.com', password='testpass')
+        self.uncategorized = Bucket.objects.get(user=self.user, is_uncategorized=True)
+
+    def test_uncategorized_bucket_created_on_user_creation(self):
+        self.assertIsNotNone(self.uncategorized)
+
+    def test_uncategorized_bucket_has_zero_allocation(self):
+        self.assertEqual(self.uncategorized.monthly_allocation, Decimal('0'))
+
+    def test_uncategorized_bucket_is_active(self):
+        self.assertTrue(self.uncategorized.is_active)
+
+    def test_uncategorized_bucket_appears_in_bucket_list(self):
+        response = self.client.get(reverse('bucket_list'))
+        self.assertEqual(response.status_code, 200)
+        bucket_names = [item['bucket'].name for item in response.context['bucket_data']]
+        self.assertIn('Uncategorized', bucket_names)
+
+    def test_uncategorized_bucket_has_is_uncategorized_flag_in_context(self):
+        response = self.client.get(reverse('bucket_list'))
+        uncat_item = next(
+            item for item in response.context['bucket_data'] if item['is_uncategorized']
+        )
+        self.assertTrue(uncat_item['is_uncategorized'])
+
+    def test_uncategorized_bucket_shown_with_dashed_style_in_template(self):
+        response = self.client.get(reverse('bucket_list'))
+        self.assertContains(response, 'dashed')
+
+    def test_delete_uncategorized_returns_404(self):
+        response = self.client.post(reverse('bucket_delete', args=[self.uncategorized.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_archive_uncategorized_returns_404(self):
+        response = self.client.post(reverse('bucket_archive', args=[self.uncategorized.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_edit_uncategorized_returns_404(self):
+        response = self.client.post(reverse('bucket_edit', args=[self.uncategorized.pk]), {
+            'name': 'Renamed',
+            'monthly_allocation': '100',
+            'icon': '❓',
+            'color': '#636e72',
+            'description': '',
+        })
+        self.assertEqual(response.status_code, 404)
+
+    def test_uncategorized_not_in_quick_allocate(self):
+        response = self.client.get(reverse('quick_allocate'))
+        bucket_names = [row['bucket'].name for row in response.context['bucket_rows']]
+        self.assertNotIn('Uncategorized', bucket_names)
+
+    def test_uncategorized_appears_last_in_list(self):
+        Bucket.objects.create(
+            user=self.user,
+            name='Groceries',
+            monthly_allocation=Decimal('300'),
+            sort_order=0,
+        )
+        response = self.client.get(reverse('bucket_list'))
+        last_item = response.context['bucket_data'][-1]
+        self.assertTrue(last_item['is_uncategorized'])
+
+    def test_uncategorized_not_counted_in_total_allocated(self):
+        Bucket.objects.create(
+            user=self.user,
+            name='Groceries',
+            monthly_allocation=Decimal('300'),
+            sort_order=0,
+        )
+        response = self.client.get(reverse('bucket_list'))
+        self.assertEqual(response.context['total_allocated'], Decimal('300'))
+
+
 class BucketSpendingMethodsTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(

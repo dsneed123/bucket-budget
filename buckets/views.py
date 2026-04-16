@@ -97,6 +97,7 @@ def bucket_list(request):
             'bar_class': bar_class,
             'rollover_amount': rollover_amount,
             'alert': pct >= bucket.alert_threshold,
+            'is_uncategorized': bucket.is_uncategorized,
         })
 
     archived_buckets = []
@@ -241,7 +242,7 @@ def bucket_add(request):
 
 @login_required
 def bucket_delete(request, bucket_id):
-    bucket = get_object_or_404(Bucket, pk=bucket_id, user=request.user, is_active=True)
+    bucket = get_object_or_404(Bucket, pk=bucket_id, user=request.user, is_active=True, is_uncategorized=False)
     transaction_count = 0  # Will be calculated from transactions once available
 
     if request.method == 'POST':
@@ -256,7 +257,7 @@ def bucket_delete(request, bucket_id):
 
 @login_required
 def bucket_archive(request, bucket_id):
-    bucket = get_object_or_404(Bucket, pk=bucket_id, user=request.user, is_active=True)
+    bucket = get_object_or_404(Bucket, pk=bucket_id, user=request.user, is_active=True, is_uncategorized=False)
     transaction_count = 0  # Will be calculated from transactions once available
 
     if request.method == 'POST':
@@ -286,7 +287,7 @@ def bucket_unarchive(request, bucket_id):
 @login_required
 def quick_allocate(request):
     buckets = list(
-        Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
+        Bucket.objects.filter(user=request.user, is_active=True, is_uncategorized=False).order_by('sort_order', 'name')
     )
     monthly_income = request.user.monthly_income
     errors = {}
@@ -357,7 +358,7 @@ def bucket_reorder(request):
         direction = request.POST.get('direction', '')
 
         buckets = list(
-            Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
+            Bucket.objects.filter(user=request.user, is_active=True, is_uncategorized=False).order_by('sort_order', 'name')
         )
 
         idx = next((i for i, b in enumerate(buckets) if str(b.pk) == bucket_id), None)
@@ -383,7 +384,7 @@ def bucket_reorder(request):
 
 @login_required
 def bucket_edit(request, bucket_id):
-    bucket = get_object_or_404(Bucket, pk=bucket_id, user=request.user, is_active=True)
+    bucket = get_object_or_404(Bucket, pk=bucket_id, user=request.user, is_active=True, is_uncategorized=False)
     errors = {}
     success = False
 

@@ -13,6 +13,7 @@ class Bucket(models.Model):
     icon = models.CharField(max_length=10, default='💰')
     sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    is_uncategorized = models.BooleanField(default=False)
     rollover = models.BooleanField(default=False)
     alert_threshold = models.IntegerField(default=90)
     archived_at = models.DateTimeField(null=True, blank=True)
