@@ -64,6 +64,28 @@
 })();
 </script>
 
+<!-- Streak Banner -->
+{% if streak.current_streak > 0 %}
+<div style="display: flex; align-items: center; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 18px; margin-bottom: 20px;">
+    <span style="font-size: 22px;">🔥</span>
+    <div>
+        <span style="font-size: 15px; font-weight: 700; color: var(--text-primary);">
+            {{ streak.current_streak }} day streak!
+        </span>
+        <span style="font-size: 14px; color: var(--text-secondary); margin-left: 6px;">
+            {% if streak.current_streak == 1 %}You're on your way — come back tomorrow to build your streak.
+            {% elif streak.current_streak < 7 %}Keep it up.
+            {% elif streak.current_streak < 30 %}Great consistency!
+            {% else %}Incredible dedication!
+            {% endif %}
+        </span>
+    </div>
+    {% if streak.longest_streak > streak.current_streak %}
+    <span style="margin-left: auto; font-size: 12px; color: var(--text-secondary);">Best: {{ streak.longest_streak }} days</span>
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- Top Row: Net Worth · Monthly Spending · Savings Rate · Spending Quality -->
 {% if widgets.stats %}
 <div class="grid grid-4" style="margin-bottom: 24px;">

@@ -8,7 +8,7 @@ from django.db.models import Case, IntegerField, Sum, Value, When
 from django.http import HttpResponse
 from django.shortcuts import render
 
-from accounts.models import UserPreferences
+from accounts.models import UserPreferences, UserStreak
 from accounts.utils import get_current_fiscal_month, get_fiscal_month_range, get_user_fiscal_start
 from banking.models import BankAccount
 from buckets.models import Bucket
@@ -67,6 +67,23 @@ def _build_activity_feed(user, limit=10):
 
     events.sort(key=lambda e: e['timestamp'], reverse=True)
     return events[:limit]
+
+
+def _update_streak(user, today):
+    streak, _ = UserStreak.objects.get_or_create(user=user)
+    if streak.last_active_date is None:
+        streak.current_streak = 1
+    elif streak.last_active_date == today:
+        return streak
+    elif streak.last_active_date == today - datetime.timedelta(days=1):
+        streak.current_streak += 1
+    else:
+        streak.current_streak = 1
+    streak.last_active_date = today
+    if streak.current_streak > streak.longest_streak:
+        streak.longest_streak = streak.current_streak
+    streak.save()
+    return streak
 
 
 def index(request):
@@ -245,6 +262,8 @@ def dashboard(request):
 
     activity_feed = _build_activity_feed(request.user)
 
+    streak = _update_streak(request.user, today)
+
     prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
     widgets = prefs.get_widget_visibility()
     widget_labels = [
@@ -283,6 +302,7 @@ def dashboard(request):
         'calendar_weeks': calendar_weeks,
         'calendar_txns_by_day': calendar_txns_by_day,
         'activity_feed': activity_feed,
+        'streak': streak,
         'widgets': widgets,
         'widget_labels': widget_labels,
     })
