@@ -1,8 +1,41 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth import login
+from django.contrib.auth import login, authenticate
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+
+
+def login_view(request):
+    if request.user.is_authenticated:
+        return redirect('/dashboard/')
+
+    errors = {}
+    form_data = {}
+
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip()
+        password = request.POST.get('password', '')
+
+        form_data = {'email': email}
+
+        if not email:
+            errors['email'] = 'Email is required.'
+
+        if not password:
+            errors['password'] = 'Password is required.'
+
+        if not errors:
+            user = authenticate(request, username=email, password=password)
+            if user is not None:
+                login(request, user)
+                return redirect('/dashboard/')
+            else:
+                errors['__all__'] = 'Invalid email or password.'
+
+    return render(request, 'accounts/login.html', {
+        'errors': errors,
+        'form_data': form_data,
+    })
 
 
 def register(request):
