@@ -542,6 +542,39 @@
         })();
         </script>
 
+        <!-- Bill Countdown -->
+        {% if widgets.bill_countdown and bill_countdown %}
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h2 class="card-title">Bill Countdown</h2>
+                    <p class="card-subtitle">Large bills due in the next 30 days</p>
+                </div>
+                <a href="{% url 'recurring_list' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">Manage</a>
+            </div>
+            <ul style="list-style: none; padding: 0; margin: 0;">
+                {% for entry in bill_countdown %}
+                <li style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+                        <span style="font-size: 20px; flex-shrink: 0;">💳</span>
+                        <div style="min-width: 0;">
+                            <p style="margin: 0; font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                {{ entry.item.description }}
+                            </p>
+                            <p style="margin: 2px 0 0; font-size: 12px; color: {% if entry.days_until == 0 %}var(--accent-red){% elif entry.days_until <= 3 %}var(--accent-yellow, #f9ca24){% else %}var(--text-secondary){% endif %}; font-weight: {% if entry.days_until <= 3 %}600{% else %}400{% endif %};">
+                                {% if entry.days_until == 0 %}Due today{% elif entry.days_until == 1 %}Due tomorrow{% else %}Due in {{ entry.days_until }} days{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <span style="margin-left: 16px; font-size: 14px; font-weight: 600; flex-shrink: 0; color: var(--accent-red);">
+                        -{{ entry.item.amount|currency:user.currency }}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
         <!-- Upcoming Recurring -->
         {% if widgets.upcoming_recurring %}
         <div class="card">

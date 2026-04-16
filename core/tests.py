@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from accounts.models import CustomUser, UserPreferences
 from banking.models import BankAccount
-from transactions.models import Transaction
+from transactions.models import Transaction, RecurringTransaction
 
 
 class NoSpendDaysTest(TestCase):
@@ -104,3 +104,93 @@ class NoSpendDaysTest(TestCase):
         no_spend_days = response.context['no_spend_days']
         # Income-only day still counts as no-spend
         self.assertEqual(no_spend_days, days_elapsed)
+
+
+class BillCountdownTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = CustomUser.objects.create_user(
+            email='bills@example.com',
+            password='testpass',
+            first_name='Test',
+        )
+        self.client.login(email='bills@example.com', password='testpass')
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('5000.00'),
+        )
+
+    def _add_recurring(self, description, amount, next_due, transaction_type='expense', is_active=True):
+        return RecurringTransaction.objects.create(
+            user=self.user,
+            account=self.account,
+            description=description,
+            amount=Decimal(str(amount)),
+            transaction_type=transaction_type,
+            frequency='monthly',
+            start_date=next_due,
+            next_due=next_due,
+            is_active=is_active,
+        )
+
+    def test_dashboard_includes_bill_countdown_in_context(self):
+        response = self.client.get(reverse('dashboard'))
+        self.assertIn('bill_countdown', response.context)
+
+    def test_bill_above_threshold_appears_in_countdown(self):
+        today = datetime.date.today()
+        self._add_recurring('Rent', '1500.00', today + datetime.timedelta(days=5))
+        response = self.client.get(reverse('dashboard'))
+        entries = response.context['bill_countdown']
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]['item'].description, 'Rent')
+        self.assertEqual(entries[0]['days_until'], 5)
+
+    def test_bill_below_threshold_excluded(self):
+        today = datetime.date.today()
+        self._add_recurring('Streaming', '15.00', today + datetime.timedelta(days=3))
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(len(response.context['bill_countdown']), 0)
+
+    def test_bill_exactly_at_threshold_included(self):
+        today = datetime.date.today()
+        self._add_recurring('Internet', '50.00', today + datetime.timedelta(days=10))
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(len(response.context['bill_countdown']), 1)
+
+    def test_income_recurring_excluded_from_countdown(self):
+        today = datetime.date.today()
+        self._add_recurring('Salary', '3000.00', today + datetime.timedelta(days=5), transaction_type='income')
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(len(response.context['bill_countdown']), 0)
+
+    def test_inactive_recurring_excluded(self):
+        today = datetime.date.today()
+        self._add_recurring('Gym', '60.00', today + datetime.timedelta(days=5), is_active=False)
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(len(response.context['bill_countdown']), 0)
+
+    def test_bill_beyond_30_days_excluded(self):
+        today = datetime.date.today()
+        self._add_recurring('Car Payment', '350.00', today + datetime.timedelta(days=31))
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(len(response.context['bill_countdown']), 0)
+
+    def test_bills_ordered_by_due_date(self):
+        today = datetime.date.today()
+        self._add_recurring('Car Payment', '350.00', today + datetime.timedelta(days=12))
+        self._add_recurring('Rent', '1500.00', today + datetime.timedelta(days=5))
+        response = self.client.get(reverse('dashboard'))
+        entries = response.context['bill_countdown']
+        self.assertEqual(len(entries), 2)
+        self.assertEqual(entries[0]['item'].description, 'Rent')
+        self.assertEqual(entries[1]['item'].description, 'Car Payment')
+
+    def test_bill_due_tomorrow_has_one_day_until(self):
+        today = datetime.date.today()
+        self._add_recurring('Rent', '1500.00', today + datetime.timedelta(days=1))
+        response = self.client.get(reverse('dashboard'))
+        entries = response.context['bill_countdown']
+        self.assertEqual(entries[0]['days_until'], 1)

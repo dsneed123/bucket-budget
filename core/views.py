@@ -279,6 +279,23 @@ def dashboard(request):
         .order_by('next_due')
     )
 
+    bill_countdown_end = today + datetime.timedelta(days=30)
+    _bill_qs = (
+        RecurringTransaction.objects.filter(
+            user=request.user,
+            is_active=True,
+            transaction_type='expense',
+            amount__gte=Decimal('50'),
+            next_due__gte=today,
+            next_due__lte=bill_countdown_end,
+        )
+        .order_by('next_due')
+    )
+    bill_countdown = [
+        {'item': bill, 'days_until': (bill.next_due - today).days}
+        for bill in _bill_qs
+    ]
+
     activity_feed = _build_activity_feed(request.user)
 
     streak = _update_streak(request.user, today)
@@ -294,6 +311,7 @@ def dashboard(request):
         ('calendar', 'Calendar'),
         ('no_spend_days', 'No-Spend Days'),
         ('savings_goals', 'Savings Goals'),
+        ('bill_countdown', 'Bill Countdown'),
         ('upcoming_recurring', 'Upcoming Recurring'),
         ('recommendations', 'Recommendations'),
         ('activity_feed', 'Activity Feed'),
@@ -318,6 +336,7 @@ def dashboard(request):
         'ideal_daily_spend': ideal_daily_spend,
         'top_buckets': top_buckets,
         'upcoming_recurring': upcoming_recurring,
+        'bill_countdown': bill_countdown,
         'recommendations': recommendations,
         'daily_spending': daily_spending,
         'calendar_weeks': calendar_weeks,
