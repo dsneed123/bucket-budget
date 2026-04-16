@@ -385,4 +385,32 @@
     <a href="{% url 'bucket_add' %}" class="btn btn-primary">+ Add Bucket</a>
 </div>
 {% endif %}
+
+<!-- Monthly notes -->
+<div class="card" style="margin-top: 24px; padding: 20px;">
+    <div style="margin-bottom: 16px;">
+        <h2 class="card-title">Monthly Notes</h2>
+        <p class="card-subtitle">Jot down financial notes for {{ current_month }}: events, milestones, or context for this month's spending.</p>
+    </div>
+    {% if notes_saved %}
+    <div style="margin-bottom: 12px; padding: 10px 14px; background: rgba(0, 200, 83, 0.1); border: 1px solid var(--accent-green); border-radius: 6px; font-size: 13px; color: var(--accent-green);">
+        Notes saved successfully.
+    </div>
+    {% endif %}
+    <form method="post" action="{% url 'budget_save_notes' %}">
+        {% csrf_token %}
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="month" value="{{ month }}">
+        <textarea
+            name="notes"
+            id="budget-notes"
+            rows="4"
+            placeholder="e.g. Paid off car loan, started new side gig, holiday spending month…"
+            style="width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 14px; color: var(--text-primary); background: var(--input-bg, rgba(255,255,255,0.05)); border: 1px solid var(--border); border-radius: 8px; resize: vertical; font-family: inherit; line-height: 1.5;"
+        >{{ notes }}</textarea>
+        <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
+            <button type="submit" class="btn btn-primary btn-sm">Save Notes</button>
+        </div>
+    </form>
+</div>
 {% endblock %}

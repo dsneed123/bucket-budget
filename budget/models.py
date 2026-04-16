@@ -38,6 +38,7 @@ class BudgetSummary(models.Model):
     total_saved = models.DecimalField(max_digits=12, decimal_places=2)
     necessity_avg = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
     surplus_deficit = models.DecimalField(max_digits=12, decimal_places=2)
+    notes = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
