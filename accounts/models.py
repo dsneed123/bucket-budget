@@ -94,6 +94,7 @@ class UserPreferences(models.Model):
         'recent_transactions': True,
         'calendar': True,
         'no_spend_days': True,
+        'income_received': True,
         'savings_goals': True,
         'bill_countdown': True,
         'upcoming_recurring': True,

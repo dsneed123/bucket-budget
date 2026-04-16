@@ -159,6 +159,7 @@ def dashboard(request):
     days_left = (fend - today).days + 1
     actual_daily_avg = (total_expenses / Decimal(days_elapsed)).quantize(Decimal('0.01')) if days_elapsed > 0 else Decimal('0')
     monthly_income = request.user.monthly_income or Decimal('0')
+    income_pct = min(int((total_income / monthly_income) * 100), 100) if monthly_income > 0 else 0
     remaining_budget = monthly_income - total_expenses
     ideal_daily_spend = (remaining_budget / Decimal(days_left)).quantize(Decimal('0.01')) if days_left > 0 and remaining_budget > 0 else Decimal('0')
 
@@ -310,6 +311,7 @@ def dashboard(request):
         ('recent_transactions', 'Recent Transactions'),
         ('calendar', 'Calendar'),
         ('no_spend_days', 'No-Spend Days'),
+        ('income_received', 'Income Received'),
         ('savings_goals', 'Savings Goals'),
         ('bill_countdown', 'Bill Countdown'),
         ('upcoming_recurring', 'Upcoming Recurring'),
@@ -346,6 +348,8 @@ def dashboard(request):
         'no_spend_days': no_spend_days,
         'no_spend_goal': no_spend_goal,
         'days_elapsed': _days_elapsed,
+        'monthly_income': monthly_income,
+        'income_pct': income_pct,
         'widgets': widgets,
         'widget_labels': widget_labels,
     })
