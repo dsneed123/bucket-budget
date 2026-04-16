@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Update Balance — Bucket Budget{% endblock %}
+{% block page_title %}Update Balance{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px;">
+    <div class="card">
+        <div class="card-header" style="border-top: 4px solid {{ account.color }}; margin: -24px -24px 24px; padding: 20px 24px 16px; border-radius: var(--radius) var(--radius) 0 0;">
+            <h2 class="card-title">{{ account.name }}</h2>
+            <p class="card-subtitle">{{ account.get_account_type_display }}{% if account.institution %} · {{ account.institution }}{% endif %}</p>
+        </div>
+
+        {% if success %}
+            <div style="background-color: rgba(0, 212, 170, 0.1); border: 1px solid var(--accent-green); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 24px; color: var(--accent-green); font-size: 14px;">
+                Balance updated successfully.
+                {% if change_amount is not None %}
+                    {% if change_amount >= 0 %}
+                        <span style="font-weight: 600;">+${{ change_amount|floatformat:2 }}</span>
+                    {% else %}
+                        <span style="font-weight: 600; color: var(--accent-red);">${{ change_amount|floatformat:2 }}</span>
+                    {% endif %}
+                {% endif %}
+                New balance: <span style="font-weight: 600;">${{ account.balance|floatformat:2 }}</span>
+            </div>
+            <div style="display: flex; gap: 12px; margin-top: 8px;">
+                <a href="{% url 'account_update_balance' account.pk %}" class="btn btn-primary">Update Again</a>
+                <a href="{% url 'account_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none; display: flex; align-items: center;">Back to Accounts</a>
+            </div>
+        {% else %}
+            <div style="margin-bottom: 20px; padding: 12px 16px; background-color: var(--bg-secondary); border-radius: var(--radius);">
+                <div class="stat-label">Current Balance</div>
+                <div class="stat-value {% if account.balance >= 0 %}text-green{% else %}text-red{% endif %}" style="font-size: 1.4rem;">
+                    ${{ account.balance|floatformat:2 }}
+                </div>
+            </div>
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label for="new_balance" class="form-label">New balance</label>
+                    <input
+                        type="number"
+                        id="new_balance"
+                        name="new_balance"
+                        class="form-control"
+                        placeholder="0.00"
+                        step="0.01"
+                        autofocus
+                    >
+                    {% if errors.new_balance %}
+                        <p class="form-error">{{ errors.new_balance }}</p>
+                    {% endif %}
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                    <button type="submit" class="btn btn-primary">Update Balance</button>
+                    <a href="{% url 'account_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+                </div>
+            </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

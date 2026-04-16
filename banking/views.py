@@ -71,6 +71,39 @@ def account_add(request):
 
 
 @login_required
+def account_update_balance(request, account_id):
+    account = get_object_or_404(BankAccount, pk=account_id, user=request.user, is_active=True)
+    errors = {}
+    success = False
+    change_amount = None
+
+    if request.method == 'POST':
+        new_balance = request.POST.get('new_balance', '').strip()
+
+        if not new_balance:
+            errors['new_balance'] = 'New balance is required.'
+        else:
+            try:
+                new_balance_val = float(new_balance)
+            except ValueError:
+                errors['new_balance'] = 'Please enter a valid number.'
+
+        if not errors:
+            previous_balance = account.balance
+            change_amount = round(new_balance_val - float(previous_balance), 2)
+            account.balance = new_balance_val
+            account.save(change_reason='manual_update')
+            success = True
+
+    return render(request, 'banking/account_update_balance.html', {
+        'account': account,
+        'errors': errors,
+        'success': success,
+        'change_amount': change_amount,
+    })
+
+
+@login_required
 def account_edit(request, account_id):
     account = get_object_or_404(BankAccount, pk=account_id, user=request.user, is_active=True)
     errors = {}
