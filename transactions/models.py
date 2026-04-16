@@ -28,6 +28,7 @@ class Transaction(models.Model):
     notes = models.TextField(blank=True)
     is_recurring = models.BooleanField(default=False)
     split_group = models.UUIDField(null=True, blank=True, db_index=True)
+    transfer_id = models.UUIDField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

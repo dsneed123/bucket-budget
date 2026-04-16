@@ -502,6 +502,109 @@ def transaction_add_split(request):
 
 
 @login_required
+def transaction_transfer(request):
+    accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
+
+    errors = {}
+    form_data = {
+        'date': datetime.date.today().isoformat(),
+    }
+
+    if request.method == 'POST':
+        from_account_id = request.POST.get('from_account', '').strip()
+        to_account_id = request.POST.get('to_account', '').strip()
+        amount = request.POST.get('amount', '').strip()
+        description = request.POST.get('description', '').strip()
+        date_str = request.POST.get('date', '').strip()
+
+        form_data = {
+            'from_account': from_account_id,
+            'to_account': to_account_id,
+            'amount': amount,
+            'description': description,
+            'date': date_str,
+        }
+
+        # Validate amount
+        amount_val = None
+        if not amount:
+            errors['amount'] = 'Amount is required.'
+        else:
+            try:
+                amount_val = Decimal(amount)
+                if amount_val <= 0:
+                    errors['amount'] = 'Amount must be greater than zero.'
+            except InvalidOperation:
+                errors['amount'] = 'Please enter a valid amount.'
+
+        # Validate from_account
+        from_account = None
+        if not from_account_id:
+            errors['from_account'] = 'Source account is required.'
+        else:
+            try:
+                from_account = accounts.get(pk=from_account_id)
+            except BankAccount.DoesNotExist:
+                errors['from_account'] = 'Please select a valid account.'
+
+        # Validate to_account
+        to_account = None
+        if not to_account_id:
+            errors['to_account'] = 'Destination account is required.'
+        else:
+            try:
+                to_account = accounts.get(pk=to_account_id)
+            except BankAccount.DoesNotExist:
+                errors['to_account'] = 'Please select a valid account.'
+
+        # Ensure accounts differ
+        if from_account and to_account and from_account_id == to_account_id:
+            errors['to_account'] = 'Destination account must differ from source account.'
+
+        # Validate description
+        if not description:
+            errors['description'] = 'Description is required.'
+
+        # Validate date
+        date_val = None
+        if not date_str:
+            errors['date'] = 'Date is required.'
+        else:
+            try:
+                date_val = datetime.date.fromisoformat(date_str)
+            except ValueError:
+                errors['date'] = 'Please enter a valid date.'
+
+        if not errors:
+            transfer_id = uuid.uuid4()
+            Transaction.objects.create(
+                user=request.user,
+                account=from_account,
+                amount=amount_val,
+                transaction_type='expense',
+                description=description,
+                date=date_val,
+                transfer_id=transfer_id,
+            )
+            Transaction.objects.create(
+                user=request.user,
+                account=to_account,
+                amount=amount_val,
+                transaction_type='income',
+                description=description,
+                date=date_val,
+                transfer_id=transfer_id,
+            )
+            return redirect('transaction_list')
+
+    return render(request, 'transactions/transaction_transfer.html', {
+        'errors': errors,
+        'form_data': form_data,
+        'accounts': accounts,
+    })
+
+
+@login_required
 def transaction_delete(request, transaction_id):
     transaction = get_object_or_404(Transaction, pk=transaction_id, user=request.user)
 
