@@ -2,7 +2,8 @@ import datetime
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.core.management import call_command
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from banking.models import BankAccount
@@ -662,3 +663,93 @@ class SpendingForecastTests(TestCase):
         forecast = response.context['forecast']
         self.assertIn('projected_amount', forecast)
         self.assertIn('days_remaining', forecast)
+
+
+class SendWeeklyDigestCommandTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='digest@example.com',
+            password='testpass123',
+            first_name='Dana',
+        )
+        self.today = datetime.date(2026, 4, 16)
+        self.account = BankAccount.objects.create(
+            user=self.user, name='Checking', account_type='checking',
+        )
+        self.bucket = Bucket.objects.filter(user=self.user).exclude(is_uncategorized=True).first()
+        if not self.bucket:
+            self.bucket = Bucket.objects.create(
+                user=self.user, name='Groceries',
+                monthly_allocation=Decimal('300.00'), color='#00b894', sort_order=1,
+            )
+
+    def _make_expense(self, amount, date, bucket=None):
+        Transaction.objects.create(
+            user=self.user, transaction_type='expense', amount=amount,
+            description='Test', date=date, account=self.account,
+            bucket=bucket or self.bucket,
+        )
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_sends_email_for_user(self):
+        from django.core import mail
+        self._make_expense(Decimal('50.00'), self.today)
+        call_command('send_weekly_digest', '--user', str(self.user.pk), '--date', str(self.today))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.user.email])
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_email_subject_contains_date_range(self):
+        from django.core import mail
+        call_command('send_weekly_digest', '--user', str(self.user.pk), '--date', str(self.today))
+        self.assertIn('2026-04-10', mail.outbox[0].subject)
+        self.assertIn('2026-04-16', mail.outbox[0].subject)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_email_body_contains_total_spent(self):
+        from django.core import mail
+        self._make_expense(Decimal('123.45'), self.today)
+        call_command('send_weekly_digest', '--user', str(self.user.pk), '--date', str(self.today))
+        self.assertIn('123.45', mail.outbox[0].body)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_email_body_contains_user_name(self):
+        from django.core import mail
+        call_command('send_weekly_digest', '--user', str(self.user.pk), '--date', str(self.today))
+        self.assertIn('Dana', mail.outbox[0].body)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_dry_run_sends_no_email(self):
+        from django.core import mail
+        self._make_expense(Decimal('50.00'), self.today)
+        call_command('send_weekly_digest', '--user', str(self.user.pk), '--date', str(self.today), '--dry-run')
+        self.assertEqual(len(mail.outbox), 0)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_all_users_sends_to_each(self):
+        from django.core import mail
+        second = User.objects.create_user(email='digest2@example.com', password='testpass123')
+        call_command('send_weekly_digest', '--all-users', '--date', str(self.today))
+        recipients = [msg.to[0] for msg in mail.outbox]
+        self.assertIn(self.user.email, recipients)
+        self.assertIn(second.email, recipients)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_no_transactions_still_sends(self):
+        from django.core import mail
+        call_command('send_weekly_digest', '--user', str(self.user.pk), '--date', str(self.today))
+        self.assertEqual(len(mail.outbox), 1)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_email_has_html_alternative(self):
+        from django.core import mail
+        call_command('send_weekly_digest', '--user', str(self.user.pk), '--date', str(self.today))
+        msg = mail.outbox[0]
+        content_types = [ct for _, ct in msg.alternatives]
+        self.assertIn('text/html', content_types)
+
+    def test_missing_user_and_all_users_prints_error(self):
+        from io import StringIO
+        err = StringIO()
+        call_command('send_weekly_digest', '--date', str(self.today), stderr=err)
+        self.assertIn('--user', err.getvalue())
