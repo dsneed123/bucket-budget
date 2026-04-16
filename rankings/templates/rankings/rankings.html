@@ -69,6 +69,36 @@
         </div>
     </div>
 
+    <!-- Scoring streak card -->
+    <div class="card streak-card">
+        <div class="card-header">
+            <h2 class="card-title">Scoring Streak</h2>
+            <span class="card-subtitle">Consecutive days with all expenses scored</span>
+        </div>
+        <div class="streak-body">
+            <div class="streak-current">
+                <span class="streak-count {% if current_streak >= 7 %}text-green{% elif current_streak >= 3 %}text-gold{% elif current_streak > 0 %}text-secondary{% else %}text-secondary{% endif %}">{{ current_streak }}</span>
+                <span class="streak-unit">day{{ current_streak|pluralize }} in a row</span>
+            </div>
+            {% if best_streak > 0 %}
+            <div class="streak-best">
+                <span class="stat-label">Best streak</span>
+                <span class="stat-value">{{ best_streak }} day{{ best_streak|pluralize }}</span>
+            </div>
+            {% endif %}
+        </div>
+        {% if unscored_count %}
+        <div class="streak-nudge">
+            <span class="streak-nudge-icon">&#9888;</span>
+            Keep your streak going! <a href="{% url 'rankings_review' %}" class="streak-nudge-link">Score {{ unscored_count }} unscored transaction{{ unscored_count|pluralize }}</a>.
+        </div>
+        {% elif current_streak > 0 %}
+        <p class="streak-praise text-green">You're on a roll — all transactions scored!</p>
+        {% else %}
+        <p class="streak-praise text-secondary">Score all of today's expenses to start a streak.</p>
+        {% endif %}
+    </div>
+
     <!-- Spending quality trend bar chart -->
     <div class="card">
         <div class="card-header">
@@ -658,6 +688,76 @@
 
 .daily-insight-score {
     font-weight: 700;
+}
+
+/* Scoring streak card */
+.streak-body {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    margin: 20px 0 16px;
+    flex-wrap: wrap;
+}
+
+.streak-current {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.streak-count {
+    font-size: 3.5rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -2px;
+}
+
+.streak-unit {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.streak-best {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 16px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+}
+
+.streak-nudge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(249, 202, 36, 0.1);
+    border: 1px solid rgba(249, 202, 36, 0.3);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    color: var(--accent-gold);
+    margin-top: 4px;
+}
+
+.streak-nudge-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.streak-nudge-link {
+    color: var(--accent-gold);
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.streak-nudge-link:hover {
+    opacity: 0.8;
+}
+
+.streak-praise {
+    font-size: 0.9rem;
+    margin: 4px 0 0;
 }
 </style>
 {% endblock %}

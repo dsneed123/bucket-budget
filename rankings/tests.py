@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -8,6 +8,9 @@ from django.urls import reverse
 from banking.models import BankAccount
 from buckets.models import Bucket
 from transactions.models import Transaction
+
+from rankings.models import ScoreStreak
+from rankings.views import _compute_score_streak
 
 User = get_user_model()
 
@@ -263,6 +266,103 @@ class RankingsViewTest(TestCase):
         response = self.client.get(reverse('rankings'))
         self.assertEqual(len(response.context['essential_purchases']), 0)
         self.assertEqual(response.context['essential_total'], Decimal('0'))
+
+    def test_score_streak_zero_with_no_transactions(self):
+        today = date.today()
+        result = _compute_score_streak(self.user, today)
+        self.assertEqual(result, 0)
+
+    def test_score_streak_one_when_today_fully_scored(self):
+        today = date.today()
+        Transaction.objects.create(
+            user=self.user, account=self.account, bucket=self.bucket,
+            amount=Decimal('20.00'), transaction_type='expense',
+            description='Groceries', date=today, necessity_score=8,
+        )
+        result = _compute_score_streak(self.user, today)
+        self.assertEqual(result, 1)
+
+    def test_score_streak_zero_when_today_has_unscored(self):
+        today = date.today()
+        Transaction.objects.create(
+            user=self.user, account=self.account, bucket=self.bucket,
+            amount=Decimal('20.00'), transaction_type='expense',
+            description='Unscored', date=today, necessity_score=None,
+        )
+        result = _compute_score_streak(self.user, today)
+        self.assertEqual(result, 0)
+
+    def test_score_streak_spans_consecutive_days(self):
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+        for d in [today, yesterday]:
+            Transaction.objects.create(
+                user=self.user, account=self.account, bucket=self.bucket,
+                amount=Decimal('10.00'), transaction_type='expense',
+                description='Tx', date=d, necessity_score=7,
+            )
+        result = _compute_score_streak(self.user, today)
+        self.assertEqual(result, 2)
+
+    def test_score_streak_breaks_on_unscored_day(self):
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+        two_days_ago = today - timedelta(days=2)
+        # Today and two_days_ago are scored; yesterday is unscored → breaks streak at yesterday
+        for d in [today, two_days_ago]:
+            Transaction.objects.create(
+                user=self.user, account=self.account, bucket=self.bucket,
+                amount=Decimal('10.00'), transaction_type='expense',
+                description='Scored', date=d, necessity_score=5,
+            )
+        Transaction.objects.create(
+            user=self.user, account=self.account, bucket=self.bucket,
+            amount=Decimal('10.00'), transaction_type='expense',
+            description='Unscored', date=yesterday, necessity_score=None,
+        )
+        result = _compute_score_streak(self.user, today)
+        self.assertEqual(result, 1)
+
+    def test_score_streak_skips_days_with_no_expenses(self):
+        today = date.today()
+        two_days_ago = today - timedelta(days=2)
+        # No expense yesterday; today and two_days_ago are both fully scored
+        for d in [today, two_days_ago]:
+            Transaction.objects.create(
+                user=self.user, account=self.account, bucket=self.bucket,
+                amount=Decimal('10.00'), transaction_type='expense',
+                description='Scored', date=d, necessity_score=9,
+            )
+        result = _compute_score_streak(self.user, today)
+        self.assertEqual(result, 2)
+
+    def test_best_streak_updated_on_rankings_page(self):
+        today = date.today()
+        Transaction.objects.create(
+            user=self.user, account=self.account, bucket=self.bucket,
+            amount=Decimal('15.00'), transaction_type='expense',
+            description='Scored', date=today, necessity_score=6,
+        )
+        response = self.client.get(reverse('rankings'))
+        self.assertEqual(response.context['current_streak'], 1)
+        self.assertEqual(response.context['best_streak'], 1)
+        streak_obj = self.user.score_streak
+        self.assertEqual(streak_obj.best_streak, 1)
+
+    def test_unscored_count_in_rankings_context(self):
+        today = date.today()
+        Transaction.objects.create(
+            user=self.user, account=self.account, bucket=self.bucket,
+            amount=Decimal('20.00'), transaction_type='expense',
+            description='Unscored A', date=today, necessity_score=None,
+        )
+        Transaction.objects.create(
+            user=self.user, account=self.account, bucket=self.bucket,
+            amount=Decimal('30.00'), transaction_type='expense',
+            description='Scored', date=today, necessity_score=7,
+        )
+        response = self.client.get(reverse('rankings'))
+        self.assertEqual(response.context['unscored_count'], 1)
 
     def test_rankings_isolates_users(self):
         other_user = User.objects.create_user(

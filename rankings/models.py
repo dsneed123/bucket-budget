@@ -2,6 +2,18 @@ from django.conf import settings
 from django.db import models
 
 
+class ScoreStreak(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='score_streak',
+    )
+    best_streak = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f'ScoreStreak({self.user_id}, best={self.best_streak})'
+
+
 class NecessitySnapshot(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
