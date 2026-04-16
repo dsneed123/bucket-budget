@@ -1,3 +1,8 @@
+import csv
+import io
+import zipfile
+
+from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, authenticate, update_session_auth_hash, logout
 from django.contrib.auth import get_user_model
@@ -195,6 +200,92 @@ def settings(request):
         'week_choices': UserPreferences.START_OF_WEEK_CHOICES,
         'bank_accounts': bank_accounts,
     })
+
+
+@login_required
+def export_all_data(request):
+    from transactions.models import Transaction, RecurringTransaction
+    from buckets.models import Bucket
+    from savings.models import SavingsGoal
+    from budget.models import BudgetSummary
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+
+        # transactions.csv
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(['date', 'description', 'vendor', 'amount', 'type', 'bucket', 'account', 'necessity_score', 'tags'])
+        for t in Transaction.objects.filter(user=request.user).select_related('bucket', 'account').prefetch_related('tags').order_by('-date'):
+            w.writerow([
+                t.date, t.description, t.vendor or '', t.amount,
+                t.transaction_type,
+                t.bucket.name if t.bucket else '',
+                t.account.name if t.account else '',
+                t.necessity_score or '',
+                ', '.join(tag.name for tag in t.tags.all()),
+            ])
+        zf.writestr('transactions.csv', out.getvalue())
+
+        # buckets.csv
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(['name', 'description', 'monthly_allocation', 'color', 'icon', 'sort_order', 'is_active', 'is_uncategorized', 'rollover', 'alert_threshold'])
+        for b in Bucket.objects.filter(user=request.user).order_by('sort_order', 'name'):
+            w.writerow([
+                b.name, b.description or '', b.monthly_allocation, b.color, b.icon,
+                b.sort_order, b.is_active, b.is_uncategorized, b.rollover, b.alert_threshold,
+            ])
+        zf.writestr('buckets.csv', out.getvalue())
+
+        # savings_goals.csv
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(['name', 'description', 'target_amount', 'current_amount', 'deadline', 'priority', 'goal_type', 'color', 'icon', 'is_achieved'])
+        for g in SavingsGoal.objects.filter(user=request.user).order_by('name'):
+            w.writerow([
+                g.name, g.description or '', g.target_amount, g.current_amount,
+                g.deadline or '', g.priority, g.goal_type, g.color, g.icon, g.is_achieved,
+            ])
+        zf.writestr('savings_goals.csv', out.getvalue())
+
+        # budget_summaries.csv
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(['year', 'month', 'income', 'total_allocated', 'total_spent', 'total_saved', 'surplus_deficit', 'necessity_avg', 'notes'])
+        for s in BudgetSummary.objects.filter(user=request.user).order_by('-year', '-month'):
+            w.writerow([
+                s.year, s.month, s.income, s.total_allocated, s.total_spent,
+                s.total_saved, s.surplus_deficit, s.necessity_avg or '', s.notes or '',
+            ])
+        zf.writestr('budget_summaries.csv', out.getvalue())
+
+        # recurring.csv
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(['description', 'vendor', 'amount', 'type', 'bucket', 'account', 'frequency', 'start_date', 'next_due', 'end_date', 'is_active', 'is_subscription', 'necessity_score'])
+        for r in RecurringTransaction.objects.filter(user=request.user).select_related('bucket', 'account').order_by('description'):
+            w.writerow([
+                r.description, r.vendor or '', r.amount, r.transaction_type,
+                r.bucket.name if r.bucket else '',
+                r.account.name if r.account else '',
+                r.frequency, r.start_date, r.next_due, r.end_date or '',
+                r.is_active, r.is_subscription, r.necessity_score or '',
+            ])
+        zf.writestr('recurring.csv', out.getvalue())
+
+        # bank_accounts.csv
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(['name', 'account_type', 'balance', 'institution', 'color', 'is_active'])
+        for a in BankAccount.objects.filter(user=request.user).order_by('name'):
+            w.writerow([a.name, a.account_type, a.balance, a.institution or '', a.color, a.is_active])
+        zf.writestr('bank_accounts.csv', out.getvalue())
+
+    buf.seek(0)
+    response = HttpResponse(buf.read(), content_type='application/zip')
+    response['Content-Disposition'] = 'attachment; filename="bucket-budget-export.zip"'
+    return response
 
 
 @login_required
