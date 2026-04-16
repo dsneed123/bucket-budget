@@ -13,8 +13,59 @@ from banking.models import BankAccount
 from buckets.models import Bucket
 from insights.models import Recommendation
 from insights.recommendations import refresh_recommendations
-from savings.models import SavingsGoal
+from savings.models import SavingsContribution, SavingsMilestone, SavingsGoal
 from transactions.models import RecurringTransaction, Transaction
+
+
+def _build_activity_feed(user, limit=10):
+    _cat_icons = {'budget': '⚠️', 'savings': '🎯', 'quality': '📊', 'vendor': '🛒'}
+    events = []
+
+    for txn in Transaction.objects.filter(user=user).select_related('bucket').order_by('-created_at')[:limit]:
+        icon = txn.bucket.icon if txn.bucket else ('💰' if txn.transaction_type == 'income' else '💳')
+        events.append({
+            'icon': icon,
+            'description': txn.description,
+            'timestamp': txn.created_at,
+            'amount': txn.amount,
+            'is_income': txn.transaction_type == 'income',
+            'kind': 'transaction',
+        })
+
+    for contrib in SavingsContribution.objects.filter(goal__user=user).select_related('goal').order_by('-created_at')[:limit]:
+        is_contrib = contrib.transaction_type == 'contribution'
+        verb = 'Contributed to' if is_contrib else 'Withdrew from'
+        events.append({
+            'icon': contrib.goal.icon,
+            'description': f'{verb} {contrib.goal.name}',
+            'timestamp': contrib.created_at,
+            'amount': contrib.amount,
+            'is_income': not is_contrib,
+            'kind': 'contribution',
+        })
+
+    for milestone in SavingsMilestone.objects.filter(goal__user=user).select_related('goal').order_by('-reached_at')[:limit]:
+        events.append({
+            'icon': '🏆',
+            'description': f'Reached {milestone.percentage}% of {milestone.goal.name}',
+            'timestamp': milestone.reached_at,
+            'amount': None,
+            'is_income': True,
+            'kind': 'milestone',
+        })
+
+    for rec in Recommendation.objects.filter(user=user).order_by('-created_at')[:limit]:
+        events.append({
+            'icon': _cat_icons.get(rec.category, '💡'),
+            'description': rec.message,
+            'timestamp': rec.created_at,
+            'amount': None,
+            'is_income': False,
+            'kind': 'alert',
+        })
+
+    events.sort(key=lambda e: e['timestamp'], reverse=True)
+    return events[:limit]
 
 
 def index(request):
@@ -191,6 +242,8 @@ def dashboard(request):
         .order_by('next_due')
     )
 
+    activity_feed = _build_activity_feed(request.user)
+
     return render(request, 'core/dashboard.html', {
         'accounts': accounts,
         'buckets': buckets,
@@ -214,4 +267,5 @@ def dashboard(request):
         'daily_spending': daily_spending,
         'calendar_weeks': calendar_weeks,
         'calendar_txns_by_day': calendar_txns_by_day,
+        'activity_feed': activity_feed,
     })
