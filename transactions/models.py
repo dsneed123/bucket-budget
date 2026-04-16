@@ -24,6 +24,20 @@ class Tag(models.Model):
         return self.name
 
 
+class VendorMapping(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='vendor_mappings')
+    vendor_name = models.CharField(max_length=100)
+    bucket = models.ForeignKey('buckets.Bucket', on_delete=models.SET_NULL, null=True, blank=True, related_name='vendor_mappings')
+    last_used = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'vendor_name')
+        ordering = ['-last_used']
+
+    def __str__(self):
+        return self.vendor_name
+
+
 class Transaction(models.Model):
     TRANSACTION_TYPE_CHOICES = [
         ('expense', 'Expense'),

@@ -9,7 +9,7 @@ from django.urls import reverse
 from banking.models import BankAccount
 from buckets.models import Bucket
 
-from .models import Tag, Transaction
+from .models import Tag, Transaction, VendorMapping
 from .views import _resolve_tags
 
 User = get_user_model()
@@ -976,3 +976,196 @@ class TagTransactionIntegrationTest(TestCase):
         response = self.client.get(reverse('transaction_edit', args=[txn.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'prepop-tag')
+
+
+class VendorMappingModelTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='vendor@example.com',
+            password='testpass',
+            first_name='Vendor',
+            last_name='User',
+        )
+        self.bucket = Bucket.objects.create(
+            user=self.user,
+            name='Groceries',
+            monthly_allocation=Decimal('300.00'),
+        )
+
+    def test_create_vendor_mapping(self):
+        vm = VendorMapping.objects.create(user=self.user, vendor_name='Whole Foods', bucket=self.bucket)
+        self.assertEqual(vm.vendor_name, 'Whole Foods')
+        self.assertEqual(vm.bucket, self.bucket)
+        self.assertEqual(vm.user, self.user)
+
+    def test_create_vendor_mapping_without_bucket(self):
+        vm = VendorMapping.objects.create(user=self.user, vendor_name='Unknown Store')
+        self.assertIsNone(vm.bucket)
+
+    def test_str_representation(self):
+        vm = VendorMapping.objects.create(user=self.user, vendor_name='Target')
+        self.assertEqual(str(vm), 'Target')
+
+    def test_unique_per_user_and_vendor(self):
+        from django.db import IntegrityError
+        VendorMapping.objects.create(user=self.user, vendor_name='Costco')
+        with self.assertRaises(IntegrityError):
+            VendorMapping.objects.create(user=self.user, vendor_name='Costco')
+
+    def test_same_vendor_name_allowed_for_different_users(self):
+        other_user = User.objects.create_user(
+            email='vendor2@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        VendorMapping.objects.create(user=self.user, vendor_name='Amazon')
+        vm2 = VendorMapping.objects.create(user=other_user, vendor_name='Amazon')
+        self.assertEqual(vm2.vendor_name, 'Amazon')
+
+    def test_bucket_nulled_when_bucket_deleted(self):
+        vm = VendorMapping.objects.create(user=self.user, vendor_name='Store', bucket=self.bucket)
+        self.bucket.delete()
+        vm.refresh_from_db()
+        self.assertIsNone(vm.bucket)
+
+
+class VendorAutocompleteViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='autocomplete@example.com',
+            password='testpass',
+            first_name='Auto',
+            last_name='User',
+        )
+        self.bucket = Bucket.objects.create(
+            user=self.user,
+            name='Groceries',
+            monthly_allocation=Decimal('300.00'),
+        )
+        self.client.login(email='autocomplete@example.com', password='testpass')
+        self.url = reverse('vendor_autocomplete')
+
+    def test_returns_json(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/json')
+
+    def test_redirect_if_not_logged_in(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_returns_user_vendors(self):
+        VendorMapping.objects.create(user=self.user, vendor_name='Walmart', bucket=self.bucket)
+        VendorMapping.objects.create(user=self.user, vendor_name='Target')
+        response = self.client.get(self.url)
+        data = response.json()
+        vendor_names = [v['vendor'] for v in data['vendors']]
+        self.assertIn('Walmart', vendor_names)
+        self.assertIn('Target', vendor_names)
+
+    def test_does_not_return_other_users_vendors(self):
+        other_user = User.objects.create_user(
+            email='other_auto@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        VendorMapping.objects.create(user=other_user, vendor_name='Secret Store')
+        response = self.client.get(self.url)
+        data = response.json()
+        vendor_names = [v['vendor'] for v in data['vendors']]
+        self.assertNotIn('Secret Store', vendor_names)
+
+    def test_bucket_id_included_in_response(self):
+        VendorMapping.objects.create(user=self.user, vendor_name='Whole Foods', bucket=self.bucket)
+        response = self.client.get(self.url)
+        data = response.json()
+        match = next(v for v in data['vendors'] if v['vendor'] == 'Whole Foods')
+        self.assertEqual(match['bucket_id'], self.bucket.pk)
+
+    def test_no_bucket_returns_null(self):
+        VendorMapping.objects.create(user=self.user, vendor_name='No Bucket Store')
+        response = self.client.get(self.url)
+        data = response.json()
+        match = next(v for v in data['vendors'] if v['vendor'] == 'No Bucket Store')
+        self.assertIsNone(match['bucket_id'])
+
+
+class VendorMappingIntegrationTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='vmint@example.com',
+            password='testpass',
+            first_name='VM',
+            last_name='Int',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('500.00'),
+        )
+        self.bucket = Bucket.objects.create(
+            user=self.user,
+            name='Groceries',
+            monthly_allocation=Decimal('300.00'),
+        )
+        self.client.login(email='vmint@example.com', password='testpass')
+
+    def _post_add(self, **overrides):
+        data = {
+            'amount': '25.00',
+            'transaction_type': 'expense',
+            'description': 'Test purchase',
+            'vendor': 'Whole Foods',
+            'bucket': str(self.bucket.pk),
+            'account': str(self.account.pk),
+            'date': '2026-04-16',
+        }
+        data.update(overrides)
+        return self.client.post(reverse('transaction_add'), data)
+
+    def test_adding_transaction_with_vendor_creates_mapping(self):
+        self._post_add()
+        self.assertTrue(VendorMapping.objects.filter(user=self.user, vendor_name='Whole Foods').exists())
+
+    def test_mapping_stores_bucket(self):
+        self._post_add()
+        vm = VendorMapping.objects.get(user=self.user, vendor_name='Whole Foods')
+        self.assertEqual(vm.bucket, self.bucket)
+
+    def test_adding_transaction_without_vendor_does_not_create_mapping(self):
+        self._post_add(vendor='')
+        self.assertEqual(VendorMapping.objects.filter(user=self.user).count(), 0)
+
+    def test_second_transaction_updates_existing_mapping(self):
+        other_bucket = Bucket.objects.create(
+            user=self.user,
+            name='Shopping',
+            monthly_allocation=Decimal('200.00'),
+        )
+        self._post_add(bucket=str(self.bucket.pk))
+        # Use a different amount to avoid duplicate detection
+        self._post_add(amount='30.00', bucket=str(other_bucket.pk))
+        vm = VendorMapping.objects.get(user=self.user, vendor_name='Whole Foods')
+        self.assertEqual(vm.bucket, other_bucket)
+
+    def test_vendor_case_insensitive_lookup_updates_existing(self):
+        self._post_add(vendor='whole foods')
+        self._post_add(vendor='Whole Foods')
+        self.assertEqual(VendorMapping.objects.filter(user=self.user).count(), 1)
+
+    def test_add_form_contains_datalist(self):
+        response = self.client.get(reverse('transaction_add'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'vendor-suggestions')
+
+    def test_add_form_includes_vendor_mappings_json(self):
+        VendorMapping.objects.create(user=self.user, vendor_name='Test Market', bucket=self.bucket)
+        response = self.client.get(reverse('transaction_add'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Test Market')
