@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}Split Transaction — Bucket Budget{% endblock %}
+{% block page_title %}Split Transaction{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px;">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Split Transaction</h2>
+            <p class="card-subtitle">Split one purchase across multiple buckets. Each split creates a separate transaction linked by a shared group.</p>
+        </div>
+
+        <form method="post" novalidate id="split-form">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label class="form-label">Transaction type</label>
+                <div style="display: flex; gap: 16px; margin-top: 4px;">
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
+                        <input
+                            type="radio"
+                            name="transaction_type"
+                            value="expense"
+                            {% if form_data.transaction_type != 'income' %}checked{% endif %}
+                        >
+                        Expense
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
+                        <input
+                            type="radio"
+                            name="transaction_type"
+                            value="income"
+                            {% if form_data.transaction_type == 'income' %}checked{% endif %}
+                        >
+                        Income
+                    </label>
+                </div>
+                {% if errors.transaction_type %}
+                    <p class="form-error">{{ errors.transaction_type }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label for="date" class="form-label">Date</label>
+                    <input
+                        type="date"
+                        id="date"
+                        name="date"
+                        class="form-control"
+                        value="{{ form_data.date|default:'' }}"
+                    >
+                    {% if errors.date %}
+                        <p class="form-error">{{ errors.date }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="flex: 1;">
+                    <label for="account" class="form-label">Account</label>
+                    <select id="account" name="account" class="form-control">
+                        <option value="" disabled {% if not form_data.account %}selected{% endif %}>Select account…</option>
+                        {% for account in accounts %}
+                            <option value="{{ account.pk }}" {% if form_data.account == account.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ account.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if errors.account %}
+                        <p class="form-error">{{ errors.account }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description" class="form-label">Description</label>
+                <input
+                    type="text"
+                    id="description"
+                    name="description"
+                    class="form-control"
+                    value="{{ form_data.description|default:'' }}"
+                    placeholder="e.g. Costco run"
+                    autofocus
+                >
+                {% if errors.description %}
+                    <p class="form-error">{{ errors.description }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="vendor" class="form-label">Vendor <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
+                <input
+                    type="text"
+                    id="vendor"
+                    name="vendor"
+                    class="form-control"
+                    value="{{ form_data.vendor|default:'' }}"
+                    placeholder="e.g. Costco"
+                >
+            </div>
+
+            <!-- Split rows -->
+            <div class="form-group" style="margin-top: 8px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <label class="form-label" style="margin-bottom: 0;">Splits</label>
+                    <span id="split-total" style="font-size: 13px; color: var(--text-secondary);">Total: —</span>
+                </div>
+                {% if errors.splits %}
+                    <p class="form-error">{{ errors.splits }}</p>
+                {% endif %}
+
+                <div id="split-rows">
+                    {% for split in form_data.splits %}
+                    <div class="split-row" style="display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px;">
+                        <div style="flex: 1;">
+                            <input
+                                type="number"
+                                name="split_amount"
+                                class="form-control split-amount"
+                                value="{{ split.amount }}"
+                                placeholder="0.00"
+                                step="0.01"
+                                min="0.01"
+                                oninput="updateTotal()"
+                            >
+                            {% if errors.split_rows %}
+                                {% with row_idx=forloop.counter0 %}
+                                    {% if errors.split_rows|default_if_none:'' %}
+                                        {# Row-level errors rendered by JS fallback below #}
+                                    {% endif %}
+                                {% endwith %}
+                            {% endif %}
+                        </div>
+                        <div style="flex: 2;">
+                            <select name="split_bucket" class="form-control">
+                                <option value="">No bucket</option>
+                                {% for bucket in buckets %}
+                                    <option value="{{ bucket.pk }}" {% if split.bucket == bucket.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ bucket.icon }} {{ bucket.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="button" class="btn-remove-split" onclick="removeSplit(this)"
+                                style="padding: 8px 10px; background: rgba(255,71,87,0.12); color: #ff4757; border: 1px solid #ff4757; border-radius: 6px; cursor: pointer; font-size: 14px; white-space: nowrap; flex-shrink: 0;">
+                            &times;
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Per-row errors from server (shown as a single block) -->
+                {% if errors.split_rows %}
+                <div style="margin-bottom: 8px;">
+                    {% for idx, row_err in errors.split_rows.items %}
+                        {% for field, msg in row_err.items %}
+                            <p class="form-error">Row {{ idx|add:"1" }} — {{ msg }}</p>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <button type="button" id="add-split-btn"
+                        onclick="addSplit()"
+                        style="width: 100%; padding: 8px; background: transparent; border: 1px dashed var(--border-color); border-radius: 6px; color: var(--text-secondary); cursor: pointer; font-size: 14px; margin-top: 4px;">
+                    + Add split
+                </button>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                <button type="submit" class="btn btn-primary">Save splits</button>
+                <a href="{% url 'transaction_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Template row for JS cloning -->
+<template id="split-row-template">
+    <div class="split-row" style="display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px;">
+        <div style="flex: 1;">
+            <input
+                type="number"
+                name="split_amount"
+                class="form-control split-amount"
+                value=""
+                placeholder="0.00"
+                step="0.01"
+                min="0.01"
+                oninput="updateTotal()"
+            >
+        </div>
+        <div style="flex: 2;">
+            <select name="split_bucket" class="form-control">
+                <option value="">No bucket</option>
+                {% for bucket in buckets %}
+                    <option value="{{ bucket.pk }}">{{ bucket.icon }} {{ bucket.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="button" class="btn-remove-split" onclick="removeSplit(this)"
+                style="padding: 8px 10px; background: rgba(255,71,87,0.12); color: #ff4757; border: 1px solid #ff4757; border-radius: 6px; cursor: pointer; font-size: 14px; white-space: nowrap; flex-shrink: 0;">
+            &times;
+        </button>
+    </div>
+</template>
+
+<script>
+(function () {
+    function formatCurrency(val) {
+        return '$' + val.toFixed(2);
+    }
+
+    window.updateTotal = function () {
+        var inputs = document.querySelectorAll('.split-amount');
+        var total = 0;
+        inputs.forEach(function (inp) {
+            var v = parseFloat(inp.value);
+            if (!isNaN(v) && v > 0) total += v;
+        });
+        var el = document.getElementById('split-total');
+        el.textContent = total > 0 ? 'Total: ' + formatCurrency(total) : 'Total: —';
+    };
+
+    window.addSplit = function () {
+        var tpl = document.getElementById('split-row-template');
+        var clone = tpl.content.cloneNode(true);
+        document.getElementById('split-rows').appendChild(clone);
+        updateRemoveButtons();
+    };
+
+    window.removeSplit = function (btn) {
+        var row = btn.closest('.split-row');
+        var container = document.getElementById('split-rows');
+        if (container.querySelectorAll('.split-row').length <= 2) {
+            return; // keep minimum 2 rows
+        }
+        row.remove();
+        updateTotal();
+        updateRemoveButtons();
+    };
+
+    function updateRemoveButtons() {
+        var rows = document.getElementById('split-rows').querySelectorAll('.split-row');
+        rows.forEach(function (row) {
+            var btn = row.querySelector('.btn-remove-split');
+            btn.style.visibility = rows.length <= 2 ? 'hidden' : 'visible';
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        updateTotal();
+        updateRemoveButtons();
+    });
+}());
+</script>
+{% endblock %}
