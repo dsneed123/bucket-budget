@@ -54,6 +54,9 @@ def bucket_list(request):
 
     archived_count = Bucket.objects.filter(user=request.user, is_active=False).count()
 
+    monthly_income = request.user.monthly_income
+    over_by = total_allocated - monthly_income if monthly_income > 0 and total_allocated > monthly_income else Decimal('0')
+
     return render(request, 'buckets/bucket_list.html', {
         'bucket_data': bucket_data,
         'total_allocated': total_allocated,
@@ -62,6 +65,8 @@ def bucket_list(request):
         'show_archived': show_archived,
         'archived_buckets': archived_buckets,
         'archived_count': archived_count,
+        'monthly_income': monthly_income,
+        'over_by': over_by,
     })
 
 
