@@ -220,6 +220,18 @@
                 {% endif %}
             </div>
 
+            <!-- Notes -->
+            <div class="form-group">
+                <label for="notes" class="form-label">Notes <span style="color: var(--text-secondary); font-weight: 400;">(optional — supports **bold**)</span></label>
+                <textarea
+                    id="notes"
+                    name="notes"
+                    class="form-control"
+                    rows="4"
+                    placeholder="Add any additional details…"
+                    style="resize: vertical;">{{ form_data.notes|default:'' }}</textarea>
+            </div>
+
             <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
                 <button type="submit" class="btn btn-primary">Save changes</button>
                 <a href="{% url 'transaction_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>

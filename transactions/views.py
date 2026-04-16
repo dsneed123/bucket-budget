@@ -367,6 +367,7 @@ def transaction_edit(request, transaction_id):
         date_str = request.POST.get('date', '').strip()
         necessity_score_str = request.POST.get('necessity_score', '').strip()
         tags_raw = request.POST.get('tags', '').strip()
+        notes = request.POST.get('notes', '')
 
         form_data = {
             'amount': amount,
@@ -378,6 +379,7 @@ def transaction_edit(request, transaction_id):
             'date': date_str,
             'necessity_score': necessity_score_str,
             'tags': tags_raw,
+            'notes': notes,
         }
 
         # Validate amount
@@ -450,6 +452,7 @@ def transaction_edit(request, transaction_id):
             transaction.vendor = vendor
             transaction.date = date_val
             transaction.necessity_score = necessity_score_val
+            transaction.notes = notes
             if request.FILES.get('receipt'):
                 transaction.receipt = request.FILES['receipt']
             elif request.POST.get('clear_receipt') == '1':
@@ -470,6 +473,7 @@ def transaction_edit(request, transaction_id):
             'date': transaction.date.isoformat(),
             'necessity_score': str(transaction.necessity_score) if transaction.necessity_score is not None else '',
             'tags': existing_tags,
+            'notes': transaction.notes,
         }
 
     return render(request, 'transactions/transaction_edit.html', {

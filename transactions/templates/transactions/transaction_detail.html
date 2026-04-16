@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load currency_tags %}
+{% load currency_tags transaction_filters %}
 {% block title %}{{ transaction.description }} — Bucket Budget{% endblock %}
 {% block page_title %}Transaction Detail{% endblock %}
 
@@ -90,7 +90,7 @@
             {% if transaction.notes %}
             <div style="padding: 10px 0; border-bottom: 1px solid var(--border);">
                 <div style="margin-bottom: 6px;">Notes</div>
-                <div style="color: var(--text-primary); white-space: pre-wrap;">{{ transaction.notes }}</div>
+                <div style="color: var(--text-primary); line-height: 1.6;">{{ transaction.notes|render_notes }}</div>
             </div>
             {% endif %}
 
