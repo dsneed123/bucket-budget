@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Bucket Templates — Bucket Budget{% endblock %}
+{% block page_title %}Bucket Templates{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px;">
+
+    <div style="margin-bottom: 24px;">
+        <p style="color: var(--text-secondary); margin: 0;">Choose a pre-made set of buckets to get started quickly. All buckets will be created with a $0 allocation — update them after to match your budget.</p>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        {% for tmpl in templates %}
+        <div class="card" style="border-top: 4px solid {{ tmpl.color }};">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <span style="font-size: 1.6rem;">{{ tmpl.icon }}</span>
+                        <div>
+                            <h2 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">{{ tmpl.name }}</h2>
+                            <p style="margin: 2px 0 0; font-size: 0.85rem; color: var(--text-secondary);">{{ tmpl.description }}</p>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;">
+                        {% for bucket in tmpl.buckets %}
+                        <div style="display: flex; align-items: center; gap: 6px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px;">
+                            <span style="font-size: 0.9rem;">{{ bucket.icon }}</span>
+                            <span style="font-size: 0.8rem; color: var(--text-primary); font-weight: 500;">{{ bucket.name }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <p style="margin: 12px 0 0; font-size: 0.8rem; color: var(--text-secondary);">
+                        {{ tmpl.buckets|length }} bucket{{ tmpl.buckets|length|pluralize }} will be created
+                    </p>
+                </div>
+
+                <form method="post" style="flex-shrink: 0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="template_slug" value="{{ tmpl.slug }}">
+                    <button type="submit" class="btn btn-primary" style="white-space: nowrap;">
+                        Apply Template
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);">
+        <a href="{% url 'bucket_list' %}" style="font-size: 0.9rem; color: var(--text-secondary); text-decoration: none;">← Back to Buckets</a>
+    </div>
+
+</div>
+{% endblock %}

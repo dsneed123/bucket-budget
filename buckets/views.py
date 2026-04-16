@@ -9,6 +9,55 @@ from django.contrib.auth.decorators import login_required
 from .models import Bucket
 
 
+BUCKET_TEMPLATES = [
+    {
+        'slug': 'college-student',
+        'name': 'College Student',
+        'description': 'Essential buckets for managing college expenses.',
+        'icon': '🎓',
+        'color': '#6c5ce7',
+        'buckets': [
+            {'name': 'Tuition', 'icon': '🎓', 'color': '#6c5ce7', 'description': 'Semester tuition and fees'},
+            {'name': 'Textbooks', 'icon': '📚', 'color': '#0984e3', 'description': 'Books and course materials'},
+            {'name': 'Food', 'icon': '🍕', 'color': '#e17055', 'description': 'Meals and dining'},
+            {'name': 'Rent', 'icon': '🏠', 'color': '#00b894', 'description': 'Housing and rent'},
+            {'name': 'Entertainment', 'icon': '🎉', 'color': '#fdcb6e', 'description': 'Fun and social activities'},
+        ],
+    },
+    {
+        'slug': 'young-professional',
+        'name': 'Young Professional',
+        'description': 'Balanced buckets for early-career budgeting.',
+        'icon': '💼',
+        'color': '#0984e3',
+        'buckets': [
+            {'name': 'Rent', 'icon': '🏠', 'color': '#00b894', 'description': 'Monthly rent payment'},
+            {'name': 'Utilities', 'icon': '💡', 'color': '#fdcb6e', 'description': 'Electric, water, internet'},
+            {'name': 'Groceries', 'icon': '🛒', 'color': '#e17055', 'description': 'Weekly grocery shopping'},
+            {'name': 'Transportation', 'icon': '🚗', 'color': '#0984e3', 'description': 'Gas, transit, or car payment'},
+            {'name': 'Savings', 'icon': '💰', 'color': '#00cec9', 'description': 'Monthly savings goal'},
+            {'name': 'Fun', 'icon': '🎊', 'color': '#a29bfe', 'description': 'Entertainment and leisure'},
+        ],
+    },
+    {
+        'slug': 'family',
+        'name': 'Family',
+        'description': 'Comprehensive buckets for household financial planning.',
+        'icon': '👨‍👩‍👧',
+        'color': '#00b894',
+        'buckets': [
+            {'name': 'Mortgage', 'icon': '🏡', 'color': '#00b894', 'description': 'Monthly mortgage payment'},
+            {'name': 'Groceries', 'icon': '🛒', 'color': '#e17055', 'description': 'Family grocery budget'},
+            {'name': 'Kids', 'icon': '👧', 'color': '#fdcb6e', 'description': 'Children\'s expenses and activities'},
+            {'name': 'Utilities', 'icon': '💡', 'color': '#636e72', 'description': 'Electric, water, gas, internet'},
+            {'name': 'Insurance', 'icon': '🛡️', 'color': '#0984e3', 'description': 'Health, auto, and home insurance'},
+            {'name': 'Savings', 'icon': '💰', 'color': '#00cec9', 'description': 'Family savings and investments'},
+            {'name': 'Emergency', 'icon': '🚨', 'color': '#d63031', 'description': 'Emergency fund contributions'},
+        ],
+    },
+]
+
+
 @login_required
 def bucket_list(request):
     show_archived = request.GET.get('show_archived') == '1'
@@ -276,6 +325,28 @@ def quick_allocate(request):
     return render(request, 'buckets/quick_allocate.html', {
         'bucket_rows': bucket_rows,
         'monthly_income': monthly_income,
+    })
+
+
+@login_required
+def bucket_templates(request):
+    if request.method == 'POST':
+        slug = request.POST.get('template_slug', '').strip()
+        template = next((t for t in BUCKET_TEMPLATES if t['slug'] == slug), None)
+        if template:
+            for bucket_def in template['buckets']:
+                Bucket.objects.create(
+                    user=request.user,
+                    name=bucket_def['name'],
+                    icon=bucket_def['icon'],
+                    color=bucket_def['color'],
+                    description=bucket_def.get('description', ''),
+                    monthly_allocation=Decimal('0'),
+                )
+        return redirect('bucket_list')
+
+    return render(request, 'buckets/bucket_templates.html', {
+        'templates': BUCKET_TEMPLATES,
     })
 
 

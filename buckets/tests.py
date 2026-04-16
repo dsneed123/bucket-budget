@@ -495,3 +495,82 @@ class QuickAllocateViewTest(TestCase):
     def test_bucket_list_has_quick_allocate_link(self):
         response = self.client.get(reverse('bucket_list'))
         self.assertContains(response, 'Quick Allocate')
+
+
+class BucketTemplatesViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='templates@example.com',
+            password='testpass',
+            first_name='Test',
+            last_name='User',
+        )
+        self.client.login(email='templates@example.com', password='testpass')
+        Bucket.objects.filter(user=self.user).delete()
+
+    def test_get_returns_200(self):
+        response = self.client.get(reverse('bucket_templates'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_shows_all_templates(self):
+        response = self.client.get(reverse('bucket_templates'))
+        self.assertContains(response, 'College Student')
+        self.assertContains(response, 'Young Professional')
+        self.assertContains(response, 'Family')
+
+    def test_get_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse('bucket_templates'))
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn('bucket_templates', response['Location'])
+
+    def test_apply_college_student_creates_buckets(self):
+        self.client.post(reverse('bucket_templates'), {'template_slug': 'college-student'})
+        names = list(Bucket.objects.filter(user=self.user).values_list('name', flat=True))
+        self.assertIn('Tuition', names)
+        self.assertIn('Textbooks', names)
+        self.assertIn('Food', names)
+        self.assertIn('Rent', names)
+        self.assertIn('Entertainment', names)
+        self.assertEqual(len(names), 5)
+
+    def test_apply_young_professional_creates_buckets(self):
+        self.client.post(reverse('bucket_templates'), {'template_slug': 'young-professional'})
+        names = list(Bucket.objects.filter(user=self.user).values_list('name', flat=True))
+        self.assertIn('Rent', names)
+        self.assertIn('Utilities', names)
+        self.assertIn('Groceries', names)
+        self.assertIn('Transportation', names)
+        self.assertIn('Savings', names)
+        self.assertIn('Fun', names)
+        self.assertEqual(len(names), 6)
+
+    def test_apply_family_creates_buckets(self):
+        self.client.post(reverse('bucket_templates'), {'template_slug': 'family'})
+        names = list(Bucket.objects.filter(user=self.user).values_list('name', flat=True))
+        self.assertIn('Mortgage', names)
+        self.assertIn('Groceries', names)
+        self.assertIn('Kids', names)
+        self.assertIn('Utilities', names)
+        self.assertIn('Insurance', names)
+        self.assertIn('Savings', names)
+        self.assertIn('Emergency', names)
+        self.assertEqual(len(names), 7)
+
+    def test_buckets_created_with_zero_allocation(self):
+        self.client.post(reverse('bucket_templates'), {'template_slug': 'college-student'})
+        for bucket in Bucket.objects.filter(user=self.user):
+            self.assertEqual(bucket.monthly_allocation, Decimal('0'))
+
+    def test_apply_redirects_to_bucket_list(self):
+        response = self.client.post(reverse('bucket_templates'), {'template_slug': 'college-student'})
+        self.assertRedirects(response, reverse('bucket_list'), fetch_redirect_response=False)
+
+    def test_apply_invalid_slug_redirects_without_creating_buckets(self):
+        self.client.post(reverse('bucket_templates'), {'template_slug': 'nonexistent'})
+        self.assertEqual(Bucket.objects.filter(user=self.user).count(), 0)
+
+    def test_bucket_list_has_templates_link(self):
+        response = self.client.get(reverse('bucket_list'))
+        self.assertContains(response, 'Templates')
