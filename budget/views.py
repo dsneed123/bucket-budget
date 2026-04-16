@@ -1,3 +1,4 @@
+import calendar
 import datetime
 from decimal import Decimal
 
@@ -82,6 +83,21 @@ def budget_overview(request, year=None, month=None):
     else:
         total_pct = 0
 
+    days_in_month = calendar.monthrange(year, month)[1]
+    if is_current_month:
+        days_elapsed = today.day
+        days_left = days_in_month - today.day + 1
+    else:
+        days_elapsed = days_in_month
+        days_left = 0
+
+    actual_daily_avg = (total_spent / Decimal(days_elapsed)).quantize(Decimal('0.01')) if days_elapsed > 0 else Decimal('0')
+
+    if is_current_month and days_left > 0 and remaining_budget > 0:
+        ideal_daily_spend = (remaining_budget / Decimal(days_left)).quantize(Decimal('0.01'))
+    else:
+        ideal_daily_spend = Decimal('0')
+
     selected_date = datetime.date(year, month, 1)
 
     return render(request, 'budget/budget_overview.html', {
@@ -98,6 +114,11 @@ def budget_overview(request, year=None, month=None):
         'bucket_data': bucket_data,
         'total_remaining': total_remaining,
         'total_pct': total_pct,
+        'days_in_month': days_in_month,
+        'days_elapsed': days_elapsed,
+        'days_left': days_left,
+        'actual_daily_avg': actual_daily_avg,
+        'ideal_daily_spend': ideal_daily_spend,
         'alloc_saved': request.GET.get('saved') == '1',
     })
 
