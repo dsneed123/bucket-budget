@@ -120,6 +120,35 @@ def _score_color(score):
     return 'red'
 
 
+def _get_vendor_averages(user, year, month):
+    """Return vendors sorted by avg necessity score (lowest first) for the given month."""
+    vendor_stats = (
+        Transaction.objects.filter(
+            user=user,
+            transaction_type='expense',
+            date__year=year,
+            date__month=month,
+            necessity_score__isnull=False,
+        )
+        .exclude(vendor='')
+        .values('vendor')
+        .annotate(avg_score=Avg('necessity_score'), tx_count=Count('id'), total_spent=Sum('amount'))
+        .order_by('avg_score')
+    )
+
+    rows = []
+    for row in vendor_stats:
+        score = round(Decimal(str(row['avg_score'])), 1)
+        rows.append({
+            'vendor': row['vendor'],
+            'score': score,
+            'score_color': _score_color(score),
+            'tx_count': row['tx_count'],
+            'total_spent': row['total_spent'],
+        })
+    return rows
+
+
 def _get_score_trend(user, today):
     """Return last 6 months of avg necessity scores for the trend bar chart, oldest first."""
     months = []
@@ -196,6 +225,8 @@ def rankings(request):
             'total_spent': row['total_spent'],
         })
 
+    vendor_rows = _get_vendor_averages(request.user, this_year, this_month)
+
     return render(request, 'rankings/rankings.html', {
         'current_score': current_score,
         'current_count': current_count,
@@ -213,6 +244,7 @@ def rankings(request):
         'this_month_label': today.strftime('%B %Y'),
         'last_month_label': date(last_year, last_month, 1).strftime('%B %Y'),
         'score_trend': score_trend,
+        'vendor_rows': vendor_rows,
     })
 
 
