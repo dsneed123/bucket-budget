@@ -15,12 +15,41 @@
                 <span class="logo">Bucket Budget</span>
             </div>
             <ul class="nav-links">
-                <li><a href="#">Dashboard</a></li>
-                <li><a href="#">Buckets</a></li>
-                <li><a href="#">Transactions</a></li>
-                <li><a href="#">Goals</a></li>
-                <li><a href="#">Reports</a></li>
+                <li><a href="/dashboard/" {% if request.path == '/dashboard/' %}class="active"{% endif %}>
+                    <span class="nav-icon">📊</span>Dashboard
+                </a></li>
+                <li><a href="/transactions/" {% if request.path == '/transactions/' %}class="active"{% endif %}>
+                    <span class="nav-icon">💳</span>Transactions
+                </a></li>
+                <li><a href="/buckets/" {% if request.path == '/buckets/' %}class="active"{% endif %}>
+                    <span class="nav-icon">🪣</span>Buckets
+                </a></li>
+                <li><a href="/budget/" {% if request.path == '/budget/' %}class="active"{% endif %}>
+                    <span class="nav-icon">💰</span>Budget
+                </a></li>
+                <li><a href="/savings/" {% if request.path == '/savings/' %}class="active"{% endif %}>
+                    <span class="nav-icon">🎯</span>Savings Goals
+                </a></li>
+                <li><a href="/rankings/" {% if request.path == '/rankings/' %}class="active"{% endif %}>
+                    <span class="nav-icon">🏆</span>Rankings
+                </a></li>
+                <li><a href="/insights/" {% if request.path == '/insights/' %}class="active"{% endif %}>
+                    <span class="nav-icon">💡</span>Insights
+                </a></li>
+                <li><a href="/recurring/" {% if request.path == '/recurring/' %}class="active"{% endif %}>
+                    <span class="nav-icon">🔄</span>Recurring
+                </a></li>
             </ul>
+            <div class="nav-bottom">
+                <ul class="nav-links">
+                    <li><a href="/settings/" {% if request.path == '/settings/' %}class="active"{% endif %}>
+                        <span class="nav-icon">⚙️</span>Settings
+                    </a></li>
+                    <li><a href="/logout/" {% if request.path == '/logout/' %}class="active"{% endif %}>
+                        <span class="nav-icon">🚪</span>Logout
+                    </a></li>
+                </ul>
+            </div>
         </nav>
 
         <div class="main-wrapper">
