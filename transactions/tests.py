@@ -3,7 +3,8 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, Client
+from django.urls import reverse
 
 from banking.models import BankAccount
 from buckets.models import Bucket
@@ -96,3 +97,120 @@ class TransactionModelTest(TestCase):
         results = list(Transaction.objects.filter(user=self.user))
         self.assertEqual(results[0], txn2)
         self.assertEqual(results[1], txn1)
+
+
+class TransactionAddViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='view@example.com',
+            password='testpass',
+            first_name='View',
+            last_name='User',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('500.00'),
+        )
+        self.bucket = Bucket.objects.create(
+            user=self.user,
+            name='Groceries',
+            monthly_allocation=Decimal('300.00'),
+        )
+        self.client.login(email='view@example.com', password='testpass')
+        self.url = reverse('transaction_add')
+
+    def _post(self, **overrides):
+        data = {
+            'amount': '25.00',
+            'transaction_type': 'expense',
+            'description': 'Test purchase',
+            'vendor': 'Test Store',
+            'bucket': '',
+            'account': str(self.account.pk),
+            'date': '2026-04-16',
+        }
+        data.update(overrides)
+        return self.client.post(self.url, data)
+
+    def test_get_renders_form(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'New Transaction')
+
+    def test_redirect_if_not_logged_in(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response['Location'])
+
+    def test_successful_expense_creates_transaction_and_reduces_balance(self):
+        response = self._post()
+        self.assertRedirects(response, reverse('transaction_list'))
+        txn = Transaction.objects.get(user=self.user)
+        self.assertEqual(txn.transaction_type, 'expense')
+        self.assertEqual(txn.amount, Decimal('25.00'))
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('475.00'))
+
+    def test_successful_income_creates_transaction_and_increases_balance(self):
+        response = self._post(transaction_type='income', amount='100.00')
+        self.assertRedirects(response, reverse('transaction_list'))
+        txn = Transaction.objects.get(user=self.user)
+        self.assertEqual(txn.transaction_type, 'income')
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('600.00'))
+
+    def test_expense_with_bucket_assigns_bucket(self):
+        response = self._post(bucket=str(self.bucket.pk))
+        self.assertRedirects(response, reverse('transaction_list'))
+        txn = Transaction.objects.get(user=self.user)
+        self.assertEqual(txn.bucket, self.bucket)
+
+    def test_missing_amount_shows_error(self):
+        response = self._post(amount='')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Amount is required')
+        self.assertEqual(Transaction.objects.count(), 0)
+
+    def test_zero_amount_shows_error(self):
+        response = self._post(amount='0')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'greater than zero')
+
+    def test_missing_description_shows_error(self):
+        response = self._post(description='')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Description is required')
+
+    def test_missing_account_shows_error(self):
+        response = self._post(account='')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Account is required')
+
+    def test_cannot_use_another_users_account(self):
+        other_user = User.objects.create_user(
+            email='other@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        other_account = BankAccount.objects.create(
+            user=other_user,
+            name='Other Checking',
+            account_type='checking',
+            balance=Decimal('1000.00'),
+        )
+        response = self._post(account=str(other_account.pk))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'valid account')
+        self.assertEqual(Transaction.objects.count(), 0)
+
+    def test_balance_history_created_on_expense(self):
+        from banking.models import BalanceHistory
+        self._post()
+        history = BalanceHistory.objects.filter(account=self.account).first()
+        self.assertIsNotNone(history)
+        self.assertEqual(history.change_reason, 'transaction')
