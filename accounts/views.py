@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth import login, authenticate, update_session_auth_hash
+from django.contrib.auth import login, authenticate, update_session_auth_hash, logout
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import PasswordChangeView
@@ -137,6 +137,27 @@ def profile(request):
         'errors': errors,
         'success': success,
         'currency_choices': CURRENCY_CHOICES,
+    })
+
+
+@login_required
+def delete_account(request):
+    errors = {}
+
+    if request.method == 'POST':
+        confirmation = request.POST.get('confirmation', '').strip()
+
+        if confirmation != 'DELETE':
+            errors['confirmation'] = 'Please type DELETE to confirm.'
+
+        if not errors:
+            user = request.user
+            logout(request)
+            user.delete()
+            return redirect('/')
+
+    return render(request, 'accounts/delete_account.html', {
+        'errors': errors,
     })
 
 
