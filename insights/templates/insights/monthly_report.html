@@ -1,0 +1,859 @@
+{% extends "base.html" %}
+{% load currency_tags %}
+
+{% block title %}{{ report_label }} Report — Bucket Budget{% endblock %}
+{% block page_title %}Monthly Report{% endblock %}
+
+{% block content %}
+<div class="report-page">
+
+    <div class="page-header">
+        <h1 class="page-title-inline">Monthly Report</h1>
+        <div class="report-nav">
+            <a href="{% url 'monthly_report' prev_year prev_month %}" class="report-nav-btn">&larr;</a>
+            <span class="page-subtitle text-secondary">{{ report_label }}</span>
+            {% if has_next %}
+            <a href="{% url 'monthly_report' next_year next_month %}" class="report-nav-btn">&rarr;</a>
+            {% else %}
+            <span class="report-nav-btn report-nav-btn-disabled">&rarr;</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-4 insights-summary-cards">
+
+        <div class="card insights-card">
+            <div class="insights-card-label">Income</div>
+            <div class="insights-card-value text-green">{{ income|currency }}</div>
+            <div class="insights-card-meta text-secondary">Total received</div>
+        </div>
+
+        <div class="card insights-card">
+            <div class="insights-card-label">Expenses</div>
+            <div class="insights-card-value text-red">{{ expenses|currency }}</div>
+            <div class="insights-card-meta text-secondary">Total spent</div>
+        </div>
+
+        <div class="card insights-card">
+            <div class="insights-card-label">Net</div>
+            <div class="insights-card-value {% if net_positive %}text-green{% else %}text-red{% endif %}">
+                {% if net_positive %}+{% endif %}{{ net|currency }}
+            </div>
+            <div class="insights-card-meta text-secondary">Income minus expenses</div>
+        </div>
+
+        <div class="card insights-card">
+            <div class="insights-card-label">Savings Rate</div>
+            <div class="insights-card-value text-{{ savings_color }}">
+                {% if savings_rate is not None %}{{ savings_rate }}%{% else %}—{% endif %}
+            </div>
+            <div class="insights-card-meta text-secondary">
+                {% if contributions > 0 %}{{ contributions|currency }} contributed{% else %}No contributions{% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Secondary Summary Row -->
+    <div class="grid grid-2 report-secondary-cards">
+
+        <div class="card insights-card">
+            <div class="insights-card-label">Spending Quality Score</div>
+            <div class="insights-card-value text-{{ quality_color }}">
+                {% if quality_score is not None %}
+                    {{ quality_score }}<span class="insights-card-denom">/10</span>
+                {% else %}
+                    —
+                {% endif %}
+            </div>
+            <div class="insights-card-meta text-secondary">
+                {% if quality_score is not None %}
+                    Based on {{ quality_count }} scored transaction{{ quality_count|pluralize }}
+                {% else %}
+                    No scored transactions
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card insights-card">
+            <div class="insights-card-label">Budget Adherence</div>
+            <div class="insights-card-value">
+                {% if budget_adherence %}
+                    <span class="text-green">{{ on_budget_count }}</span>
+                    <span class="insights-card-denom"> on budget</span>
+                    {% if over_budget_count %}
+                        &nbsp;/&nbsp;<span class="text-red">{{ over_budget_count }}</span>
+                        <span class="insights-card-denom"> over</span>
+                    {% endif %}
+                {% else %}
+                    —
+                {% endif %}
+            </div>
+            <div class="insights-card-meta text-secondary">
+                {% if total_budgeted > 0 %}Budgeted {{ total_budgeted|currency }}{% else %}No budget set{% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Budget Adherence by Bucket -->
+    {% if budget_adherence %}
+    <div class="card report-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Budget vs Actual — {{ report_label }}</span>
+        </div>
+        <div class="report-budget-list">
+            <div class="report-budget-header">
+                <div class="rba-col-name"></div>
+                <div class="rba-col-bar"></div>
+                <div class="rba-col-num text-secondary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;">Spent</div>
+                <div class="rba-col-num text-secondary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;">Budget</div>
+                <div class="rba-col-num text-secondary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;">Left</div>
+            </div>
+            {% for row in budget_adherence %}
+            <div class="report-budget-row">
+                <div class="rba-col-name text-secondary">{{ row.name }}</div>
+                <div class="rba-col-bar">
+                    <div class="rba-bar-wrap">
+                        <div class="rba-bar {% if row.over_budget %}rba-bar-over{% endif %}"
+                             style="width: {{ row.bar_width_pct }}%; background-color: {% if row.over_budget %}var(--accent-red){% else %}{{ row.color }}{% endif %};"></div>
+                    </div>
+                </div>
+                <div class="rba-col-num">{{ row.spent|currency }}</div>
+                <div class="rba-col-num text-secondary">
+                    {% if row.budgeted > 0 %}{{ row.budgeted|currency }}{% else %}—{% endif %}
+                </div>
+                <div class="rba-col-num {% if row.over_budget %}text-red{% else %}text-green{% endif %}">
+                    {% if row.over_budget %}-{{ row.remaining|abs_value|currency }}{% elif row.budgeted > 0 %}+{{ row.remaining|currency }}{% else %}—{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Spending by Bucket (visual breakdown) -->
+    {% if bucket_breakdown %}
+    <div class="card bucket-breakdown-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Spending by Bucket — {{ report_label }}</span>
+        </div>
+        <div class="bucket-breakdown-list">
+            {% for row in bucket_breakdown %}
+            <div class="bucket-breakdown-row">
+                <div class="bucket-breakdown-name text-secondary">{{ row.name }}</div>
+                <div class="bucket-breakdown-bar-wrap">
+                    <div class="bucket-breakdown-bar" style="width: {{ row.bar_width_pct }}%; background-color: {{ row.color }};"></div>
+                </div>
+                <div class="bucket-breakdown-amount">{{ row.amount|currency }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Necessity Analysis -->
+    <div class="card report-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Necessity Analysis — {{ report_label }}</span>
+            <span class="text-secondary" style="font-size:0.82rem;">{{ scored_count }} scored transaction{{ scored_count|pluralize }}</span>
+        </div>
+        <div class="report-necessity-list">
+            {% for row in necessity_rows %}
+            <div class="report-necessity-row">
+                <div class="rn-col-label text-{{ row.color }}">{{ row.label }}</div>
+                <div class="rn-col-bar">
+                    <div class="rn-bar-wrap">
+                        <div class="rn-bar rn-bar-{{ row.color }}" style="width: {{ row.bar_width_pct }}%;"></div>
+                    </div>
+                </div>
+                <div class="rn-col-amount">{{ row.amount|currency }}</div>
+                <div class="rn-col-pct text-secondary">{{ row.pct_of_spend }}%</div>
+                <div class="rn-col-count text-secondary">{{ row.count }} txn{{ row.count|pluralize }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Top Transactions -->
+    <div class="card report-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Top Transactions — {{ report_label }}</span>
+        </div>
+        {% if top_transactions %}
+        <div class="report-txn-list">
+            <div class="report-txn-header">
+                <div class="rtxn-col-date text-secondary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;">Date</div>
+                <div class="rtxn-col-desc text-secondary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;">Description</div>
+                <div class="rtxn-col-bucket text-secondary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;">Bucket</div>
+                <div class="rtxn-col-amount text-secondary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;">Amount</div>
+                <div class="rtxn-col-score text-secondary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;">Need</div>
+            </div>
+            {% for t in top_transactions %}
+            <div class="report-txn-row">
+                <div class="rtxn-col-date text-secondary">{{ t.date|date:"M j" }}</div>
+                <div class="rtxn-col-desc">{{ t.description }}</div>
+                <div class="rtxn-col-bucket">
+                    <span class="rtxn-bucket-dot" style="background-color: {{ t.bucket_color }};"></span>
+                    <span class="text-secondary">{{ t.bucket_name }}</span>
+                </div>
+                <div class="rtxn-col-amount">{{ t.amount|currency }}</div>
+                <div class="rtxn-col-score">
+                    {% if t.necessity_score is not None %}
+                        <span class="text-{{ t.necessity_color }}">{{ t.necessity_score }}/10</span>
+                    {% else %}
+                        <span class="text-secondary">—</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-secondary" style="margin:0;font-size:0.9rem;">No expense transactions this month.</p>
+        {% endif %}
+    </div>
+
+    <!-- Top Merchants -->
+    <div class="card merchant-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Top Merchants — {{ report_label }}</span>
+        </div>
+        {% if top_merchants %}
+        <div class="merchant-list">
+            <div class="merchant-header-row">
+                <div class="merchant-col-name"></div>
+                <div class="merchant-col-bar"></div>
+                <div class="merchant-col-amount text-secondary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;">Total</div>
+                <div class="merchant-col-count text-secondary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;">Txns</div>
+                <div class="merchant-col-necessity text-secondary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;">Avg Need</div>
+            </div>
+            {% for row in top_merchants %}
+            <div class="merchant-row">
+                <div class="merchant-col-name text-secondary">{{ row.vendor }}</div>
+                <div class="merchant-col-bar">
+                    <div class="merchant-bar-wrap">
+                        <div class="merchant-bar" style="width: {{ row.bar_width_pct }}%;"></div>
+                    </div>
+                </div>
+                <div class="merchant-col-amount">{{ row.total|currency }}</div>
+                <div class="merchant-col-count text-secondary">{{ row.count }}</div>
+                <div class="merchant-col-necessity">
+                    {% if row.avg_necessity is not None %}
+                        <span class="text-{{ row.necessity_color }}">{{ row.avg_necessity }}/10</span>
+                    {% else %}
+                        <span class="text-secondary">—</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-secondary" style="margin:0;font-size:0.9rem;">No expense transactions with vendor names this month.</p>
+        {% endif %}
+    </div>
+
+    <!-- Day-of-Week Pattern -->
+    <div class="card dow-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Spending by Day of Week — {{ report_label }}</span>
+        </div>
+        <div class="dow-bars-area">
+            {% for day in dow_pattern %}
+            <div class="dow-col">
+                <div class="dow-bar {% if day.is_peak %}dow-bar-peak{% endif %}" style="height: {{ day.bar_height_px }}px"></div>
+                <div class="dow-col-label {% if day.is_peak %}dow-label-peak{% endif %}">{{ day.label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Savings Contributions -->
+    <div class="card report-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Savings Contributions — {{ report_label }}</span>
+            {% if contributions > 0 %}
+            <span class="text-green" style="font-size:0.82rem;font-weight:600;">{{ contributions|currency }} total</span>
+            {% endif %}
+        </div>
+        {% if savings_contributions %}
+        <div class="report-savings-list">
+            {% for c in savings_contributions %}
+            <div class="report-savings-row">
+                <div class="rs-col-icon" style="color: {{ c.goal_color }};">{{ c.goal_icon }}</div>
+                <div class="rs-col-goal">{{ c.goal_name }}</div>
+                <div class="rs-col-date text-secondary">{{ c.date|date:"M j" }}</div>
+                <div class="rs-col-amount text-green">+{{ c.amount|currency }}</div>
+                {% if c.note %}
+                <div class="rs-col-note text-secondary">{{ c.note }}</div>
+                {% else %}
+                <div class="rs-col-note"></div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-secondary" style="margin:0;font-size:0.9rem;">No savings contributions this month.</p>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.report-page {
+    max-width: 1100px;
+}
+
+.page-header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.page-title-inline {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.page-subtitle {
+    font-size: 0.9rem;
+}
+
+.report-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.report-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: var(--border);
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 700;
+    transition: background 0.15s;
+}
+
+.report-nav-btn:hover {
+    background: var(--accent-blue);
+    color: #fff;
+}
+
+.report-nav-btn-disabled {
+    opacity: 0.3;
+    cursor: default;
+    pointer-events: none;
+}
+
+.insights-summary-cards {
+    margin-bottom: 1.5rem;
+}
+
+.report-secondary-cards {
+    margin-bottom: 2rem;
+}
+
+.insights-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1.25rem 1.5rem;
+}
+
+.insights-card-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+}
+
+.insights-card-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+
+.insights-card-denom {
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+.insights-card-meta {
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+    .grid-4.insights-summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 540px) {
+    .grid-4.insights-summary-cards,
+    .grid-2.report-secondary-cards {
+        grid-template-columns: 1fr;
+    }
+}
+
+.report-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.trend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+/* ---- Budget Adherence ---- */
+
+.report-budget-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.report-budget-header,
+.report-budget-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 90px 90px 80px;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.report-budget-header {
+    margin-bottom: 0.25rem;
+}
+
+.rba-col-name {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: right;
+}
+
+.rba-col-bar {}
+
+.rba-bar-wrap {
+    height: 16px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.rba-bar {
+    height: 100%;
+    border-radius: 3px;
+    min-width: 2px;
+    transition: width 0.3s ease;
+}
+
+.rba-col-num {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: right;
+    color: var(--text-primary);
+}
+
+@media (max-width: 700px) {
+    .report-budget-header,
+    .report-budget-row {
+        grid-template-columns: 100px 1fr 80px 80px 70px;
+    }
+}
+
+@media (max-width: 480px) {
+    .report-budget-header,
+    .report-budget-row {
+        grid-template-columns: 80px 1fr 70px 70px 60px;
+    }
+}
+
+/* ---- Necessity Analysis ---- */
+
+.report-necessity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.report-necessity-row {
+    display: grid;
+    grid-template-columns: 130px 1fr 90px 55px 80px;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.rn-col-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.rn-bar-wrap {
+    height: 16px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.rn-bar {
+    height: 100%;
+    border-radius: 3px;
+    min-width: 2px;
+}
+
+.rn-bar-green     { background-color: var(--accent-green); }
+.rn-bar-gold      { background-color: #f9ca24; }
+.rn-bar-red       { background-color: var(--accent-red); }
+.rn-bar-secondary { background-color: var(--border); }
+
+.rn-col-amount {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: right;
+    color: var(--text-primary);
+}
+
+.rn-col-pct {
+    font-size: 0.82rem;
+    text-align: right;
+}
+
+.rn-col-count {
+    font-size: 0.82rem;
+    text-align: right;
+}
+
+@media (max-width: 600px) {
+    .report-necessity-row {
+        grid-template-columns: 110px 1fr 80px 50px 70px;
+    }
+}
+
+/* ---- Top Transactions ---- */
+
+.report-txn-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.report-txn-header,
+.report-txn-row {
+    display: grid;
+    grid-template-columns: 55px 1fr 130px 90px 60px;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.report-txn-header {
+    margin-bottom: 0.25rem;
+}
+
+.rtxn-col-date {
+    font-size: 0.82rem;
+}
+
+.rtxn-col-desc {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rtxn-col-bucket {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rtxn-bucket-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.rtxn-col-amount {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: right;
+    color: var(--text-primary);
+}
+
+.rtxn-col-score {
+    font-size: 0.82rem;
+    text-align: right;
+}
+
+@media (max-width: 700px) {
+    .report-txn-header,
+    .report-txn-row {
+        grid-template-columns: 50px 1fr 90px 80px 55px;
+    }
+}
+
+@media (max-width: 500px) {
+    .report-txn-header,
+    .report-txn-row {
+        grid-template-columns: 44px 1fr 80px 70px 50px;
+    }
+    .rtxn-col-bucket { display: none; }
+}
+
+/* ---- Savings Contributions ---- */
+
+.report-savings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.report-savings-row {
+    display: grid;
+    grid-template-columns: 28px 1fr 60px 90px 1fr;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.rs-col-icon {
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+.rs-col-goal {
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rs-col-date {
+    font-size: 0.82rem;
+}
+
+.rs-col-amount {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: right;
+}
+
+.rs-col-note {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 540px) {
+    .report-savings-row {
+        grid-template-columns: 24px 1fr 55px 80px;
+    }
+    .rs-col-note { display: none; }
+}
+
+/* ---- Reuse from insights.html ---- */
+
+.bucket-breakdown-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.bucket-breakdown-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.bucket-breakdown-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 90px;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.bucket-breakdown-name {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: right;
+}
+
+.bucket-breakdown-bar-wrap {
+    height: 16px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.bucket-breakdown-bar {
+    height: 100%;
+    border-radius: 3px;
+    min-width: 2px;
+}
+
+.bucket-breakdown-amount {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: right;
+}
+
+.merchant-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.merchant-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.merchant-header-row,
+.merchant-row {
+    display: grid;
+    grid-template-columns: 160px 1fr 90px 50px 80px;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.merchant-header-row {
+    margin-bottom: 0.25rem;
+}
+
+.merchant-col-name {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: right;
+}
+
+.merchant-bar-wrap {
+    height: 16px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.merchant-bar {
+    height: 100%;
+    background-color: var(--accent-blue);
+    border-radius: 3px;
+    min-width: 2px;
+}
+
+.merchant-col-amount {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: right;
+}
+
+.merchant-col-count {
+    font-size: 0.82rem;
+    text-align: center;
+}
+
+.merchant-col-necessity {
+    font-size: 0.82rem;
+    text-align: right;
+}
+
+@media (max-width: 700px) {
+    .merchant-header-row,
+    .merchant-row {
+        grid-template-columns: 110px 1fr 80px 40px 70px;
+    }
+}
+
+@media (max-width: 480px) {
+    .merchant-header-row,
+    .merchant-row {
+        grid-template-columns: 90px 1fr 70px 36px 60px;
+    }
+}
+
+.dow-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.dow-bars-area {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    height: 128px;
+}
+
+.dow-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    height: 100%;
+}
+
+.dow-bar {
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+    flex-shrink: 0;
+    background-color: var(--accent-blue);
+}
+
+.dow-bar-peak {
+    background-color: var(--accent-red);
+}
+
+.dow-col-label {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    line-height: 1;
+    height: 20px;
+    display: flex;
+    align-items: center;
+}
+
+.dow-label-peak {
+    color: var(--accent-red);
+    font-weight: 700;
+}
+</style>
+{% endblock %}

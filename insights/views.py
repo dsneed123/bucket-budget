@@ -4,10 +4,12 @@ from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Sum
 from django.db.models.functions import ExtractWeekDay
+from django.http import Http404
 from django.shortcuts import render
 
+from budget.models import MonthlyBudgetAllocation
 from buckets.models import Bucket
-from savings.models import SavingsContribution
+from savings.models import SavingsContribution, SavingsGoal
 from transactions.models import Transaction
 
 
@@ -381,4 +383,262 @@ def insights(request):
         'income_expense_trend': income_expense_trend,
         'sr_trend_months': sr_trend_months,
         'sr_avg_line_px': sr_avg_line_px,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Monthly Report helpers
+# ---------------------------------------------------------------------------
+
+_REPORT_BAR_MAX_W = 100
+_REPORT_NECESSITY_BAR_MAX_W = 100
+
+
+def _top_transactions(user, year, month, limit=10):
+    qs = (
+        Transaction.objects.filter(
+            user=user, transaction_type='expense',
+            date__year=year, date__month=month,
+        )
+        .select_related('bucket')
+        .order_by('-amount')[:limit]
+    )
+    rows = []
+    for t in qs:
+        rows.append({
+            'date': t.date,
+            'description': t.description or t.vendor or '—',
+            'vendor': t.vendor,
+            'amount': t.amount,
+            'bucket_name': t.bucket.name if t.bucket else 'Uncategorized',
+            'bucket_color': (t.bucket.color if t.bucket else '#888888') or '#888888',
+            'necessity_score': t.necessity_score,
+            'necessity_color': _score_color(t.necessity_score),
+        })
+    return rows
+
+
+def _necessity_analysis(user, year, month):
+    qs = Transaction.objects.filter(
+        user=user, transaction_type='expense',
+        date__year=year, date__month=month,
+    )
+    total_agg = qs.aggregate(total=Sum('amount'), count=Count('id'))
+    total_spent = total_agg['total'] or Decimal('0')
+    total_count = total_agg['count'] or 0
+
+    bands = [
+        {'label': 'High (7–10)', 'key': 'high', 'min': 7, 'max': 10, 'color': 'green'},
+        {'label': 'Medium (4–6)', 'key': 'medium', 'min': 4, 'max': 6, 'color': 'gold'},
+        {'label': 'Low (1–3)', 'key': 'low', 'min': 1, 'max': 3, 'color': 'red'},
+    ]
+
+    rows = []
+    for band in bands:
+        agg = qs.filter(
+            necessity_score__gte=band['min'],
+            necessity_score__lte=band['max'],
+        ).aggregate(s=Sum('amount'), c=Count('id'))
+        amount = agg['s'] or Decimal('0')
+        count = agg['c'] or 0
+        rows.append({
+            'label': band['label'],
+            'color': band['color'],
+            'amount': amount,
+            'count': count,
+            'pct_of_spend': round(float(amount / total_spent * 100), 1) if total_spent > 0 else 0,
+        })
+
+    unscored = qs.filter(necessity_score__isnull=True).aggregate(s=Sum('amount'), c=Count('id'))
+    rows.append({
+        'label': 'Unscored',
+        'color': 'secondary',
+        'amount': unscored['s'] or Decimal('0'),
+        'count': unscored['c'] or 0,
+        'pct_of_spend': round(
+            float((unscored['s'] or Decimal('0')) / total_spent * 100), 1
+        ) if total_spent > 0 else 0,
+    })
+
+    max_amount = max((r['amount'] for r in rows), default=Decimal('0'))
+    for row in rows:
+        row['bar_width_pct'] = (
+            int(float(row['amount'] / max_amount) * _REPORT_NECESSITY_BAR_MAX_W)
+            if max_amount > 0 else 0
+        )
+
+    return rows, total_count
+
+
+def _savings_contributions_detail(user, year, month):
+    qs = (
+        SavingsContribution.objects.filter(
+            goal__user=user, transaction_type='contribution',
+            date__year=year, date__month=month,
+        )
+        .select_related('goal')
+        .order_by('-amount')
+    )
+    rows = []
+    for c in qs:
+        rows.append({
+            'date': c.date,
+            'goal_name': c.goal.name,
+            'goal_color': c.goal.color or '#00d4aa',
+            'goal_icon': c.goal.icon,
+            'amount': c.amount,
+            'note': c.note,
+        })
+    return rows
+
+
+def _budget_adherence(user, year, month):
+    bucket_map = {b.pk: b for b in Bucket.objects.filter(user=user, is_active=True)}
+
+    allocation_map = {
+        a.bucket_id: a.amount
+        for a in MonthlyBudgetAllocation.objects.filter(
+            user=user, year=year, month=month,
+        )
+    }
+
+    spending_qs = (
+        Transaction.objects.filter(
+            user=user, transaction_type='expense',
+            date__year=year, date__month=month,
+        )
+        .values('bucket_id')
+        .annotate(spent=Sum('amount'))
+    )
+    spending_map = {row['bucket_id']: row['spent'] or Decimal('0') for row in spending_qs}
+
+    all_bucket_ids = set(bucket_map.keys()) | set(spending_map.keys()) - {None}
+
+    rows = []
+    for bid in all_bucket_ids:
+        bucket = bucket_map.get(bid)
+        if bucket is None:
+            continue
+        budgeted = allocation_map.get(bid, bucket.monthly_allocation)
+        spent = spending_map.get(bid, Decimal('0'))
+        remaining = budgeted - spent
+        over_budget = remaining < 0
+        pct_used = min(int(float(spent / budgeted * 100)), 100) if budgeted > 0 else 0
+        rows.append({
+            'name': bucket.name,
+            'color': bucket.color or '#888888',
+            'budgeted': budgeted,
+            'spent': spent,
+            'remaining': remaining,
+            'over_budget': over_budget,
+            'pct_used': pct_used,
+            'bar_width_pct': pct_used,
+        })
+
+    rows.sort(key=lambda r: r['spent'], reverse=True)
+
+    if spending_map.get(None):
+        uncat_spent = spending_map[None]
+        rows.append({
+            'name': 'Uncategorized',
+            'color': '#888888',
+            'budgeted': Decimal('0'),
+            'spent': uncat_spent,
+            'remaining': -uncat_spent,
+            'over_budget': True,
+            'pct_used': 100,
+            'bar_width_pct': 100,
+        })
+
+    return rows
+
+
+@login_required
+def monthly_report(request, year, month):
+    today = datetime.date.today()
+
+    if month < 1 or month > 12:
+        raise Http404
+
+    try:
+        report_date = datetime.date(year, month, 1)
+    except ValueError:
+        raise Http404
+
+    if report_date > today.replace(day=1):
+        raise Http404
+
+    prev_month = month - 1
+    prev_year = year
+    if prev_month == 0:
+        prev_month = 12
+        prev_year = year - 1
+
+    next_month = month + 1
+    next_year = year
+    if next_month == 13:
+        next_month = 1
+        next_year = year + 1
+    next_date = datetime.date(next_year, next_month, 1)
+    has_next = next_date <= today.replace(day=1)
+
+    income = _month_income(request.user, year, month)
+    expenses = _month_expenses(request.user, year, month)
+    net = income - expenses
+    contributions = _month_contributions(request.user, year, month)
+    savings_rate = _savings_rate(contributions, income)
+    quality_score, quality_count = _spending_quality_score(request.user, year, month)
+    quality_color = _score_color(quality_score)
+
+    if savings_rate is None:
+        savings_color = 'secondary'
+    elif savings_rate >= 20:
+        savings_color = 'green'
+    elif savings_rate >= 10:
+        savings_color = 'gold'
+    else:
+        savings_color = 'red'
+
+    bucket_breakdown = _bucket_breakdown(request.user, year, month)
+    top_transactions = _top_transactions(request.user, year, month)
+    top_merchants = _top_merchants(request.user, year, month)
+    dow_pattern = _dow_pattern(request.user, year, month)
+    necessity_rows, scored_count = _necessity_analysis(request.user, year, month)
+    savings_contributions = _savings_contributions_detail(request.user, year, month)
+    budget_adherence = _budget_adherence(request.user, year, month)
+
+    total_budgeted = sum(r['budgeted'] for r in budget_adherence)
+    on_budget_count = sum(1 for r in budget_adherence if not r['over_budget'])
+    over_budget_count = sum(1 for r in budget_adherence if r['over_budget'] and r['budgeted'] > 0)
+
+    return render(request, 'insights/monthly_report.html', {
+        'report_label': report_date.strftime('%B %Y'),
+        'year': year,
+        'month': month,
+        'prev_year': prev_year,
+        'prev_month': prev_month,
+        'next_year': next_year,
+        'next_month': next_month,
+        'has_next': has_next,
+        'income': income,
+        'expenses': expenses,
+        'net': net,
+        'net_positive': net >= 0,
+        'contributions': contributions,
+        'savings_rate': savings_rate,
+        'savings_color': savings_color,
+        'quality_score': quality_score,
+        'quality_count': quality_count,
+        'quality_color': quality_color,
+        'bucket_breakdown': bucket_breakdown,
+        'top_transactions': top_transactions,
+        'top_merchants': top_merchants,
+        'dow_pattern': dow_pattern,
+        'necessity_rows': necessity_rows,
+        'scored_count': scored_count,
+        'savings_contributions': savings_contributions,
+        'budget_adherence': budget_adherence,
+        'total_budgeted': total_budgeted,
+        'on_budget_count': on_budget_count,
+        'over_budget_count': over_budget_count,
     })

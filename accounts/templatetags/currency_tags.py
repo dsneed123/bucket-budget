@@ -27,3 +27,11 @@ def currency(value, currency_code='USD'):
 
     symbol = CURRENCY_SYMBOLS.get(str(currency_code).upper(), str(currency_code) + ' ')
     return f'{symbol}{amount:,.2f}'
+
+
+@register.filter
+def abs_value(value):
+    try:
+        return abs(value)
+    except (TypeError, ValueError):
+        return value
