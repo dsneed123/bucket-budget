@@ -53,6 +53,26 @@ class IncomeSource(models.Model):
         return self.name
 
 
+class CsvColumnMapping(models.Model):
+    """Stores remembered CSV column→transaction-field mappings per user/source format."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='csv_column_mappings',
+    )
+    # SHA-1 of sorted normalised headers — uniquely identifies this CSV format
+    source_key = models.CharField(max_length=40)
+    # {csv_col_name: transaction_field} e.g. {'trans date': 'date', 'memo': 'description'}
+    mapping = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'source_key')
+
+    def __str__(self):
+        return f'CsvColumnMapping(user={self.user_id}, key={self.source_key[:8]})'
+
+
 class Transaction(models.Model):
     TRANSACTION_TYPE_CHOICES = [
         ('expense', 'Expense'),

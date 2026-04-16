@@ -12,8 +12,8 @@ from django.urls import reverse
 from banking.models import BankAccount
 from buckets.models import Bucket
 
-from .models import Tag, Transaction, VendorMapping
-from .views import _resolve_tags
+from .models import CsvColumnMapping, Tag, Transaction, VendorMapping
+from .views import _csv_source_key, _resolve_tags
 
 User = get_user_model()
 
@@ -1337,6 +1337,38 @@ class TransactionImportCsvViewTest(TestCase):
         """Return an in-memory CSV file-like object."""
         return io.BytesIO(content.encode('utf-8'))
 
+    def _upload_to_mapping(self, csv_content, account=None, filename='test.csv'):
+        """Upload a CSV and return the mapping-step response."""
+        if account is None:
+            account = self.account
+        f = self._make_csv(csv_content)
+        f.name = filename
+        return self.client.post(self.url, {
+            'step': 'upload',
+            'account': str(account.pk),
+            'csv_file': f,
+        })
+
+    def _post_mapping(self, mapping_response, override_mapping=None):
+        """Submit the mapping form using auto-detected fields; optionally override."""
+        ctx = mapping_response.context
+        post_data = {
+            'step': 'mapping',
+            'account_id': ctx['account_id'],
+            'source_key': ctx['source_key'],
+            'raw_rows_json': ctx['raw_rows_json'],
+        }
+        for col in ctx['columns']:
+            post_data[f'map_{col["name"]}'] = col['field']
+        if override_mapping:
+            post_data.update(override_mapping)
+        return self.client.post(self.url, post_data)
+
+    def _upload_and_preview(self, csv_content, account=None, filename='test.csv'):
+        """Full upload → mapping → preview pipeline using auto-detected column mapping."""
+        mapping_response = self._upload_to_mapping(csv_content, account, filename)
+        return self._post_mapping(mapping_response)
+
     def test_redirect_if_not_logged_in(self):
         self.client.logout()
         response = self.client.get(self.url)
@@ -1369,26 +1401,26 @@ class TransactionImportCsvViewTest(TestCase):
         self.assertContains(response, 'Account is required')
 
     def test_upload_missing_required_columns_shows_error(self):
+        # CSV has date and description but no amount column.
+        # Upload shows mapping step; submitting without mapping 'amount' shows error.
         csv_content = 'date,description\n2026-01-15,No amount column\n'
-        f = self._make_csv(csv_content)
-        f.name = 'test.csv'
-        response = self.client.post(self.url, {
-            'step': 'upload',
-            'account': str(self.account.pk),
-            'csv_file': f,
-        })
+        mapping_response = self._upload_to_mapping(csv_content)
+        self.assertEqual(mapping_response.status_code, 200)
+        self.assertEqual(mapping_response.context['step'], 'mapping')
+        # Submit with no amount field mapped → should stay on mapping with error
+        response = self._post_mapping(mapping_response)  # auto-detect maps date+description only
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Missing required columns')
+        self.assertEqual(response.context['step'], 'mapping')
+        self.assertContains(response, 'amount')
 
-    def test_upload_valid_csv_shows_preview(self):
+    def test_upload_valid_csv_shows_mapping_then_preview(self):
         csv_content = 'date,description,amount\n2026-01-15,Grocery Store,-45.99\n'
-        f = self._make_csv(csv_content)
-        f.name = 'test.csv'
-        response = self.client.post(self.url, {
-            'step': 'upload',
-            'account': str(self.account.pk),
-            'csv_file': f,
-        })
+        # Upload step → mapping
+        mapping_response = self._upload_to_mapping(csv_content)
+        self.assertEqual(mapping_response.status_code, 200)
+        self.assertEqual(mapping_response.context['step'], 'mapping')
+        # Mapping step → preview
+        response = self._post_mapping(mapping_response)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['step'], 'preview')
         self.assertEqual(response.context['ok_count'], 1)
@@ -1396,64 +1428,34 @@ class TransactionImportCsvViewTest(TestCase):
 
     def test_preview_negative_amount_is_expense(self):
         csv_content = 'date,description,amount\n2026-01-15,Coffee,-5.00\n'
-        f = self._make_csv(csv_content)
-        f.name = 'test.csv'
-        response = self.client.post(self.url, {
-            'step': 'upload',
-            'account': str(self.account.pk),
-            'csv_file': f,
-        })
+        response = self._upload_and_preview(csv_content)
         row = response.context['preview_rows'][0]
         self.assertEqual(row['transaction_type'], 'expense')
         self.assertEqual(row['amount'], '5.00')
 
     def test_preview_positive_amount_is_income(self):
         csv_content = 'date,description,amount\n2026-01-16,Paycheck,2500.00\n'
-        f = self._make_csv(csv_content)
-        f.name = 'test.csv'
-        response = self.client.post(self.url, {
-            'step': 'upload',
-            'account': str(self.account.pk),
-            'csv_file': f,
-        })
+        response = self._upload_and_preview(csv_content)
         row = response.context['preview_rows'][0]
         self.assertEqual(row['transaction_type'], 'income')
 
     def test_preview_category_matched_to_bucket(self):
         csv_content = 'date,description,amount,category\n2026-01-15,Groceries,-20.00,Groceries\n'
-        f = self._make_csv(csv_content)
-        f.name = 'test.csv'
-        response = self.client.post(self.url, {
-            'step': 'upload',
-            'account': str(self.account.pk),
-            'csv_file': f,
-        })
+        response = self._upload_and_preview(csv_content)
         row = response.context['preview_rows'][0]
         self.assertEqual(row['bucket_id'], self.bucket.pk)
         self.assertEqual(row['bucket_name'], 'Groceries')
 
     def test_preview_unmatched_category_has_no_bucket(self):
         csv_content = 'date,description,amount,category\n2026-01-15,Tech,-99.00,Electronics\n'
-        f = self._make_csv(csv_content)
-        f.name = 'test.csv'
-        response = self.client.post(self.url, {
-            'step': 'upload',
-            'account': str(self.account.pk),
-            'csv_file': f,
-        })
+        response = self._upload_and_preview(csv_content)
         row = response.context['preview_rows'][0]
         self.assertIsNone(row['bucket_id'])
         self.assertEqual(row['category'], 'Electronics')
 
     def test_preview_invalid_date_row_is_error(self):
         csv_content = 'date,description,amount\nnot-a-date,Bad Row,-10.00\n'
-        f = self._make_csv(csv_content)
-        f.name = 'test.csv'
-        response = self.client.post(self.url, {
-            'step': 'upload',
-            'account': str(self.account.pk),
-            'csv_file': f,
-        })
+        response = self._upload_and_preview(csv_content)
         self.assertEqual(response.context['error_count'], 1)
         self.assertEqual(response.context['ok_count'], 0)
 
@@ -1517,11 +1519,13 @@ class TransactionImportCsvViewTest(TestCase):
         csv_content = 'date,description,amount\n2026-01-15,BOM Test,-10.00\n'
         bom_bytes = csv_content.encode('utf-8-sig')
         f = SimpleUploadedFile('bom.csv', bom_bytes, content_type='text/csv')
-        response = self.client.post(self.url, {
+        mapping_response = self.client.post(self.url, {
             'step': 'upload',
             'account': str(self.account.pk),
             'csv_file': f,
         })
+        self.assertEqual(mapping_response.context['step'], 'mapping')
+        response = self._post_mapping(mapping_response)
         self.assertEqual(response.context['ok_count'], 1)
 
     def test_only_imports_to_own_account(self):
@@ -1559,3 +1563,64 @@ class TransactionImportCsvViewTest(TestCase):
         })
         # Should redirect (account not found for this user)
         self.assertEqual(response.status_code, 302)
+
+    def test_auto_detect_preselects_common_columns(self):
+        """Known column names are pre-selected in the mapping dropdowns."""
+        csv_content = 'date,memo,amount\n2026-01-15,Coffee,-5.00\n'
+        mapping_response = self._upload_to_mapping(csv_content)
+        self.assertEqual(mapping_response.context['step'], 'mapping')
+        columns = {col['name']: col['field'] for col in mapping_response.context['columns']}
+        self.assertEqual(columns['date'], 'date')
+        self.assertEqual(columns['memo'], 'description')
+        self.assertEqual(columns['amount'], 'amount')
+
+    def test_remember_mapping_persists_to_db(self):
+        """Submitting the mapping form with remember_mapping=1 saves a CsvColumnMapping record."""
+        csv_content = 'trans date,details,transaction amount\n2026-01-15,Lunch,-12.00\n'
+        mapping_response = self._upload_to_mapping(csv_content)
+        source_key = mapping_response.context['source_key']
+        ctx = mapping_response.context
+        post_data = {
+            'step': 'mapping',
+            'account_id': ctx['account_id'],
+            'source_key': source_key,
+            'raw_rows_json': ctx['raw_rows_json'],
+            'remember_mapping': '1',
+        }
+        for col in ctx['columns']:
+            post_data[f'map_{col["name"]}'] = col['field']
+        self.client.post(self.url, post_data)
+        self.assertTrue(
+            CsvColumnMapping.objects.filter(user=self.user, source_key=source_key).exists()
+        )
+
+    def test_saved_mapping_loaded_on_repeat_upload(self):
+        """Re-uploading a CSV with the same headers loads the previously saved mapping."""
+        headers = ['txn_date', 'note', 'amt']
+        source_key = _csv_source_key(headers)
+        CsvColumnMapping.objects.create(
+            user=self.user,
+            source_key=source_key,
+            mapping={'txn_date': 'date', 'note': 'description', 'amt': 'amount'},
+        )
+        csv_content = 'txn_date,note,amt\n2026-02-01,Groceries,-30.00\n'
+        mapping_response = self._upload_to_mapping(csv_content)
+        self.assertEqual(mapping_response.context['step'], 'mapping')
+        self.assertTrue(mapping_response.context['saved_mapping_found'])
+        columns = {col['name']: col['field'] for col in mapping_response.context['columns']}
+        self.assertEqual(columns['txn_date'], 'date')
+        self.assertEqual(columns['note'], 'description')
+        self.assertEqual(columns['amt'], 'amount')
+
+    def test_saved_mapping_indicator_shown_in_template(self):
+        """Template shows the 'Loaded saved mapping' notice when a saved mapping exists."""
+        headers = ['xdate', 'xdesc', 'xamount']
+        source_key = _csv_source_key(headers)
+        CsvColumnMapping.objects.create(
+            user=self.user,
+            source_key=source_key,
+            mapping={'xdate': 'date', 'xdesc': 'description', 'xamount': 'amount'},
+        )
+        csv_content = 'xdate,xdesc,xamount\n2026-03-01,Test,-1.00\n'
+        mapping_response = self._upload_to_mapping(csv_content)
+        self.assertContains(mapping_response, 'Loaded saved mapping')
