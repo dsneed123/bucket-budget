@@ -69,6 +69,27 @@
         </div>
     </div>
 
+    <!-- Spending quality trend bar chart -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Spending Quality Trend</h2>
+            <span class="card-subtitle">Last 6 months</span>
+        </div>
+        <div class="trend-chart">
+            {% for month in score_trend %}
+            <div class="trend-bar-col">
+                <div class="trend-bar-score">{% if month.has_data %}{{ month.score }}{% endif %}</div>
+                <div class="trend-bar-track">
+                    {% if month.has_data %}
+                    <div class="trend-bar trend-bar-{{ month.color }}" style="height: {{ month.bar_height }}%;" title="{{ month.label }}: {{ month.score }}/10"></div>
+                    {% endif %}
+                </div>
+                <div class="trend-bar-label">{{ month.label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
     <!-- Necessity score breakdown donut chart -->
     {% if breakdown %}
     <div class="card">
@@ -501,6 +522,57 @@
 .essential-table td:first-child {
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
+}
+
+/* Spending quality trend bar chart */
+.trend-chart {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    padding: 8px 0 4px;
+}
+
+.trend-bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.trend-bar-score {
+    font-size: 0.75rem;
+    font-weight: 600;
+    height: 16px;
+    line-height: 16px;
+    color: var(--text-secondary);
+}
+
+.trend-bar-track {
+    width: 100%;
+    height: 120px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+}
+
+.trend-bar {
+    width: 100%;
+    border-radius: 4px 4px 0 0;
+    transition: height 0.4s ease;
+}
+
+.trend-bar-green     { background: var(--accent-green); }
+.trend-bar-gold      { background: var(--accent-gold); }
+.trend-bar-red       { background: var(--accent-red); }
+.trend-bar-secondary { background: #555; }
+
+.trend-bar-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: center;
 }
 </style>
 {% endblock %}

@@ -120,6 +120,27 @@ def _score_color(score):
     return 'red'
 
 
+def _get_score_trend(user, today):
+    """Return last 6 months of avg necessity scores for the trend bar chart, oldest first."""
+    months = []
+    year, month = today.year, today.month
+    for _ in range(6):
+        score, _ = _get_spending_quality_score(user, year, month)
+        months.append({
+            'label': date(year, month, 1).strftime('%b'),
+            'score': score,
+            'color': _score_color(score),
+            'bar_height': round(float(score) / 10 * 100) if score is not None else 0,
+            'has_data': score is not None,
+        })
+        if month == 1:
+            year, month = year - 1, 12
+        else:
+            month -= 1
+    months.reverse()
+    return months
+
+
 @login_required
 def rankings(request):
     today = date.today()
@@ -145,6 +166,8 @@ def rankings(request):
             trend = 'same'
     else:
         trend = None
+
+    score_trend = _get_score_trend(request.user, today)
 
     bucket_stats = (
         Transaction.objects.filter(
@@ -189,6 +212,7 @@ def rankings(request):
         'essential_total': essential_total,
         'this_month_label': today.strftime('%B %Y'),
         'last_month_label': date(last_year, last_month, 1).strftime('%B %Y'),
+        'score_trend': score_trend,
     })
 
 
