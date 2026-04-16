@@ -18,7 +18,7 @@ from .recommendations import (
     _spending_quality_recs,
     _vendor_recs,
 )
-from .views import _daily_heatmap
+from .views import _daily_heatmap, _has_12_months_data, _yoy_comparison
 
 User = get_user_model()
 
@@ -435,6 +435,110 @@ class DailyHeatmapTests(TestCase):
         self.assertIn('heatmap_weeks', response.context)
         self.assertIn('heatmap_dow_labels', response.context)
         self.assertIsInstance(response.context['heatmap_weeks'], list)
+
+
+class YoYComparisonTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='yoy@example.com',
+            password='testpass123',
+        )
+        self.today = datetime.date.today()
+        self.account = BankAccount.objects.create(
+            user=self.user, name='Checking', account_type='checking',
+        )
+        self.bucket = Bucket.objects.filter(user=self.user).exclude(is_uncategorized=True).first()
+        if not self.bucket:
+            self.bucket = Bucket.objects.create(
+                user=self.user, name='Groceries',
+                monthly_allocation=Decimal('200.00'), color='#00b894', sort_order=1,
+            )
+
+    def _make_expense(self, amount, year, month, bucket=None):
+        Transaction.objects.create(
+            user=self.user, transaction_type='expense', amount=amount,
+            description='Test', date=datetime.date(year, month, 15),
+            bucket=bucket or self.bucket, account=self.account,
+        )
+
+    def _make_income(self, amount, year, month):
+        Transaction.objects.create(
+            user=self.user, transaction_type='income', amount=amount,
+            description='Salary', date=datetime.date(year, month, 1),
+            account=self.account,
+        )
+
+    def test_no_12_months_data_returns_false(self):
+        self._make_expense(Decimal('100'), self.today.year, self.today.month)
+        self.assertFalse(_has_12_months_data(self.user, self.today))
+
+    def test_has_12_months_data_returns_true(self):
+        old_year = self.today.year - 2
+        self._make_expense(Decimal('100'), old_year, self.today.month)
+        self.assertTrue(_has_12_months_data(self.user, self.today))
+
+    def test_yoy_comparison_spending_change(self):
+        self._make_expense(Decimal('300'), self.today.year, self.today.month)
+        self._make_expense(Decimal('200'), self.today.year - 1, self.today.month)
+        data = _yoy_comparison(self.user, self.today)
+        self.assertEqual(data['this_spending'], Decimal('300'))
+        self.assertEqual(data['last_spending'], Decimal('200'))
+        self.assertEqual(data['spending_pct_change'], 50.0)
+        self.assertEqual(data['spending_arrow'], 'up')
+        self.assertEqual(data['spending_arrow_color'], 'red')
+
+    def test_yoy_comparison_spending_decrease(self):
+        self._make_expense(Decimal('100'), self.today.year, self.today.month)
+        self._make_expense(Decimal('200'), self.today.year - 1, self.today.month)
+        data = _yoy_comparison(self.user, self.today)
+        self.assertEqual(data['spending_pct_change'], -50.0)
+        self.assertEqual(data['spending_arrow'], 'down')
+        self.assertEqual(data['spending_arrow_color'], 'green')
+
+    def test_yoy_comparison_no_prior_year_spending(self):
+        self._make_expense(Decimal('100'), self.today.year, self.today.month)
+        data = _yoy_comparison(self.user, self.today)
+        self.assertIsNone(data['spending_pct_change'])
+        self.assertIsNone(data['spending_arrow'])
+
+    def test_yoy_comparison_bucket_rows(self):
+        self._make_expense(Decimal('150'), self.today.year, self.today.month)
+        self._make_expense(Decimal('100'), self.today.year - 1, self.today.month)
+        data = _yoy_comparison(self.user, self.today)
+        self.assertEqual(len(data['bucket_rows']), 1)
+        row = data['bucket_rows'][0]
+        self.assertEqual(row['this_amount'], Decimal('150'))
+        self.assertEqual(row['last_amount'], Decimal('100'))
+        self.assertEqual(row['pct_change'], 50.0)
+        self.assertEqual(row['arrow'], 'up')
+
+    def test_yoy_bucket_new_bucket_has_none_pct(self):
+        self._make_expense(Decimal('100'), self.today.year, self.today.month)
+        data = _yoy_comparison(self.user, self.today)
+        row = data['bucket_rows'][0]
+        self.assertIsNone(row['pct_change'])
+        self.assertIsNone(row['arrow'])
+
+    def test_yoy_labels(self):
+        data = _yoy_comparison(self.user, self.today)
+        self.assertIn(str(self.today.year), data['this_month_label'])
+        self.assertIn(str(self.today.year - 1), data['last_year_month_label'])
+
+    def test_yoy_data_in_view_context_when_sufficient_data(self):
+        old_year = self.today.year - 2
+        self._make_expense(Decimal('100'), old_year, self.today.month)
+        client = Client()
+        client.login(email='yoy@example.com', password='testpass123')
+        response = client.get(reverse('insights'))
+        self.assertIn('yoy_data', response.context)
+        self.assertIsNotNone(response.context['yoy_data'])
+
+    def test_yoy_data_none_in_view_context_when_insufficient_data(self):
+        client = Client()
+        client.login(email='yoy@example.com', password='testpass123')
+        response = client.get(reverse('insights'))
+        self.assertIn('yoy_data', response.context)
+        self.assertIsNone(response.context['yoy_data'])
 
 
 class VendorRuleTests(TestCase):

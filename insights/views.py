@@ -69,6 +69,119 @@ def _spending_quality_score(user, year, month):
     return round(Decimal(str(result['avg'])), 1), result['count']
 
 
+def _has_12_months_data(user, today):
+    cutoff = datetime.date(today.year - 1, today.month, 1)
+    return Transaction.objects.filter(user=user, date__lt=cutoff).exists()
+
+
+def _yoy_comparison(user, today):
+    this_year, this_month = today.year, today.month
+    last_year = this_year - 1
+
+    this_spending = _month_expenses(user, this_year, this_month)
+    last_spending = _month_expenses(user, last_year, this_month)
+
+    if last_spending > 0:
+        spending_pct = round(float((this_spending - last_spending) / last_spending * 100), 1)
+    else:
+        spending_pct = None
+
+    if spending_pct is None:
+        spending_arrow, spending_arrow_color = None, 'secondary'
+    elif spending_pct > 0:
+        spending_arrow, spending_arrow_color = 'up', 'red'
+    elif spending_pct < 0:
+        spending_arrow, spending_arrow_color = 'down', 'green'
+    else:
+        spending_arrow, spending_arrow_color = 'same', 'secondary'
+
+    this_income = _month_income(user, this_year, this_month)
+    this_contrib = _month_contributions(user, this_year, this_month)
+    last_income = _month_income(user, last_year, this_month)
+    last_contrib = _month_contributions(user, last_year, this_month)
+    this_sr = _savings_rate(this_contrib, this_income)
+    last_sr = _savings_rate(last_contrib, last_income)
+
+    if this_sr is not None and last_sr is not None:
+        sr_delta = round(this_sr - last_sr, 1)
+        if sr_delta > 0:
+            sr_arrow, sr_arrow_color = 'up', 'green'
+        elif sr_delta < 0:
+            sr_arrow, sr_arrow_color = 'down', 'red'
+        else:
+            sr_arrow, sr_arrow_color = 'same', 'secondary'
+    else:
+        sr_delta, sr_arrow, sr_arrow_color = None, None, 'secondary'
+
+    bucket_map = {b.pk: b for b in Bucket.objects.filter(user=user)}
+
+    this_buckets = {
+        row['bucket_id']: row['total'] or Decimal('0')
+        for row in Transaction.objects.filter(
+            user=user, transaction_type='expense',
+            date__year=this_year, date__month=this_month,
+        ).values('bucket_id').annotate(total=Sum('amount'))
+    }
+    last_buckets = {
+        row['bucket_id']: row['total'] or Decimal('0')
+        for row in Transaction.objects.filter(
+            user=user, transaction_type='expense',
+            date__year=last_year, date__month=this_month,
+        ).values('bucket_id').annotate(total=Sum('amount'))
+    }
+
+    bucket_rows = []
+    for bid in set(this_buckets) | set(last_buckets):
+        this_amt = this_buckets.get(bid, Decimal('0'))
+        last_amt = last_buckets.get(bid, Decimal('0'))
+        if bid is None:
+            name, color = 'Uncategorized', '#888888'
+        else:
+            bucket = bucket_map.get(bid)
+            if bucket is None:
+                continue
+            name, color = bucket.name, bucket.color or '#888888'
+        pct = round(float((this_amt - last_amt) / last_amt * 100), 1) if last_amt > 0 else None
+        if pct is None:
+            arrow, arrow_color = None, 'secondary'
+        elif pct > 0:
+            arrow, arrow_color = 'up', 'red'
+        elif pct < 0:
+            arrow, arrow_color = 'down', 'green'
+        else:
+            arrow, arrow_color = 'same', 'secondary'
+        bucket_rows.append({
+            'name': name, 'color': color,
+            'this_amount': this_amt, 'last_amount': last_amt,
+            'pct_change': pct, 'arrow': arrow, 'arrow_color': arrow_color,
+        })
+
+    bucket_rows.sort(key=lambda r: r['this_amount'], reverse=True)
+    max_amt = max(
+        (max(r['this_amount'], r['last_amount']) for r in bucket_rows),
+        default=Decimal('0'),
+    )
+    for row in bucket_rows:
+        row['this_bar_pct'] = int(float(row['this_amount'] / max_amt) * 100) if max_amt > 0 else 0
+        row['last_bar_pct'] = int(float(row['last_amount'] / max_amt) * 100) if max_amt > 0 else 0
+
+    return {
+        'this_spending': this_spending,
+        'last_spending': last_spending,
+        'spending_pct_change': spending_pct,
+        'spending_arrow': spending_arrow,
+        'spending_arrow_color': spending_arrow_color,
+        'this_savings_rate': this_sr,
+        'last_savings_rate': last_sr,
+        'sr_delta': sr_delta,
+        'sr_arrow': sr_arrow,
+        'sr_arrow_color': sr_arrow_color,
+        'bucket_rows': bucket_rows,
+        'this_month_label': today.strftime('%B %Y'),
+        'last_year_month_label': datetime.date(last_year, this_month, 1).strftime('%B %Y'),
+    }
+
+
 _TREND_CHART_H = 140  # px height for tallest bar
 _BUCKET_BAR_MAX_W = 100  # % width for largest bucket bar
 _MERCHANT_BAR_MAX_W = 100
@@ -417,6 +530,9 @@ def insights(request):
     # Daily spending heatmap (current month)
     heatmap_weeks = _daily_heatmap(request.user, this_year, this_month)
 
+    # Year-over-year comparison (only if user has 12+ months of data)
+    yoy_data = _yoy_comparison(request.user, today) if _has_12_months_data(request.user, today) else None
+
     # Personalized recommendations
     refresh_recommendations(request.user)
     _priority_order = {Recommendation.PRIORITY_HIGH: 0, Recommendation.PRIORITY_MEDIUM: 1, Recommendation.PRIORITY_LOW: 2}
@@ -453,6 +569,7 @@ def insights(request):
         'heatmap_weeks': heatmap_weeks,
         'heatmap_dow_labels': _HEATMAP_DOW_LABELS,
         'recommendations': recommendations,
+        'yoy_data': yoy_data,
     })
 
 

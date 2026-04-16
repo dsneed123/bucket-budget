@@ -123,6 +123,97 @@
     </div>
     {% endif %}
 
+    <!-- Year-over-Year Comparison -->
+    {% if yoy_data %}
+    <div class="card yoy-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Year-over-Year — {{ yoy_data.this_month_label }} vs {{ yoy_data.last_year_month_label }}</span>
+        </div>
+
+        <div class="yoy-metrics">
+            <div class="yoy-metric">
+                <div class="yoy-metric-label text-secondary">Total Spending</div>
+                <div class="yoy-metric-values">
+                    <span class="yoy-metric-this">{{ yoy_data.this_spending|currency }}</span>
+                    <span class="yoy-metric-sep text-secondary">vs</span>
+                    <span class="yoy-metric-last text-secondary">{{ yoy_data.last_spending|currency }}</span>
+                </div>
+                <div class="yoy-metric-change">
+                    {% if yoy_data.spending_pct_change is not None %}
+                        <span class="insights-arrow insights-arrow-{{ yoy_data.spending_arrow_color }}">
+                            {% if yoy_data.spending_arrow == 'up' %}&#8593;{% elif yoy_data.spending_arrow == 'down' %}&#8595;{% else %}&mdash;{% endif %}
+                        </span>
+                        <span class="text-{{ yoy_data.spending_arrow_color }}">
+                            {% if yoy_data.spending_pct_change > 0 %}+{% endif %}{{ yoy_data.spending_pct_change }}% YoY
+                        </span>
+                    {% else %}
+                        <span class="text-secondary">No prior year data</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="yoy-metric">
+                <div class="yoy-metric-label text-secondary">Savings Rate</div>
+                <div class="yoy-metric-values">
+                    <span class="yoy-metric-this">{% if yoy_data.this_savings_rate is not None %}{{ yoy_data.this_savings_rate }}%{% else %}—{% endif %}</span>
+                    <span class="yoy-metric-sep text-secondary">vs</span>
+                    <span class="yoy-metric-last text-secondary">{% if yoy_data.last_savings_rate is not None %}{{ yoy_data.last_savings_rate }}%{% else %}—{% endif %}</span>
+                </div>
+                <div class="yoy-metric-change">
+                    {% if yoy_data.sr_delta is not None %}
+                        <span class="insights-arrow insights-arrow-{{ yoy_data.sr_arrow_color }}">
+                            {% if yoy_data.sr_arrow == 'up' %}&#8593;{% elif yoy_data.sr_arrow == 'down' %}&#8595;{% else %}&mdash;{% endif %}
+                        </span>
+                        <span class="text-{{ yoy_data.sr_arrow_color }}">
+                            {% if yoy_data.sr_delta > 0 %}+{% endif %}{{ yoy_data.sr_delta }}pp YoY
+                        </span>
+                    {% else %}
+                        <span class="text-secondary">No savings data</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if yoy_data.bucket_rows %}
+        <div class="yoy-buckets">
+            <div class="yoy-buckets-header">
+                <span class="insights-card-label" style="font-size:0.72rem;">By Bucket</span>
+                <div class="yoy-bucket-legend">
+                    <span class="yoy-legend-dot yoy-legend-this"></span><span class="text-secondary">{{ yoy_data.this_month_label }}</span>
+                    <span class="yoy-legend-dot yoy-legend-last"></span><span class="text-secondary">{{ yoy_data.last_year_month_label }}</span>
+                </div>
+            </div>
+            <div class="yoy-bucket-list">
+                {% for row in yoy_data.bucket_rows %}
+                <div class="yoy-bucket-row">
+                    <div class="yoy-bucket-name text-secondary">{{ row.name }}</div>
+                    <div class="yoy-bucket-bars">
+                        <div class="yoy-bar-wrap">
+                            <div class="yoy-bar" style="width: {{ row.this_bar_pct }}%; background-color: {{ row.color }};"></div>
+                        </div>
+                        <div class="yoy-bar-wrap">
+                            <div class="yoy-bar yoy-bar-last" style="width: {{ row.last_bar_pct }}%; background-color: {{ row.color }};"></div>
+                        </div>
+                    </div>
+                    <div class="yoy-bucket-this">{{ row.this_amount|currency }}</div>
+                    <div class="yoy-bucket-change">
+                        {% if row.pct_change is not None %}
+                            <span class="text-{{ row.arrow_color }}">
+                                {% if row.arrow == 'up' %}&#8593;{% elif row.arrow == 'down' %}&#8595;{% else %}&mdash;{% endif %}
+                                {% if row.pct_change > 0 %}+{% endif %}{{ row.pct_change }}%
+                            </span>
+                        {% else %}
+                            <span class="text-secondary">New</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Income vs Expenses — Last 6 Months -->
     <div class="card income-expense-section">
         <div class="trend-header">
@@ -1004,6 +1095,155 @@
     }
     .heatmap-day-amount {
         display: none;
+    }
+}
+
+.yoy-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.yoy-metrics {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.yoy-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 160px;
+}
+
+.yoy-metric-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.yoy-metric-values {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+}
+
+.yoy-metric-this {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+
+.yoy-metric-sep {
+    font-size: 0.8rem;
+}
+
+.yoy-metric-last {
+    font-size: 0.9rem;
+}
+
+.yoy-metric-change {
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.yoy-buckets {
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+}
+
+.yoy-buckets-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.yoy-bucket-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+}
+
+.yoy-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.yoy-legend-this { background-color: var(--accent-blue); opacity: 1; }
+.yoy-legend-last { background-color: var(--accent-blue); opacity: 0.35; }
+
+.yoy-bucket-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.yoy-bucket-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 90px 70px;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.yoy-bucket-name {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: right;
+}
+
+.yoy-bucket-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.yoy-bar-wrap {
+    height: 7px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.yoy-bar {
+    height: 100%;
+    border-radius: 3px;
+    min-width: 2px;
+}
+
+.yoy-bar-last {
+    opacity: 0.38;
+}
+
+.yoy-bucket-this {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: right;
+}
+
+.yoy-bucket-change {
+    font-size: 0.82rem;
+    text-align: right;
+}
+
+@media (max-width: 540px) {
+    .yoy-bucket-row {
+        grid-template-columns: 100px 1fr 70px 60px;
+    }
+    .yoy-metrics {
+        gap: 1.25rem;
     }
 }
 </style>
