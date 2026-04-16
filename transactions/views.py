@@ -127,7 +127,14 @@ def transaction_list(request):
     # Restore newest-first ordering for display
     all_txns.sort(key=lambda t: (t.date, t.created_at), reverse=True)
 
-    paginator = Paginator(all_txns, 25)
+    try:
+        page_size = int(request.GET.get('page_size', 25))
+    except (ValueError, TypeError):
+        page_size = 25
+    if page_size not in (25, 50, 100):
+        page_size = 25
+
+    paginator = Paginator(all_txns, page_size)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 
@@ -156,8 +163,28 @@ def transaction_list(request):
         filter_params['search'] = search
     if tag_id:
         filter_params['tag'] = tag_id
+    if page_size != 25:
+        filter_params['page_size'] = page_size
     filter_qs = urlencode(filter_params)
     filter_qs_no_search = urlencode({k: v for k, v in filter_params.items() if k != 'search'})
+
+    # Build a condensed page range for the template: always show first/last,
+    # current ±2, with None as ellipsis sentinel.
+    num_pages = paginator.num_pages
+    current_page = page_obj.number
+    page_range = []
+    if num_pages <= 7:
+        page_range = list(range(1, num_pages + 1))
+    else:
+        pages_set = sorted({1, 2, current_page - 2, current_page - 1, current_page,
+                            current_page + 1, current_page + 2, num_pages - 1, num_pages})
+        pages_set = [p for p in pages_set if 1 <= p <= num_pages]
+        prev = None
+        for p in pages_set:
+            if prev is not None and p - prev > 1:
+                page_range.append(None)  # ellipsis
+            page_range.append(p)
+            prev = p
 
     buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
@@ -204,6 +231,8 @@ def transaction_list(request):
         'filter_qs_no_search': filter_qs_no_search,
         'balance_is_absolute': bool(account_id),
         'income_by_source': income_by_source,
+        'page_size': page_size,
+        'page_range': page_range,
     })
 
 
