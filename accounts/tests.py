@@ -1,9 +1,12 @@
+import datetime
+
 from django.test import TestCase, Client
 from django.template import Context, Template
 from django.urls import reverse
 
 from accounts.models import CustomUser
 from accounts.signals import DEFAULT_BUCKETS
+from accounts.utils import get_current_fiscal_month, get_fiscal_month_range, get_user_fiscal_start
 from buckets.models import Bucket
 
 
@@ -113,3 +116,81 @@ class ProfileZeroBasedBudgetingTest(TestCase):
 
     def test_zero_based_budgeting_defaults_to_false(self):
         self.assertFalse(self.user.zero_based_budgeting)
+
+
+class FiscalMonthRangeTest(TestCase):
+    def test_calendar_month_when_start_is_1(self):
+        start, end = get_fiscal_month_range(2026, 4, 1)
+        self.assertEqual(start, datetime.date(2026, 4, 1))
+        self.assertEqual(end, datetime.date(2026, 4, 30))
+
+    def test_fiscal_month_mid_month_start(self):
+        start, end = get_fiscal_month_range(2026, 4, 15)
+        self.assertEqual(start, datetime.date(2026, 4, 15))
+        self.assertEqual(end, datetime.date(2026, 5, 14))
+
+    def test_fiscal_month_december_wraps_to_next_year(self):
+        start, end = get_fiscal_month_range(2026, 12, 15)
+        self.assertEqual(start, datetime.date(2026, 12, 15))
+        self.assertEqual(end, datetime.date(2027, 1, 14))
+
+    def test_fiscal_month_february_leap_year(self):
+        start, end = get_fiscal_month_range(2024, 1, 15)
+        self.assertEqual(start, datetime.date(2024, 1, 15))
+        self.assertEqual(end, datetime.date(2024, 2, 14))
+
+    def test_calendar_month_february_end(self):
+        start, end = get_fiscal_month_range(2026, 2, 1)
+        self.assertEqual(start, datetime.date(2026, 2, 1))
+        self.assertEqual(end, datetime.date(2026, 2, 28))
+
+    def test_days_in_fiscal_month_matches_calendar_month(self):
+        start, end = get_fiscal_month_range(2026, 4, 1)
+        self.assertEqual((end - start).days + 1, 30)
+
+    def test_days_in_fiscal_month_non_calendar(self):
+        start, end = get_fiscal_month_range(2026, 4, 15)
+        self.assertEqual((end - start).days + 1, 30)
+
+
+class GetCurrentFiscalMonthTest(TestCase):
+    def test_start_of_1_always_returns_calendar_month(self):
+        today = datetime.date(2026, 4, 1)
+        self.assertEqual(get_current_fiscal_month(today, 1), (2026, 4))
+
+    def test_on_or_after_start_day_returns_current_month(self):
+        today = datetime.date(2026, 4, 15)
+        self.assertEqual(get_current_fiscal_month(today, 15), (2026, 4))
+
+    def test_on_start_day_returns_current_month(self):
+        today = datetime.date(2026, 4, 15)
+        self.assertEqual(get_current_fiscal_month(today, 15), (2026, 4))
+
+    def test_before_start_day_returns_previous_month(self):
+        today = datetime.date(2026, 4, 14)
+        self.assertEqual(get_current_fiscal_month(today, 15), (2026, 3))
+
+    def test_january_before_start_wraps_to_december_previous_year(self):
+        today = datetime.date(2026, 1, 10)
+        self.assertEqual(get_current_fiscal_month(today, 15), (2025, 12))
+
+    def test_first_day_of_month_with_start_1(self):
+        today = datetime.date(2026, 4, 1)
+        self.assertEqual(get_current_fiscal_month(today, 1), (2026, 4))
+
+
+class GetUserFiscalStartTest(TestCase):
+    def setUp(self):
+        self.user = CustomUser.objects.create_user(
+            email='fiscal@example.com',
+            password='testpass',
+            first_name='Fiscal',
+        )
+
+    def test_returns_default_1_when_no_preferences(self):
+        self.assertEqual(get_user_fiscal_start(self.user), 1)
+
+    def test_returns_saved_fiscal_month_start(self):
+        from accounts.models import UserPreferences
+        UserPreferences.objects.create(user=self.user, fiscal_month_start=15)
+        self.assertEqual(get_user_fiscal_start(self.user), 15)

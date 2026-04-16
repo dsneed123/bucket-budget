@@ -1,5 +1,3 @@
-import datetime
-
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db.models import Avg, Sum
@@ -21,11 +19,9 @@ def _completed_months(ref_date):
 
 def _build_summary(user, year, month):
     """Compute and upsert a BudgetSummary for (user, year, month)."""
-    first_day = datetime.date(year, month, 1)
-    if month == 12:
-        last_day = datetime.date(year, 12, 31)
-    else:
-        last_day = datetime.date(year, month + 1, 1) - datetime.timedelta(days=1)
+    from accounts.utils import get_fiscal_month_range, get_user_fiscal_start
+    fiscal_start = get_user_fiscal_start(user)
+    first_day, last_day = get_fiscal_month_range(year, month, fiscal_start)
 
     expenses = Transaction.objects.filter(
         user=user,

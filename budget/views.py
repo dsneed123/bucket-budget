@@ -1,4 +1,3 @@
-import calendar
 import csv
 import datetime
 from decimal import Decimal
@@ -9,6 +8,7 @@ from django.http import StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
+from accounts.utils import get_current_fiscal_month, get_fiscal_month_range, get_user_fiscal_start
 from buckets.models import Bucket
 from budget.models import BudgetSummary, MonthlyBudgetAllocation
 from transactions.models import Transaction
@@ -17,14 +17,16 @@ from transactions.models import Transaction
 @login_required
 def budget_overview(request, year=None, month=None):
     today = datetime.date.today()
+    fiscal_start = get_user_fiscal_start(request.user)
 
     if year is None or month is None:
-        year, month = today.year, today.month
+        year, month = get_current_fiscal_month(today, fiscal_start)
 
     if not (1 <= month <= 12 and year >= 2000):
-        year, month = today.year, today.month
+        year, month = get_current_fiscal_month(today, fiscal_start)
 
-    is_current_month = (year == today.year and month == today.month)
+    fstart, fend = get_fiscal_month_range(year, month, fiscal_start)
+    is_current_month = fstart <= today <= fend
 
     if month == 1:
         prev_year, prev_month = year - 1, 12
@@ -52,8 +54,8 @@ def budget_overview(request, year=None, month=None):
     month_expenses = Transaction.objects.filter(
         user=request.user,
         transaction_type='expense',
-        date__year=year,
-        date__month=month,
+        date__gte=fstart,
+        date__lte=fend,
     )
     total_spent = month_expenses.aggregate(s=Sum('amount'))['s'] or Decimal('0')
 
@@ -129,10 +131,10 @@ def budget_overview(request, year=None, month=None):
     else:
         total_pct = 0
 
-    days_in_month = calendar.monthrange(year, month)[1]
+    days_in_month = (fend - fstart).days + 1
     if is_current_month:
-        days_elapsed = today.day
-        days_left = days_in_month - today.day + 1
+        days_elapsed = (today - fstart).days + 1
+        days_left = (fend - today).days + 1
     else:
         days_elapsed = days_in_month
         days_left = 0
@@ -372,11 +374,13 @@ def save_notes(request):
         Bucket.objects.filter(user=request.user, is_active=True, is_uncategorized=False)
         .aggregate(s=Sum('monthly_allocation'))['s'] or Decimal('0')
     )
+    _fiscal_start = get_user_fiscal_start(request.user)
+    _fstart, _fend = get_fiscal_month_range(year, month, _fiscal_start)
     month_expenses = Transaction.objects.filter(
         user=request.user,
         transaction_type='expense',
-        date__year=year,
-        date__month=month,
+        date__gte=_fstart,
+        date__lte=_fend,
     )
     total_spent = month_expenses.aggregate(s=Sum('amount'))['s'] or Decimal('0')
     necessity_avg = month_expenses.aggregate(a=Avg('necessity_score'))['a']
