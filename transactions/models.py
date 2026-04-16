@@ -108,3 +108,40 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f'{self.transaction_type} - {self.description} ({self.amount})'
+
+
+class RecurringTransaction(models.Model):
+    TRANSACTION_TYPE_CHOICES = [
+        ('expense', 'Expense'),
+        ('income', 'Income'),
+        ('transfer', 'Transfer'),
+    ]
+
+    FREQUENCY_CHOICES = [
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('biweekly', 'Biweekly'),
+        ('monthly', 'Monthly'),
+        ('yearly', 'Yearly'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='recurring_transactions')
+    account = models.ForeignKey('banking.BankAccount', on_delete=models.CASCADE, related_name='recurring_transactions')
+    bucket = models.ForeignKey('buckets.Bucket', on_delete=models.SET_NULL, null=True, blank=True, related_name='recurring_transactions')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE_CHOICES)
+    description = models.CharField(max_length=255)
+    vendor = models.CharField(max_length=100, blank=True)
+    frequency = models.CharField(max_length=10, choices=FREQUENCY_CHOICES)
+    start_date = models.DateField()
+    next_due = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    last_generated = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['next_due']
+
+    def __str__(self):
+        return f'{self.frequency} {self.transaction_type} - {self.description} ({self.amount})'
