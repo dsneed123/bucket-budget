@@ -417,6 +417,43 @@
         </div>
     </div>
 
+    <!-- Net Worth Trend — Last 12 Months -->
+    <div class="card nw-trend-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Net Worth — Last 12 Months</span>
+            {% if nw_current %}
+            <div class="nw-trend-header-right">
+                <span class="nw-current-value {% if nw_current.positive %}text-green{% else %}text-red{% endif %}">
+                    {{ nw_current.net_worth|currency }}
+                </span>
+                {% if nw_change_pct is not None %}
+                <span class="nw-change-badge text-{{ nw_change_color }}">
+                    {% if nw_change_arrow == 'up' %}&#8593;{% elif nw_change_arrow == 'down' %}&#8595;{% else %}&mdash;{% endif %}
+                    {% if nw_change_pct > 0 %}+{% endif %}{{ nw_change_pct }}% vs last month
+                </span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% if nw_current %}
+        <div class="nw-breakdown">
+            <span class="text-secondary">Accounts: <span class="text-primary">{{ nw_current.bank_total|currency }}</span></span>
+            <span class="nw-breakdown-sep text-secondary">&middot;</span>
+            <span class="text-secondary">Savings Goals: <span class="text-primary">{{ nw_current.savings_total|currency }}</span></span>
+        </div>
+        {% endif %}
+        <div class="nw-bars-area">
+            {% for month in nw_trend_months %}
+            <div class="nw-col">
+                <div class="nw-bar {% if month.positive %}nw-bar-positive{% else %}nw-bar-negative{% endif %}"
+                     style="height: {{ month.bar_height_px }}px"
+                     title="{{ month.label }}: {{ month.net_worth|currency }}"></div>
+                <div class="nw-col-label">{{ month.label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
     <!-- Spending by Bucket -->
     <div class="card bucket-breakdown-section">
         <div class="trend-header">
@@ -805,6 +842,78 @@
     .grid-4.insights-summary-cards {
         grid-template-columns: 1fr;
     }
+}
+
+/* Net Worth Trend */
+.nw-trend-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.nw-trend-header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.nw-current-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.nw-change-badge {
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.nw-breakdown {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+    margin-bottom: 1.25rem;
+}
+
+.nw-breakdown-sep {
+    opacity: 0.5;
+}
+
+.nw-bars-area {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 164px;
+}
+
+.nw-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    height: 100%;
+}
+
+.nw-bar {
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+    flex-shrink: 0;
+}
+
+.nw-bar-positive { background-color: var(--accent-green); }
+.nw-bar-negative { background-color: var(--accent-red); }
+
+.nw-col-label {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    line-height: 1;
+    height: 20px;
+    display: flex;
+    align-items: center;
 }
 
 .trend-section {
