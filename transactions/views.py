@@ -224,3 +224,158 @@ def transaction_add(request):
         'accounts': accounts,
         'buckets': buckets,
     })
+
+
+@login_required
+def transaction_edit(request, transaction_id):
+    from django.shortcuts import get_object_or_404
+    transaction = get_object_or_404(Transaction, pk=transaction_id, user=request.user)
+
+    accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
+    buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
+
+    errors = {}
+
+    if request.method == 'POST':
+        amount = request.POST.get('amount', '').strip()
+        transaction_type = request.POST.get('transaction_type', '').strip()
+        description = request.POST.get('description', '').strip()
+        vendor = request.POST.get('vendor', '').strip()
+        bucket_id = request.POST.get('bucket', '').strip()
+        account_id = request.POST.get('account', '').strip()
+        date_str = request.POST.get('date', '').strip()
+        necessity_score_str = request.POST.get('necessity_score', '').strip()
+
+        form_data = {
+            'amount': amount,
+            'transaction_type': transaction_type,
+            'description': description,
+            'vendor': vendor,
+            'bucket': bucket_id,
+            'account': account_id,
+            'date': date_str,
+            'necessity_score': necessity_score_str,
+        }
+
+        # Validate amount
+        amount_val = None
+        if not amount:
+            errors['amount'] = 'Amount is required.'
+        else:
+            try:
+                amount_val = Decimal(amount)
+                if amount_val <= 0:
+                    errors['amount'] = 'Amount must be greater than zero.'
+            except InvalidOperation:
+                errors['amount'] = 'Please enter a valid amount.'
+
+        # Validate transaction_type
+        if not transaction_type:
+            errors['transaction_type'] = 'Transaction type is required.'
+        elif transaction_type not in ('expense', 'income'):
+            errors['transaction_type'] = 'Please select expense or income.'
+
+        # Validate description
+        if not description:
+            errors['description'] = 'Description is required.'
+
+        # Validate account
+        account = None
+        if not account_id:
+            errors['account'] = 'Account is required.'
+        else:
+            try:
+                account = accounts.get(pk=account_id)
+            except BankAccount.DoesNotExist:
+                errors['account'] = 'Please select a valid account.'
+
+        # Validate bucket (optional)
+        bucket = None
+        if bucket_id:
+            try:
+                bucket = buckets.get(pk=bucket_id)
+            except Bucket.DoesNotExist:
+                errors['bucket'] = 'Please select a valid bucket.'
+
+        # Validate date
+        date_val = None
+        if not date_str:
+            errors['date'] = 'Date is required.'
+        else:
+            try:
+                date_val = datetime.date.fromisoformat(date_str)
+            except ValueError:
+                errors['date'] = 'Please enter a valid date.'
+
+        # Validate necessity_score (optional, expenses only)
+        necessity_score_val = None
+        if necessity_score_str and transaction_type == 'expense':
+            try:
+                necessity_score_val = int(necessity_score_str)
+                if not (1 <= necessity_score_val <= 10):
+                    errors['necessity_score'] = 'Necessity score must be between 1 and 10.'
+            except ValueError:
+                errors['necessity_score'] = 'Please enter a valid necessity score.'
+
+        if not errors:
+            old_account = transaction.account
+            old_amount = transaction.amount
+            old_type = transaction.transaction_type
+
+            # Update transaction fields
+            transaction.account = account
+            transaction.bucket = bucket
+            transaction.amount = amount_val
+            transaction.transaction_type = transaction_type
+            transaction.description = description
+            transaction.vendor = vendor
+            transaction.date = date_val
+            transaction.necessity_score = necessity_score_val
+            transaction.save()
+
+            # Recalculate account balances
+            if old_account.pk == account.pk:
+                # Same account: apply net delta on a single object
+                if old_type == 'expense':
+                    account.balance = account.balance + old_amount
+                else:  # income
+                    account.balance = account.balance - old_amount
+                if transaction_type == 'expense':
+                    account.balance = account.balance - amount_val
+                else:  # income
+                    account.balance = account.balance + amount_val
+                account.save(change_reason='transaction')
+            else:
+                # Different accounts: reverse on old, apply on new
+                if old_type == 'expense':
+                    old_account.balance = old_account.balance + old_amount
+                else:  # income
+                    old_account.balance = old_account.balance - old_amount
+                old_account.save(change_reason='transaction')
+
+                if transaction_type == 'expense':
+                    account.balance = account.balance - amount_val
+                else:  # income
+                    account.balance = account.balance + amount_val
+                account.save(change_reason='transaction')
+
+            return redirect('transaction_list')
+    else:
+        form_data = {
+            'amount': str(transaction.amount),
+            'transaction_type': transaction.transaction_type,
+            'description': transaction.description,
+            'vendor': transaction.vendor,
+            'bucket': str(transaction.bucket_id) if transaction.bucket_id else '',
+            'account': str(transaction.account_id),
+            'date': transaction.date.isoformat(),
+            'necessity_score': str(transaction.necessity_score) if transaction.necessity_score is not None else '',
+        }
+
+    return render(request, 'transactions/transaction_edit.html', {
+        'transaction': transaction,
+        'errors': errors,
+        'form_data': form_data,
+        'accounts': accounts,
+        'buckets': buckets,
+    })
