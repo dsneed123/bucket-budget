@@ -736,6 +736,110 @@ table tbody tr:hover td {
 }
 
 /* =====================
+   Auth pages
+   ===================== */
+
+.auth-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 32px 16px;
+}
+
+.auth-logo {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent-green);
+    letter-spacing: 0.5px;
+    margin-bottom: 32px;
+    text-decoration: none;
+}
+
+.auth-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px;
+    width: 100%;
+    max-width: 420px;
+}
+
+.auth-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.auth-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+}
+
+.auth-footer {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.auth-footer a {
+    color: var(--accent-green);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.auth-footer a:hover {
+    color: var(--text-primary);
+}
+
+.btn-block {
+    width: 100%;
+    justify-content: center;
+}
+
+.forgot-link {
+    display: block;
+    text-align: right;
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    margin-top: 6px;
+}
+
+.forgot-link:hover {
+    color: var(--accent-green);
+}
+
+.auth-notice {
+    border-radius: var(--radius);
+    padding: 16px;
+    font-size: 14px;
+    margin-bottom: 24px;
+}
+
+.auth-notice-success {
+    background-color: rgba(0, 212, 170, 0.1);
+    border: 1px solid var(--accent-green);
+    color: var(--accent-green);
+}
+
+.auth-notice-error {
+    background-color: rgba(255, 71, 87, 0.1);
+    border: 1px solid var(--accent-red);
+    color: var(--accent-red);
+}
+
+@media (max-width: 480px) {
+    .auth-card {
+        padding: 28px 20px;
+    }
+}
+
+/* =====================
    Mobile responsive (<768px)
    ===================== */
 
