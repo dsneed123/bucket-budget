@@ -3,7 +3,7 @@ import datetime
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
+from django.db.models import Avg, Sum
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
@@ -148,6 +148,9 @@ def budget_overview(request, year=None, month=None):
         user=request.user, year=prev_year, month=prev_month
     ).exists()
 
+    summary = BudgetSummary.objects.filter(user=request.user, year=year, month=month).first()
+    notes = summary.notes if summary else ''
+
     return render(request, 'budget/budget_overview.html', {
         'current_month': selected_date.strftime('%B %Y'),
         'year': year,
@@ -175,6 +178,8 @@ def budget_overview(request, year=None, month=None):
         'zero_based': zero_based,
         'every_dollar_assigned': every_dollar_assigned,
         'prev_month_has_snapshot': prev_month_has_snapshot,
+        'notes': notes,
+        'notes_saved': request.GET.get('notes_saved') == '1',
     })
 
 
@@ -314,3 +319,57 @@ def budget_history(request):
     return render(request, 'budget/budget_history.html', {
         'history': history,
     })
+
+
+@login_required
+def save_notes(request):
+    if request.method != 'POST':
+        return redirect('budget_overview')
+
+    today = datetime.date.today()
+    try:
+        year = int(request.POST.get('year', today.year))
+        month = int(request.POST.get('month', today.month))
+        if not (1 <= month <= 12 and year >= 2000):
+            year, month = today.year, today.month
+    except (ValueError, TypeError):
+        year, month = today.year, today.month
+
+    notes = request.POST.get('notes', '')
+
+    monthly_income = request.user.monthly_income or Decimal('0')
+    total_allocated = (
+        Bucket.objects.filter(user=request.user, is_active=True, is_uncategorized=False)
+        .aggregate(s=Sum('monthly_allocation'))['s'] or Decimal('0')
+    )
+    month_expenses = Transaction.objects.filter(
+        user=request.user,
+        transaction_type='expense',
+        date__year=year,
+        date__month=month,
+    )
+    total_spent = month_expenses.aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    necessity_avg = month_expenses.aggregate(a=Avg('necessity_score'))['a']
+    total_saved = monthly_income - total_spent
+    surplus_deficit = total_saved
+
+    BudgetSummary.objects.update_or_create(
+        user=request.user,
+        year=year,
+        month=month,
+        defaults={
+            'notes': notes,
+            'income': monthly_income,
+            'total_allocated': total_allocated,
+            'total_spent': total_spent,
+            'total_saved': total_saved,
+            'surplus_deficit': surplus_deficit,
+            'necessity_avg': necessity_avg,
+        },
+    )
+
+    if year == today.year and month == today.month:
+        redirect_url = reverse('budget_overview') + '?notes_saved=1'
+    else:
+        redirect_url = reverse('budget_overview_month', kwargs={'year': year, 'month': month}) + '?notes_saved=1'
+    return redirect(redirect_url)

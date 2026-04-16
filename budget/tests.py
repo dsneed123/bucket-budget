@@ -993,3 +993,106 @@ class CopyLastMonthAllocationsTest(TestCase):
             user=self.user, bucket=self.bucket, year=today.year, month=today.month
         )
         self.assertEqual(snapshot.amount, Decimal('1100.00'))
+
+
+class SaveNotesTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='notes@example.com',
+            password='testpass',
+            first_name='Notes',
+            last_name='Tester',
+            monthly_income=Decimal('5000.00'),
+        )
+        self.client.login(email='notes@example.com', password='testpass')
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('1000.00'),
+        )
+
+    def test_redirects_when_not_logged_in(self):
+        self.client.logout()
+        response = self.client.post(reverse('budget_save_notes'), {'notes': 'test'})
+        self.assertEqual(response.status_code, 302)
+
+    def test_get_request_redirects(self):
+        response = self.client.get(reverse('budget_save_notes'))
+        self.assertRedirects(response, reverse('budget_overview'), fetch_redirect_response=False)
+
+    def test_save_notes_creates_budget_summary(self):
+        today = datetime.date.today()
+        self.client.post(reverse('budget_save_notes'), {
+            'notes': 'Paid off car loan',
+            'year': today.year,
+            'month': today.month,
+        })
+        summary = BudgetSummary.objects.get(user=self.user, year=today.year, month=today.month)
+        self.assertEqual(summary.notes, 'Paid off car loan')
+
+    def test_save_notes_updates_existing_summary_notes(self):
+        today = datetime.date.today()
+        BudgetSummary.objects.create(
+            user=self.user,
+            month=today.month,
+            year=today.year,
+            income=Decimal('5000.00'),
+            total_allocated=Decimal('0.00'),
+            total_spent=Decimal('0.00'),
+            total_saved=Decimal('5000.00'),
+            surplus_deficit=Decimal('5000.00'),
+            notes='Old note',
+        )
+        self.client.post(reverse('budget_save_notes'), {
+            'notes': 'New note',
+            'year': today.year,
+            'month': today.month,
+        })
+        summary = BudgetSummary.objects.get(user=self.user, year=today.year, month=today.month)
+        self.assertEqual(summary.notes, 'New note')
+
+    def test_save_notes_redirects_with_notes_saved_flag(self):
+        today = datetime.date.today()
+        response = self.client.post(reverse('budget_save_notes'), {
+            'notes': 'Holiday spending month',
+            'year': today.year,
+            'month': today.month,
+        })
+        self.assertIn('notes_saved=1', response['Location'])
+
+    def test_save_notes_redirects_to_month_url_for_past_month(self):
+        response = self.client.post(reverse('budget_save_notes'), {
+            'notes': 'Started new side gig',
+            'year': 2025,
+            'month': 3,
+        })
+        expected_base = reverse('budget_overview_month', kwargs={'year': 2025, 'month': 3})
+        self.assertIn(expected_base, response['Location'])
+        self.assertIn('notes_saved=1', response['Location'])
+
+    def test_notes_shown_in_budget_overview_context(self):
+        today = datetime.date.today()
+        BudgetSummary.objects.create(
+            user=self.user,
+            month=today.month,
+            year=today.year,
+            income=Decimal('5000.00'),
+            total_allocated=Decimal('0.00'),
+            total_spent=Decimal('0.00'),
+            total_saved=Decimal('5000.00'),
+            surplus_deficit=Decimal('5000.00'),
+            notes='Paid off car loan',
+        )
+        response = self.client.get(reverse('budget_overview'))
+        self.assertEqual(response.context['notes'], 'Paid off car loan')
+
+    def test_notes_empty_string_when_no_summary(self):
+        response = self.client.get(reverse('budget_overview'))
+        self.assertEqual(response.context['notes'], '')
+
+    def test_notes_saved_flag_in_context(self):
+        today = datetime.date.today()
+        response = self.client.get(reverse('budget_overview') + '?notes_saved=1')
+        self.assertTrue(response.context['notes_saved'])
