@@ -223,6 +223,8 @@ def dashboard(request):
             'type': _t['transaction_type'],
         })
 
+    _cal_expense_day_nums = {d for d, data in _cal_day_data.items() if data['has_expense']}
+
     calendar_weeks = []
     for _week in _month_weeks_raw:
         _row = []
@@ -231,15 +233,32 @@ def dashboard(request):
                 _row.append(None)
             else:
                 _dd = _cal_day_data.get(_day_num, {})
+                _is_past_or_today = (
+                    cal_year < today.year
+                    or (cal_year == today.year and cal_month < today.month)
+                    or (cal_year == today.year and cal_month == today.month and _day_num <= today.day)
+                )
+                _is_no_spend = _is_past_or_today and _day_num not in _cal_expense_day_nums
                 _row.append({
                     'day': _day_num,
-                    'is_today': _day_num == today.day,
+                    'is_today': _day_num == today.day and cal_year == today.year and cal_month == today.month,
                     'has_income': _dd.get('has_income', False),
                     'has_expense': _dd.get('has_expense', False),
+                    'is_no_spend': _is_no_spend,
                 })
         calendar_weeks.append(_row)
 
     calendar_txns_by_day = {str(d): data['transactions'] for d, data in _cal_day_data.items()}
+
+    # No-spend days calculation (within fiscal month up to today)
+    _fiscal_expense_dates = set(
+        month_expenses_qs.filter(date__lte=today).values_list('date', flat=True).distinct()
+    )
+    _days_elapsed = min((today - fstart).days + 1, days_in_month)
+    no_spend_days = sum(
+        1 for i in range(_days_elapsed)
+        if (fstart + datetime.timedelta(days=i)) not in _fiscal_expense_dates
+    )
 
     refresh_recommendations(request.user)
     _priority_order = {Recommendation.PRIORITY_HIGH: 0, Recommendation.PRIORITY_MEDIUM: 1, Recommendation.PRIORITY_LOW: 2}
@@ -266,12 +285,14 @@ def dashboard(request):
 
     prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
     widgets = prefs.get_widget_visibility()
+    no_spend_goal = prefs.no_spend_goal
     widget_labels = [
         ('stats', 'Summary Stats'),
         ('daily_spending', 'Daily Spending Chart'),
         ('budget_overview', 'Budget Overview'),
         ('recent_transactions', 'Recent Transactions'),
         ('calendar', 'Calendar'),
+        ('no_spend_days', 'No-Spend Days'),
         ('savings_goals', 'Savings Goals'),
         ('upcoming_recurring', 'Upcoming Recurring'),
         ('recommendations', 'Recommendations'),
@@ -303,6 +324,9 @@ def dashboard(request):
         'calendar_txns_by_day': calendar_txns_by_day,
         'activity_feed': activity_feed,
         'streak': streak,
+        'no_spend_days': no_spend_days,
+        'no_spend_goal': no_spend_goal,
+        'days_elapsed': _days_elapsed,
         'widgets': widgets,
         'widget_labels': widget_labels,
     })

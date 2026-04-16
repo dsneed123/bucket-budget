@@ -314,11 +314,11 @@
             <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px;">
                 {% for cell in week %}
                 {% if cell %}
-                <div class="cal-day{% if cell.is_today %} cal-day-today{% endif %}{% if cell.has_income or cell.has_expense %} cal-day-active{% endif %}"
+                <div class="cal-day{% if cell.is_today %} cal-day-today{% endif %}{% if cell.has_income or cell.has_expense %} cal-day-active{% endif %}{% if cell.is_no_spend and not cell.is_today %} cal-day-no-spend{% endif %}"
                      data-day="{{ cell.day }}"
                      onclick="calShowDay(this, {{ cell.day }})"
                      style="display: flex; flex-direction: column; align-items: center; padding: 4px 2px; border-radius: var(--radius-sm); cursor: {% if cell.has_income or cell.has_expense %}pointer{% else %}default{% endif %}; position: relative;
-                            {% if cell.is_today %}background: var(--accent-blue); color: #fff;{% endif %}">
+                            {% if cell.is_today %}background: var(--accent-blue); color: #fff;{% elif cell.is_no_spend %}background: rgba(0,212,170,0.15);{% endif %}">
                     <span style="font-size: 12px; font-weight: {% if cell.is_today %}700{% else %}400{% endif %}; color: {% if cell.is_today %}#fff{% else %}var(--text-primary){% endif %}; line-height: 1.4;">{{ cell.day }}</span>
                     <div style="display: flex; gap: 2px; height: 5px; margin-top: 2px;">
                         {% if cell.has_income %}<span style="width: 5px; height: 5px; border-radius: 50%; background: {% if cell.is_today %}rgba(255,255,255,0.9){% else %}var(--accent-green){% endif %}; display: inline-block; flex-shrink: 0;"></span>{% endif %}
@@ -343,6 +343,7 @@
             .cal-day { transition: background 0.1s; }
             .cal-day:not(.cal-day-today):hover { background: var(--bg-primary); }
             .cal-day-selected:not(.cal-day-today) { background: var(--bg-secondary) !important; outline: 2px solid var(--accent-blue); outline-offset: -2px; }
+            .cal-day-no-spend { background: rgba(0,212,170,0.15); }
             </style>
             <script>
             (function() {
@@ -387,6 +388,52 @@
                 };
             })();
             </script>
+        </div>
+        {% endif %}
+
+        <!-- No-Spend Days Widget -->
+        {% if widgets.no_spend_days %}
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h2 class="card-title">No-Spend Days</h2>
+                    <p class="card-subtitle">{{ current_month }}</p>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+                <span style="font-size: 28px;">🌿</span>
+                <div>
+                    <p style="margin: 0; font-size: 22px; font-weight: 700; color: var(--accent-green);">
+                        {{ no_spend_days }} <span style="font-size: 15px; font-weight: 400; color: var(--text-secondary);">/ {{ days_elapsed }} days elapsed</span>
+                    </p>
+                    {% if no_spend_goal > 0 %}
+                    <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-secondary);">
+                        Goal: {{ no_spend_goal }} no-spend days this month
+                        {% if no_spend_days >= no_spend_goal %}
+                        <span style="color: var(--accent-green); font-weight: 600; margin-left: 4px;">Goal reached!</span>
+                        {% endif %}
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if no_spend_goal > 0 %}
+            <div class="progress" style="height: 8px; margin-bottom: 16px;">
+                <div class="progress-bar" style="width: {% widthratio no_spend_days no_spend_goal 100 %}%; background: var(--accent-green); max-width: 100%;"></div>
+            </div>
+            {% endif %}
+
+            <form method="post" action="{% url 'save_no_spend_goal' %}" style="display: flex; gap: 8px; align-items: center;">
+                {% csrf_token %}
+                <label style="font-size: 13px; color: var(--text-secondary); flex-shrink: 0;">Monthly goal:</label>
+                <input type="number" name="no_spend_goal" min="0" max="31"
+                    value="{{ no_spend_goal }}"
+                    placeholder="0"
+                    style="width: 64px; padding: 6px 8px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 14px;">
+                <span style="font-size: 13px; color: var(--text-secondary);">days</span>
+                <button type="submit" class="btn btn-secondary btn-sm">Set</button>
+            </form>
         </div>
         {% endif %}
 
@@ -528,6 +575,7 @@
                 <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">No recurring charges due in the next 7 days.</p>
             {% endif %}
         </div>
+        {% endif %}
 
         <!-- Recommendations -->
         {% if widgets.recommendations and recommendations %}
