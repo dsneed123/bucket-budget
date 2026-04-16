@@ -167,6 +167,50 @@
     </div>
     {% endif %}
 
+    <!-- Essential Purchases list -->
+    {% if essential_purchases %}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Essential Purchases</h2>
+            <span class="card-subtitle">{{ this_month_label }} — score 8–10</span>
+        </div>
+        <div class="essential-total">
+            <span class="essential-total-label text-secondary">Total essential spending</span>
+            <span class="essential-total-amount text-green">{{ essential_total|currency:user.currency }}</span>
+        </div>
+        <table class="rankings-table essential-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Vendor</th>
+                    <th>Amount</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for purchase in essential_purchases %}
+                <tr>
+                    <td class="text-secondary">{{ purchase.date }}</td>
+                    <td>{{ purchase.description }}</td>
+                    <td class="text-secondary">{{ purchase.vendor|default:"—" }}</td>
+                    <td>{{ purchase.amount|currency:user.currency }}</td>
+                    <td><span class="rankings-bucket-score text-green">{{ purchase.necessity_score }}/10</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Essential Purchases</h2>
+            <span class="card-subtitle">{{ this_month_label }} — score 8–10</span>
+        </div>
+        <p class="text-secondary" style="padding: 16px 0;">No essential purchases (score 8–10) this month.</p>
+    </div>
+    {% endif %}
+
     <!-- Impulse Purchases list -->
     {% if impulse_purchases %}
     <div class="card">
@@ -429,6 +473,32 @@
 }
 
 .impulse-table td:first-child {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.essential-total {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    width: fit-content;
+}
+
+.essential-total-label {
+    font-size: 0.9rem;
+}
+
+.essential-total-amount {
+    font-size: 1.1rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.essential-table td:first-child {
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
 }

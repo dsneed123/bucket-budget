@@ -91,6 +91,24 @@ def _get_impulse_purchases(user, year, month):
     return purchases, total
 
 
+def _get_essential_purchases(user, year, month):
+    """Return (purchases_list, total) for the 10 highest-scored expenses (8-10) this month."""
+    base_qs = Transaction.objects.filter(
+        user=user,
+        transaction_type='expense',
+        date__year=year,
+        date__month=month,
+        necessity_score__gte=8,
+        necessity_score__lte=10,
+    )
+    total = base_qs.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    purchases = list(
+        base_qs.order_by('-necessity_score', '-amount')
+        .values('date', 'description', 'vendor', 'amount', 'necessity_score')[:10]
+    )
+    return purchases, total
+
+
 def _score_color(score):
     if score is None:
         return 'secondary'
@@ -113,6 +131,7 @@ def rankings(request):
 
     breakdown = _get_necessity_breakdown(request.user, this_year, this_month)
     impulse_purchases, impulse_total = _get_impulse_purchases(request.user, this_year, this_month)
+    essential_purchases, essential_total = _get_essential_purchases(request.user, this_year, this_month)
     current_score, current_count = _get_spending_quality_score(request.user, this_year, this_month)
     last_score, last_count = _get_spending_quality_score(request.user, last_year, last_month)
 
@@ -165,6 +184,8 @@ def rankings(request):
         'breakdown': breakdown,
         'impulse_purchases': impulse_purchases,
         'impulse_total': impulse_total,
+        'essential_purchases': essential_purchases,
+        'essential_total': essential_total,
         'this_month_label': today.strftime('%B %Y'),
         'last_month_label': date(last_year, last_month, 1).strftime('%B %Y'),
     })
