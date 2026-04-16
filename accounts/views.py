@@ -14,6 +14,7 @@ from django.urls import reverse_lazy
 from banking.models import BankAccount
 from buckets.models import Bucket
 from .models import UserPreferences
+from .currencies import CURRENCY_CHOICES
 
 User = get_user_model()
 
@@ -94,16 +95,6 @@ def register(request):
         'errors': errors,
         'form_data': form_data,
     })
-
-
-CURRENCY_CHOICES = [
-    ('USD', 'USD — US Dollar'),
-    ('EUR', 'EUR — Euro'),
-    ('GBP', 'GBP — British Pound'),
-    ('CAD', 'CAD — Canadian Dollar'),
-    ('AUD', 'AUD — Australian Dollar'),
-    ('JPY', 'JPY — Japanese Yen'),
-]
 
 
 @login_required
