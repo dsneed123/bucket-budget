@@ -46,6 +46,12 @@ class UserPreferences(models.Model):
         ('sunday', 'Sunday'),
     ]
 
+    THEME_CHOICES = [
+        ('dark', 'Dark'),
+        ('midnight', 'Midnight'),
+        ('ocean', 'Ocean'),
+    ]
+
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='preferences')
     email_weekly_digest = models.BooleanField(default=True)
     email_budget_alerts = models.BooleanField(default=True)
@@ -59,6 +65,7 @@ class UserPreferences(models.Model):
     )
     start_of_week = models.CharField(max_length=10, choices=START_OF_WEEK_CHOICES, default='monday')
     fiscal_month_start = models.IntegerField(default=1)
+    theme = models.CharField(max_length=10, choices=THEME_CHOICES, default='dark')
 
     def __str__(self):
         return f'Preferences for {self.user}'

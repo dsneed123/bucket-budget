@@ -162,10 +162,15 @@ def settings(request):
         start_of_week = request.POST.get('start_of_week', 'monday')
         fiscal_month_start = request.POST.get('fiscal_month_start', '1')
         default_account_id = request.POST.get('default_account', '')
+        theme = request.POST.get('theme', 'dark')
 
         valid_weeks = [c[0] for c in UserPreferences.START_OF_WEEK_CHOICES]
         if start_of_week not in valid_weeks:
             errors['start_of_week'] = 'Please select a valid day.'
+
+        valid_themes = [c[0] for c in UserPreferences.THEME_CHOICES]
+        if theme not in valid_themes:
+            theme = 'dark'
 
         try:
             fiscal_month_start_val = int(fiscal_month_start)
@@ -189,6 +194,7 @@ def settings(request):
             prefs.start_of_week = start_of_week
             prefs.fiscal_month_start = fiscal_month_start_val
             prefs.default_account = default_account
+            prefs.theme = theme
             prefs.save()
             return redirect('/settings/?saved=1#preferences')
 
@@ -198,6 +204,7 @@ def settings(request):
         'prefs': prefs,
         'errors': errors,
         'week_choices': UserPreferences.START_OF_WEEK_CHOICES,
+        'theme_choices': UserPreferences.THEME_CHOICES,
         'bank_accounts': bank_accounts,
     })
 
