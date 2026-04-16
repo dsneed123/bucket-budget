@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Profile — Bucket Budget{% endblock %}
+
+{% block page_title %}Profile{% endblock %}
+
+{% block content %}
+<div class="grid grid-2" style="max-width: 900px;">
+
+    <div class="card" style="grid-column: 1 / -1;">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Your Profile</h2>
+                <p class="card-subtitle">Member since {{ user.created_at|date:"F j, Y" }}</p>
+            </div>
+        </div>
+
+        {% if success %}
+            <div style="background-color: rgba(0, 212, 170, 0.1); border: 1px solid var(--accent-green); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 24px; color: var(--accent-green); font-size: 14px;">
+                Profile saved successfully.
+            </div>
+        {% endif %}
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="first_name" class="form-label">First name</label>
+                    <input
+                        type="text"
+                        id="first_name"
+                        name="first_name"
+                        class="form-control"
+                        value="{{ user.first_name }}"
+                        placeholder="Alex"
+                        autocomplete="given-name"
+                    >
+                    {% if errors.first_name %}
+                        <p class="form-error">{{ errors.first_name }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="last_name" class="form-label">Last name</label>
+                    <input
+                        type="text"
+                        id="last_name"
+                        name="last_name"
+                        class="form-control"
+                        value="{{ user.last_name }}"
+                        placeholder="Smith"
+                        autocomplete="family-name"
+                    >
+                    {% if errors.last_name %}
+                        <p class="form-error">{{ errors.last_name }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Email address</label>
+                <input
+                    type="email"
+                    class="form-control"
+                    value="{{ user.email }}"
+                    disabled
+                    style="opacity: 0.6; cursor: not-allowed;"
+                >
+                <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Email cannot be changed.</p>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="currency" class="form-label">Currency</label>
+                    <select
+                        id="currency"
+                        name="currency"
+                        class="form-control"
+                    >
+                        {% for code, label in currency_choices %}
+                            <option value="{{ code }}" {% if user.currency == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if errors.currency %}
+                        <p class="form-error">{{ errors.currency }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="monthly_income" class="form-label">Monthly income</label>
+                    <input
+                        type="number"
+                        id="monthly_income"
+                        name="monthly_income"
+                        class="form-control"
+                        value="{{ user.monthly_income }}"
+                        placeholder="0.00"
+                        min="0"
+                        step="0.01"
+                    >
+                    {% if errors.monthly_income %}
+                        <p class="form-error">{{ errors.monthly_income }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Save changes</button>
+            </div>
+        </form>
+    </div>
+
+</div>
+{% endblock %}
