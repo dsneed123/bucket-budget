@@ -66,6 +66,41 @@ def _spending_quality_score(user, year, month):
 
 _TREND_CHART_H = 140  # px height for tallest bar
 _BUCKET_BAR_MAX_W = 100  # % width for largest bucket bar
+_MERCHANT_BAR_MAX_W = 100
+
+
+def _top_merchants(user, year, month):
+    qs = (
+        Transaction.objects.filter(
+            user=user, transaction_type='expense',
+            date__year=year, date__month=month,
+        )
+        .exclude(vendor='')
+        .values('vendor')
+        .annotate(total=Sum('amount'), count=Count('id'), avg_necessity=Avg('necessity_score'))
+        .order_by('-total')[:10]
+    )
+
+    rows = []
+    for entry in qs:
+        avg = entry['avg_necessity']
+        avg_rounded = round(Decimal(str(avg)), 1) if avg is not None else None
+        rows.append({
+            'vendor': entry['vendor'],
+            'total': entry['total'] or Decimal('0'),
+            'count': entry['count'],
+            'avg_necessity': avg_rounded,
+            'necessity_color': _score_color(float(avg_rounded) if avg_rounded is not None else None),
+        })
+
+    if rows:
+        max_total = rows[0]['total']
+        for row in rows:
+            row['bar_width_pct'] = (
+                int(float(row['total'] / max_total) * _MERCHANT_BAR_MAX_W)
+                if max_total > 0 else 0
+            )
+    return rows
 
 
 def _bucket_breakdown(user, year, month):
@@ -208,6 +243,9 @@ def insights(request):
     # Spending by bucket (current month)
     bucket_breakdown = _bucket_breakdown(request.user, this_year, this_month)
 
+    # Top merchants (current month)
+    top_merchants = _top_merchants(request.user, this_year, this_month)
+
     return render(request, 'insights/insights.html', {
         'current_month': today.strftime('%B %Y'),
         'last_month_label': last_month_date.strftime('%B %Y'),
@@ -228,4 +266,5 @@ def insights(request):
         'trend_months': trend_months,
         'trend_avg': trend_avg,
         'bucket_breakdown': bucket_breakdown,
+        'top_merchants': top_merchants,
     })
