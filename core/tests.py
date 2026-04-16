@@ -194,3 +194,85 @@ class BillCountdownTest(TestCase):
         response = self.client.get(reverse('dashboard'))
         entries = response.context['bill_countdown']
         self.assertEqual(entries[0]['days_until'], 1)
+
+
+class IncomeReceivedTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = CustomUser.objects.create_user(
+            email='income@example.com',
+            password='testpass',
+            first_name='Test',
+        )
+        self.client.login(email='income@example.com', password='testpass')
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('5000.00'),
+        )
+
+    def _add_income(self, date, amount):
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            description='Paycheck',
+            amount=Decimal(str(amount)),
+            transaction_type='income',
+            date=date,
+        )
+
+    def test_dashboard_includes_income_context(self):
+        response = self.client.get(reverse('dashboard'))
+        self.assertIn('total_income', response.context)
+        self.assertIn('monthly_income', response.context)
+        self.assertIn('income_pct', response.context)
+
+    def test_income_pct_zero_when_no_expected_income(self):
+        self.user.monthly_income = Decimal('0')
+        self.user.save()
+        self._add_income(datetime.date.today(), '2000.00')
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.context['income_pct'], 0)
+
+    def test_income_pct_calculated_correctly(self):
+        self.user.monthly_income = Decimal('5000.00')
+        self.user.save()
+        self._add_income(datetime.date.today(), '3000.00')
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.context['income_pct'], 60)
+
+    def test_income_pct_capped_at_100(self):
+        self.user.monthly_income = Decimal('1000.00')
+        self.user.save()
+        self._add_income(datetime.date.today(), '2000.00')
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.context['income_pct'], 100)
+
+    def test_income_pct_100_when_fully_received(self):
+        self.user.monthly_income = Decimal('5000.00')
+        self.user.save()
+        self._add_income(datetime.date.today(), '5000.00')
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.context['income_pct'], 100)
+
+    def test_expenses_do_not_count_toward_income(self):
+        self.user.monthly_income = Decimal('5000.00')
+        self.user.save()
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            description='Groceries',
+            amount=Decimal('200.00'),
+            transaction_type='expense',
+            date=datetime.date.today(),
+        )
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.context['total_income'], Decimal('0'))
+        self.assertEqual(response.context['income_pct'], 0)
+
+    def test_monthly_income_reflects_user_setting(self):
+        self.user.monthly_income = Decimal('4500.00')
+        self.user.save()
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.context['monthly_income'], Decimal('4500.00'))
