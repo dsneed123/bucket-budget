@@ -1,7 +1,10 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import login, authenticate, update_session_auth_hash
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import PasswordChangeView
+from django.contrib import messages
+from django.urls import reverse_lazy
 
 User = get_user_model()
 
@@ -136,3 +139,13 @@ def profile(request):
         'success': success,
         'currency_choices': CURRENCY_CHOICES,
     })
+
+
+class ChangePasswordView(PasswordChangeView):
+    template_name = 'accounts/change_password.html'
+    success_url = reverse_lazy('profile')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, 'Password changed successfully.')
+        return response
