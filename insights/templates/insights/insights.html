@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% load currency_tags %}
+
+{% block title %}Insights — Bucket Budget{% endblock %}
+{% block page_title %}Insights{% endblock %}
+
+{% block content %}
+<div class="insights-page">
+
+    <div class="page-header">
+        <h1 class="page-title-inline">Insights</h1>
+        <span class="page-subtitle text-secondary">{{ current_month }}</span>
+    </div>
+
+    <div class="grid grid-4 insights-summary-cards">
+
+        <!-- This Month's Spending -->
+        <div class="card insights-card">
+            <div class="insights-card-label">This Month's Spending</div>
+            <div class="insights-card-value">{{ this_spending|currency }}</div>
+            <div class="insights-card-meta">
+                {% if spending_pct_change is not None %}
+                    <span class="insights-arrow insights-arrow-{{ spending_arrow_color }}">
+                        {% if spending_arrow == 'up' %}&#8593;{% elif spending_arrow == 'down' %}&#8595;{% else %}&mdash;{% endif %}
+                    </span>
+                    <span class="text-{{ spending_arrow_color }}">
+                        {% if spending_pct_change > 0 %}+{% endif %}{{ spending_pct_change }}% vs {{ last_month_label }}
+                    </span>
+                {% else %}
+                    <span class="text-secondary">No data for {{ last_month_label }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- vs Last Month -->
+        <div class="card insights-card">
+            <div class="insights-card-label">Last Month's Spending</div>
+            <div class="insights-card-value">{{ last_spending|currency }}</div>
+            <div class="insights-card-meta text-secondary">{{ last_month_label }}</div>
+        </div>
+
+        <!-- Savings Rate -->
+        <div class="card insights-card">
+            <div class="insights-card-label">Savings Rate</div>
+            <div class="insights-card-value text-{{ savings_color }}">
+                {% if cur_savings_rate is not None %}
+                    {{ cur_savings_rate }}%
+                {% else %}
+                    —
+                {% endif %}
+            </div>
+            <div class="insights-card-meta">
+                {% if savings_arrow %}
+                    <span class="insights-arrow insights-arrow-{% if savings_arrow == 'up' %}green{% elif savings_arrow == 'down' %}red{% else %}secondary{% endif %}">
+                        {% if savings_arrow == 'up' %}&#8593;{% elif savings_arrow == 'down' %}&#8595;{% else %}&mdash;{% endif %}
+                    </span>
+                    {% if prev_savings_rate is not None %}
+                        <span class="text-secondary">was {{ prev_savings_rate }}% last month</span>
+                    {% endif %}
+                {% elif cur_savings_rate is None %}
+                    <span class="text-secondary">No income recorded this month</span>
+                {% else %}
+                    <span class="text-secondary">No prior month data</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Spending Quality Score -->
+        <div class="card insights-card">
+            <div class="insights-card-label">Spending Quality Score</div>
+            <div class="insights-card-value text-{{ quality_color }}">
+                {% if quality_score is not None %}
+                    {{ quality_score }}<span class="insights-card-denom">/10</span>
+                {% else %}
+                    —
+                {% endif %}
+            </div>
+            <div class="insights-card-meta">
+                {% if quality_arrow %}
+                    <span class="insights-arrow insights-arrow-{% if quality_arrow == 'up' %}green{% elif quality_arrow == 'down' %}red{% else %}secondary{% endif %}">
+                        {% if quality_arrow == 'up' %}&#8593;{% elif quality_arrow == 'down' %}&#8595;{% else %}&mdash;{% endif %}
+                    </span>
+                    {% if last_quality_score is not None %}
+                        <span class="text-secondary">was {{ last_quality_score }}/10 last month</span>
+                    {% endif %}
+                {% elif quality_score is not None %}
+                    <span class="text-secondary">Based on {{ quality_count }} scored transaction{{ quality_count|pluralize }}</span>
+                {% else %}
+                    <span class="text-secondary">Score your expenses to see this</span>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.insights-page {
+    max-width: 1100px;
+}
+
+.page-header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.page-title-inline {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.page-subtitle {
+    font-size: 0.9rem;
+}
+
+.insights-summary-cards {
+    margin-bottom: 2rem;
+}
+
+.insights-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1.25rem 1.5rem;
+}
+
+.insights-card-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+}
+
+.insights-card-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+
+.insights-card-denom {
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+.insights-card-meta {
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.insights-arrow {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.insights-arrow-green { color: var(--accent-green); }
+.insights-arrow-red   { color: var(--accent-red); }
+.insights-arrow-secondary { color: var(--text-secondary); }
+
+@media (max-width: 900px) {
+    .grid-4.insights-summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 540px) {
+    .grid-4.insights-summary-cards {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
