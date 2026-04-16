@@ -157,11 +157,22 @@
 
     <!-- Data -->
     <div id="tab-data" class="settings-panel" style="display: none;">
-        <div class="card">
+        {% if request.GET.imported %}
+        <div style="background: rgba(0,184,148,0.1); border: 1px solid var(--accent-green); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: var(--accent-green);">
+            Successfully imported {{ request.GET.imported }} record{% if request.GET.imported != "1" %}s{% endif %}.
+        </div>
+        {% endif %}
+        {% if request.GET.import_error %}
+        <div style="background: rgba(255,71,87,0.1); border: 1px solid var(--accent-red); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: var(--accent-red);">
+            {% if request.GET.import_error == "no_file" %}No file was uploaded.{% elif request.GET.import_error == "invalid_file" %}Could not parse the CSV file. Make sure it is valid UTF-8 or Latin-1 encoded.{% else %}Import failed. Please try again.{% endif %}
+        </div>
+        {% endif %}
+
+        <div class="card" style="margin-bottom: 16px;">
             <div class="card-header">
                 <div>
-                    <h2 class="card-title">Data</h2>
-                    <p class="card-subtitle">Import and export your financial data</p>
+                    <h2 class="card-title">Export</h2>
+                    <p class="card-subtitle">Download your financial data</p>
                 </div>
             </div>
 
@@ -173,14 +184,6 @@
                 <a href="/transactions/export/csv/" class="btn btn-secondary">Export CSV</a>
             </div>
 
-            <div class="settings-row">
-                <div class="settings-row-info">
-                    <div class="settings-row-label">Import transactions</div>
-                    <div class="settings-row-desc">Upload a CSV file to import transactions</div>
-                </div>
-                <a href="/transactions/import/csv/" class="btn btn-secondary">Import CSV</a>
-            </div>
-
             <div class="settings-row" style="border-bottom: none;">
                 <div class="settings-row-info">
                     <div class="settings-row-label">Export all data</div>
@@ -189,6 +192,65 @@
                 <a href="/settings/export/" class="btn btn-secondary">Export ZIP</a>
             </div>
         </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">Import Data</h2>
+                    <p class="card-subtitle">Upload CSV files to import data. Download a template first to see the expected format.</p>
+                </div>
+            </div>
+
+            <div class="settings-row">
+                <div class="settings-row-info">
+                    <div class="settings-row-label">Transactions</div>
+                    <div class="settings-row-desc">Import transactions with multi-step mapping and validation</div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <a href="/settings/import/template/transactions/" class="btn btn-secondary" style="white-space: nowrap;">Template</a>
+                    <a href="/transactions/import/csv/" class="btn btn-secondary" style="white-space: nowrap;">Import CSV</a>
+                </div>
+            </div>
+
+            <div class="settings-row">
+                <div class="settings-row-info">
+                    <div class="settings-row-label">Buckets</div>
+                    <div class="settings-row-desc">Import budget categories. Existing buckets with the same name will be updated.</div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <a href="/settings/import/template/buckets/" class="btn btn-secondary" style="white-space: nowrap;">Template</a>
+                    <button type="button" class="btn btn-secondary" onclick="triggerImport('buckets')" style="white-space: nowrap;">Import CSV</button>
+                </div>
+            </div>
+
+            <div class="settings-row">
+                <div class="settings-row-info">
+                    <div class="settings-row-label">Bank accounts</div>
+                    <div class="settings-row-desc">Import bank accounts. Existing accounts with the same name will be updated. Valid types: checking, savings, credit, cash.</div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <a href="/settings/import/template/bank_accounts/" class="btn btn-secondary" style="white-space: nowrap;">Template</a>
+                    <button type="button" class="btn btn-secondary" onclick="triggerImport('bank_accounts')" style="white-space: nowrap;">Import CSV</button>
+                </div>
+            </div>
+
+            <div class="settings-row" style="border-bottom: none;">
+                <div class="settings-row-info">
+                    <div class="settings-row-label">Savings goals</div>
+                    <div class="settings-row-desc">Import savings goals. Existing goals with the same name will be updated. Valid priorities: low, medium, high, critical.</div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <a href="/settings/import/template/savings_goals/" class="btn btn-secondary" style="white-space: nowrap;">Template</a>
+                    <button type="button" class="btn btn-secondary" onclick="triggerImport('savings_goals')" style="white-space: nowrap;">Import CSV</button>
+                </div>
+            </div>
+        </div>
+
+        <form id="import-form" method="post" action="/settings/import/" enctype="multipart/form-data" style="display: none;">
+            {% csrf_token %}
+            <input type="hidden" name="data_type" id="import-data-type">
+            <input type="file" name="csv_file" id="import-file-input" accept=".csv">
+        </form>
     </div>
 
     <!-- Danger Zone -->
@@ -342,5 +404,19 @@
 
     activateTab(getActiveTab());
 }());
+
+window.triggerImport = function(dataType) {
+    var input = document.getElementById('import-file-input');
+    var typeField = document.getElementById('import-data-type');
+    var form = document.getElementById('import-form');
+    typeField.value = dataType;
+    input.value = '';
+    input.onchange = function() {
+        if (input.files.length > 0) {
+            form.submit();
+        }
+    };
+    input.click();
+};
 </script>
 {% endblock %}
