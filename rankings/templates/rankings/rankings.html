@@ -167,6 +167,50 @@
     </div>
     {% endif %}
 
+    <!-- Impulse Purchases list -->
+    {% if impulse_purchases %}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Impulse Purchases</h2>
+            <span class="card-subtitle">{{ this_month_label }} — score 1–3</span>
+        </div>
+        <div class="impulse-total">
+            <span class="impulse-total-label text-secondary">Total impulse spending</span>
+            <span class="impulse-total-amount text-red">{{ impulse_total|currency:user.currency }}</span>
+        </div>
+        <table class="rankings-table impulse-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Vendor</th>
+                    <th>Amount</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for purchase in impulse_purchases %}
+                <tr>
+                    <td class="text-secondary">{{ purchase.date }}</td>
+                    <td>{{ purchase.description }}</td>
+                    <td class="text-secondary">{{ purchase.vendor|default:"—" }}</td>
+                    <td>{{ purchase.amount|currency:user.currency }}</td>
+                    <td><span class="rankings-bucket-score text-red">{{ purchase.necessity_score }}/10</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Impulse Purchases</h2>
+            <span class="card-subtitle">{{ this_month_label }} — score 1–3</span>
+        </div>
+        <p class="text-secondary" style="padding: 16px 0;">No impulse purchases (score 1–3) this month.</p>
+    </div>
+    {% endif %}
+
 </div>
 {% endblock %}
 
@@ -360,6 +404,32 @@
 .necessity-legend-pct {
     font-size: 0.85rem;
     text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.impulse-total {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    width: fit-content;
+}
+
+.impulse-total-label {
+    font-size: 0.9rem;
+}
+
+.impulse-total-amount {
+    font-size: 1.1rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.impulse-table td:first-child {
+    white-space: nowrap;
     font-variant-numeric: tabular-nums;
 }
 </style>
