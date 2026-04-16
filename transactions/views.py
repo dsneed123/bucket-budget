@@ -1606,13 +1606,29 @@ def recurring_list(request):
         qs = qs.filter(is_active=False)
 
     recurring = list(qs)
-    total_monthly = sum(_monthly_cost(r) for r in recurring if r.is_active)
+    active_expenses = [r for r in recurring if r.is_active and r.transaction_type == 'expense']
+    total_monthly = sum(_monthly_cost(r) for r in active_expenses)
+    total_yearly = total_monthly * 12
+
+    monthly_income = request.user.monthly_income
+    income_pct = None
+    if monthly_income and monthly_income > 0:
+        income_pct = round(total_monthly / monthly_income * 100, 1)
+
+    bucket_costs = {}
+    for r in active_expenses:
+        key = (r.bucket_id, r.bucket.name if r.bucket else 'Uncategorized')
+        bucket_costs[key] = bucket_costs.get(key, Decimal('0')) + _monthly_cost(r)
+    bucket_breakdown = sorted(bucket_costs.items(), key=lambda x: x[1], reverse=True)
 
     buckets = Bucket.objects.filter(user=request.user).order_by('name')
 
     return render(request, 'transactions/recurring_list.html', {
         'recurring': recurring,
         'total_monthly': total_monthly,
+        'total_yearly': total_yearly,
+        'income_pct': income_pct,
+        'bucket_breakdown': bucket_breakdown,
         'buckets': buckets,
         'filter_bucket': filter_bucket,
         'filter_frequency': filter_frequency,

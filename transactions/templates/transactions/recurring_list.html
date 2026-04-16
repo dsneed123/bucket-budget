@@ -3,13 +3,42 @@
 {% block page_title %}Recurring Transactions{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
-    <div class="card" style="display: inline-flex; align-items: center; gap: 12px; padding: 12px 20px; margin: 0;">
-        <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Total Monthly Recurring</span>
-        <span style="font-size: 1.4rem; font-weight: 700; color: var(--accent-green);">${{ total_monthly|floatformat:2 }}</span>
+<div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <div class="card" style="display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px; margin: 0;">
+            <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Monthly Cost</span>
+            <span style="font-size: 1.4rem; font-weight: 700; color: var(--accent-green);">${{ total_monthly|floatformat:2 }}</span>
+        </div>
+        <div class="card" style="display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px; margin: 0;">
+            <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Yearly Cost</span>
+            <span style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary);">${{ total_yearly|floatformat:2 }}</span>
+        </div>
+        {% if income_pct is not None %}
+        <div class="card" style="display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px; margin: 0;">
+            <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">% of Income</span>
+            <span style="font-size: 1.4rem; font-weight: 700; {% if income_pct > 50 %}color: #ff4757;{% elif income_pct > 30 %}color: #ffa502;{% else %}color: var(--accent-green);{% endif %}">{{ income_pct }}%</span>
+        </div>
+        {% endif %}
     </div>
-    <a href="{% url 'recurring_add' %}" class="btn btn-primary">+ Add Recurring</a>
+    <a href="{% url 'recurring_add' %}" class="btn btn-primary" style="white-space: nowrap;">+ Add Recurring</a>
 </div>
+
+{% if bucket_breakdown %}
+<div class="card" style="margin-bottom: 16px; padding: 16px 20px;">
+    <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">Monthly Cost by Bucket</div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        {% for bucket_key, cost in bucket_breakdown %}
+        <div style="display: flex; align-items: center; gap: 8px; background: var(--bg-secondary); border-radius: 8px; padding: 8px 14px;">
+            <span style="font-size: 0.85rem; color: var(--text-primary); font-weight: 500;">{{ bucket_key.1 }}</span>
+            <span style="font-size: 0.85rem; color: var(--accent-green); font-weight: 700;">${{ cost|floatformat:2 }}</span>
+            {% if total_monthly %}
+            <span style="font-size: 0.75rem; color: var(--text-secondary);">{% widthratio cost total_monthly 100 %}%</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
 
 <div class="card" style="margin-bottom: 16px; padding: 12px 16px;">
     <form method="get" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
