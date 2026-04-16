@@ -13,11 +13,16 @@ class Bucket(models.Model):
     icon = models.CharField(max_length=10, default='💰')
     sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    rollover = models.BooleanField(default=False)
     archived_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def spent_this_month(self):
         # Will aggregate expenses for this bucket once the Expense model exists
+        return Decimal('0')
+
+    def rollover_amount(self):
+        # Will return last month's unspent balance once the Expense model exists
         return Decimal('0')
 
     def remaining_this_month(self):

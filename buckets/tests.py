@@ -48,6 +48,75 @@ class BucketSpendingMethodsTest(TestCase):
         self.assertEqual(self.bucket.percentage_used(), 50)
 
 
+class BucketRolloverTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='rollover@example.com',
+            password='testpass',
+            first_name='Test',
+            last_name='User',
+        )
+        self.client.login(email='rollover@example.com', password='testpass')
+        Bucket.objects.filter(user=self.user).delete()
+        self.bucket = Bucket.objects.create(
+            user=self.user,
+            name='Groceries',
+            monthly_allocation=Decimal('500.00'),
+        )
+
+    def test_rollover_defaults_to_false(self):
+        self.assertFalse(self.bucket.rollover)
+
+    def test_rollover_amount_returns_zero(self):
+        self.assertEqual(self.bucket.rollover_amount(), Decimal('0'))
+
+    def test_edit_enables_rollover(self):
+        self.client.post(
+            reverse('bucket_edit', args=[self.bucket.pk]),
+            {
+                'name': 'Groceries',
+                'monthly_allocation': '500.00',
+                'icon': '💰',
+                'color': '#0984e3',
+                'description': '',
+                'rollover': 'on',
+            },
+        )
+        self.bucket.refresh_from_db()
+        self.assertTrue(self.bucket.rollover)
+
+    def test_edit_disables_rollover(self):
+        self.bucket.rollover = True
+        self.bucket.save()
+        self.client.post(
+            reverse('bucket_edit', args=[self.bucket.pk]),
+            {
+                'name': 'Groceries',
+                'monthly_allocation': '500.00',
+                'icon': '💰',
+                'color': '#0984e3',
+                'description': '',
+            },
+        )
+        self.bucket.refresh_from_db()
+        self.assertFalse(self.bucket.rollover)
+
+    def test_bucket_list_includes_rollover_amount(self):
+        self.bucket.rollover = True
+        self.bucket.save()
+        response = self.client.get(reverse('bucket_list'))
+        self.assertEqual(response.status_code, 200)
+        bucket_data = response.context['bucket_data']
+        self.assertIn('rollover_amount', bucket_data[0])
+
+    def test_bucket_list_rollover_amount_zero_when_rollover_disabled(self):
+        response = self.client.get(reverse('bucket_list'))
+        self.assertEqual(response.status_code, 200)
+        bucket_data = response.context['bucket_data']
+        self.assertEqual(bucket_data[0]['rollover_amount'], Decimal('0'))
+
+
 class BucketReorderViewTest(TestCase):
     def setUp(self):
         self.client = Client()

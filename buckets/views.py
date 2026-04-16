@@ -38,12 +38,15 @@ def bucket_list(request):
         total_allocated += allocated
         total_spent += spent
 
+        rollover_amount = bucket.rollover_amount() if bucket.rollover else Decimal('0')
+
         bucket_data.append({
             'bucket': bucket,
             'spent': spent,
             'remaining': remaining,
             'pct': min(pct, 100),
             'bar_class': bar_class,
+            'rollover_amount': rollover_amount,
         })
 
     archived_buckets = []
@@ -261,6 +264,7 @@ def bucket_edit(request, bucket_id):
         color = request.POST.get('color', '#0984e3').strip()
         monthly_allocation = request.POST.get('monthly_allocation', '').strip()
         description = request.POST.get('description', '').strip()
+        rollover = request.POST.get('rollover') == 'on'
 
         if not name:
             errors['name'] = 'Bucket name is required.'
@@ -282,6 +286,7 @@ def bucket_edit(request, bucket_id):
             bucket.color = color or '#0984e3'
             bucket.monthly_allocation = allocation_val
             bucket.description = description
+            bucket.rollover = rollover
             bucket.save()
             success = True
 
