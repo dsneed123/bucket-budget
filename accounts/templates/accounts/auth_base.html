@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Bucket Budget{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <div class="auth-page">
+        <a href="/" class="auth-logo">Bucket Budget</a>
+
+        <div class="auth-card">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+</body>
+</html>
