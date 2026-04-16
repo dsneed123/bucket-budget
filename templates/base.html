@@ -57,7 +57,8 @@
                 <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
                 <div class="user-info">
                     {% if user.is_authenticated %}
-                        <span class="username">{{ user.username }}</span>
+                        <span class="balance-display">$0.00</span>
+                        <span class="username">Hi, {{ user.first_name|default:user.username }}</span>
                     {% else %}
                         <a href="#" class="user-link">Sign in</a>
                     {% endif %}
