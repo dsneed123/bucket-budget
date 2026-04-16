@@ -7,6 +7,7 @@ from django.db.models import Avg, Count, Sum
 from django.db.models.functions import ExtractWeekDay
 from django.shortcuts import get_object_or_404, redirect, render
 
+from banking.models import BalanceHistory, BankAccount
 from buckets.models import Bucket
 from savings.models import SavingsContribution, SavingsGoal
 from transactions.models import Transaction
@@ -594,6 +595,7 @@ def _expense_ratio_analysis(user, year, month):
 
 
 _TREND_CHART_H = 140  # px height for tallest bar
+_NW_CHART_H = 140
 _BUCKET_BAR_MAX_W = 100  # % width for largest bucket bar
 _MERCHANT_BAR_MAX_W = 100
 _DOW_CHART_H = 100
@@ -873,6 +875,98 @@ def _spending_forecast(user, year, month, today):
     }
 
 
+def _net_worth_trend(user, today):
+    accounts = list(BankAccount.objects.filter(user=user, is_active=True))
+    goals = list(SavingsGoal.objects.filter(user=user))
+
+    account_ids = [a.pk for a in accounts]
+    goal_ids = [g.pk for g in goals]
+
+    all_history = (
+        list(BalanceHistory.objects.filter(account_id__in=account_ids)
+             .values('account_id', 'change_amount', 'created_at'))
+        if account_ids else []
+    )
+    all_contributions = (
+        list(SavingsContribution.objects.filter(goal_id__in=goal_ids)
+             .values('goal_id', 'amount', 'date', 'transaction_type'))
+        if goal_ids else []
+    )
+
+    months = []
+    for i in range(11, -1, -1):
+        month = today.month - i
+        year = today.year
+        while month <= 0:
+            month += 12
+            year -= 1
+
+        end_of_month = datetime.date(year, month, calendar.monthrange(year, month)[1])
+
+        bank_total = Decimal('0')
+        for account in accounts:
+            if account.created_at.date() > end_of_month:
+                continue
+            changes_after = sum(
+                (h['change_amount'] for h in all_history
+                 if h['account_id'] == account.pk
+                 and h['created_at'].date() > end_of_month),
+                Decimal('0'),
+            )
+            bank_total += account.balance - changes_after
+
+        savings_total = Decimal('0')
+        for goal in goals:
+            if goal.created_at.date() > end_of_month:
+                continue
+            net_after = sum(
+                (c['amount'] if c['transaction_type'] == 'contribution' else -c['amount']
+                 for c in all_contributions
+                 if c['goal_id'] == goal.pk and c['date'] > end_of_month),
+                Decimal('0'),
+            )
+            amount = goal.current_amount - net_after
+            savings_total += max(amount, Decimal('0'))
+
+        net_worth = bank_total + savings_total
+        months.append({
+            'label': datetime.date(year, month, 1).strftime('%b'),
+            'net_worth': net_worth,
+            'bank_total': bank_total,
+            'savings_total': savings_total,
+        })
+
+    if len(months) >= 2 and months[-2]['net_worth'] != 0:
+        change_pct = round(float(
+            (months[-1]['net_worth'] - months[-2]['net_worth'])
+            / abs(months[-2]['net_worth']) * 100
+        ), 1)
+    else:
+        change_pct = None
+
+    if change_pct is not None:
+        if change_pct > 0:
+            change_arrow, change_color = 'up', 'green'
+        elif change_pct < 0:
+            change_arrow, change_color = 'down', 'red'
+        else:
+            change_arrow, change_color = 'same', 'secondary'
+    else:
+        change_arrow, change_color = None, 'secondary'
+
+    all_values = [abs(m['net_worth']) for m in months]
+    max_abs = max(all_values, default=Decimal('0'))
+    for m in months:
+        m['positive'] = m['net_worth'] >= 0
+        m['bar_height_px'] = (
+            max(2, int(float(abs(m['net_worth']) / max_abs) * _NW_CHART_H))
+            if max_abs > 0 else 2
+        )
+
+    current = months[-1] if months else None
+    return months, change_pct, change_arrow, change_color, current
+
+
 def _monthly_trend(user, today):
     months = []
     for i in range(11, -1, -1):
@@ -1148,6 +1242,11 @@ def insights(request):
         cur_sr_for_health, quality_for_health, forecast_for_health,
     )
 
+    # Net worth trend — last 12 months (always anchored to today)
+    nw_trend_months, nw_change_pct, nw_change_arrow, nw_change_color, nw_current = (
+        _net_worth_trend(request.user, today)
+    )
+
     # Personalized recommendations
     refresh_recommendations(request.user)
     _priority_order = {Recommendation.PRIORITY_HIGH: 0, Recommendation.PRIORITY_MEDIUM: 1, Recommendation.PRIORITY_LOW: 2}
@@ -1191,6 +1290,11 @@ def insights(request):
         'yoy_data': yoy_data,
         'expense_ratio': expense_ratio,
         'health_score': health_score,
+        'nw_trend_months': nw_trend_months,
+        'nw_change_pct': nw_change_pct,
+        'nw_change_arrow': nw_change_arrow,
+        'nw_change_color': nw_change_color,
+        'nw_current': nw_current,
     })
 
 
