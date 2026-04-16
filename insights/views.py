@@ -71,6 +71,9 @@ _MERCHANT_BAR_MAX_W = 100
 _DOW_CHART_H = 100
 _INCOME_EXPENSE_CHART_H = 140
 _INCOME_EXPENSE_MONTHS = 6
+_SAVINGS_TREND_CHART_H = 140
+_SAVINGS_TREND_LABEL_H = 24
+_SAVINGS_RATE_NATIONAL_AVG = 20.0
 
 
 def _top_merchants(user, year, month):
@@ -206,6 +209,40 @@ def _income_expense_trend(user, today):
     return months
 
 
+def _savings_rate_trend(user, today):
+    months = []
+    for i in range(11, -1, -1):
+        month = today.month - i
+        year = today.year
+        while month <= 0:
+            month += 12
+            year -= 1
+        income = _month_income(user, year, month)
+        expenses = _month_expenses(user, year, month)
+        if income > 0:
+            rate = round(float((income - expenses) / income * 100), 1)
+        else:
+            rate = None
+        months.append({
+            'label': datetime.date(year, month, 1).strftime('%b'),
+            'rate': rate,
+        })
+
+    valid_rates = [m['rate'] for m in months if m['rate'] is not None]
+    chart_max = max(max(valid_rates), _SAVINGS_RATE_NATIONAL_AVG) if valid_rates else 100.0
+
+    for m in months:
+        if m['rate'] is not None:
+            chart_y = max(2, int(m['rate'] / chart_max * _SAVINGS_TREND_CHART_H))
+            m['dot_bottom_px'] = chart_y + _SAVINGS_TREND_LABEL_H
+            m['above_avg'] = m['rate'] >= _SAVINGS_RATE_NATIONAL_AVG
+        else:
+            m['dot_bottom_px'] = None
+
+    avg_line_px = int(_SAVINGS_RATE_NATIONAL_AVG / chart_max * _SAVINGS_TREND_CHART_H) + _SAVINGS_TREND_LABEL_H
+    return months, avg_line_px
+
+
 def _monthly_trend(user, today):
     months = []
     for i in range(11, -1, -1):
@@ -316,6 +353,9 @@ def insights(request):
     # Income vs expenses — last 6 months
     income_expense_trend = _income_expense_trend(request.user, today)
 
+    # Savings rate trend — last 12 months
+    sr_trend_months, sr_avg_line_px = _savings_rate_trend(request.user, today)
+
     return render(request, 'insights/insights.html', {
         'current_month': today.strftime('%B %Y'),
         'last_month_label': last_month_date.strftime('%B %Y'),
@@ -339,4 +379,6 @@ def insights(request):
         'top_merchants': top_merchants,
         'dow_pattern': dow_pattern,
         'income_expense_trend': income_expense_trend,
+        'sr_trend_months': sr_trend_months,
+        'sr_avg_line_px': sr_avg_line_px,
     })

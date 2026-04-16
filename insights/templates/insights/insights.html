@@ -194,6 +194,33 @@
         </div>
     </div>
 
+    <!-- Savings Rate Trend — Last 12 Months -->
+    <div class="card sr-trend-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Savings Rate — Last 12 Months</span>
+            <div class="sr-legend">
+                <span class="sr-legend-swatch sr-swatch-above"></span><span class="text-secondary">&#8805;20%</span>
+                <span class="sr-legend-swatch sr-swatch-below"></span><span class="text-secondary">&lt;20%</span>
+                <span class="sr-legend-line"></span><span class="text-secondary">20% Nat'l Avg</span>
+            </div>
+        </div>
+        <div class="sr-chart-area">
+            <div class="sr-avg-line" style="bottom: {{ sr_avg_line_px }}px;"></div>
+            <div class="sr-cols-row">
+                {% for month in sr_trend_months %}
+                <div class="sr-col">
+                    {% if month.dot_bottom_px is not None %}
+                    <div class="sr-dot {% if month.above_avg %}sr-dot-above{% else %}sr-dot-below{% endif %}"
+                         style="bottom: {{ month.dot_bottom_px }}px;"
+                         title="{{ month.label }}: {{ month.rate }}%"></div>
+                    {% endif %}
+                    <div class="sr-col-label">{{ month.label }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
     <!-- Monthly Spending Trend -->
     <div class="card trend-section">
         <div class="trend-header">
@@ -601,6 +628,92 @@
 .ie-net-negative { color: var(--accent-red); }
 
 .ie-month-label {
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    line-height: 1;
+    height: 20px;
+    display: flex;
+    align-items: center;
+}
+
+.sr-trend-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.sr-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+}
+
+.sr-legend-swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.sr-swatch-above { background-color: var(--accent-green); }
+.sr-swatch-below { background-color: var(--accent-red); }
+
+.sr-legend-line {
+    display: inline-block;
+    width: 16px;
+    height: 0;
+    border-top: 2px dashed var(--accent-blue);
+    flex-shrink: 0;
+}
+
+.sr-chart-area {
+    position: relative;
+    height: 164px;
+}
+
+.sr-avg-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0;
+    border-top: 2px dashed var(--accent-blue);
+    opacity: 0.6;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.sr-cols-row {
+    display: flex;
+    height: 100%;
+    align-items: stretch;
+}
+
+.sr-col {
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.sr-dot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+}
+
+.sr-dot-above { background-color: var(--accent-green); }
+.sr-dot-below { background-color: var(--accent-red); }
+
+.sr-col-label {
+    flex-shrink: 0;
     font-size: 0.68rem;
     color: var(--text-secondary);
     white-space: nowrap;
