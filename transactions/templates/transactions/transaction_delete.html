@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load currency_tags %}
+{% block title %}Delete Transaction — Bucket Budget{% endblock %}
+{% block page_title %}Delete Transaction{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px;">
+    <div class="card" style="border-top: 4px solid #ff4757;">
+        <div class="card-header">
+            <h2 class="card-title">{{ transaction.description }}</h2>
+            <p class="card-subtitle">This action is permanent and cannot be undone.</p>
+        </div>
+
+        <div style="background-color: rgba(255, 71, 87, 0.1); border: 1px solid #ff4757; border-radius: var(--radius); padding: 12px 16px; margin-bottom: 24px; font-size: 14px; color: #ff4757;">
+            <strong>Warning:</strong> Deleting this transaction will permanently remove it and reverse its impact on the account balance.
+        </div>
+
+        <div style="margin-bottom: 24px; font-size: 14px; color: var(--text-secondary);">
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Description</span>
+                <span style="color: var(--text-primary); font-weight: 500;">{{ transaction.description }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Date</span>
+                <span style="color: var(--text-primary); font-weight: 500;">{{ transaction.date }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Type</span>
+                <span style="color: var(--text-primary); font-weight: 500; text-transform: capitalize;">{{ transaction.transaction_type }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Amount</span>
+                <span style="font-weight: 600; {% if transaction.transaction_type == 'income' %}color: var(--accent-green);{% else %}color: var(--accent-red);{% endif %}">
+                    {% if transaction.transaction_type == 'income' %}+{% else %}-{% endif %}{{ transaction.amount|currency:request.user.currency }}
+                </span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Account</span>
+                <span style="color: var(--text-primary); font-weight: 500;">{{ transaction.account.name }}</span>
+            </div>
+            {% if transaction.bucket %}
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Bucket</span>
+                <span style="color: var(--text-primary); font-weight: 500;">{{ transaction.bucket.icon }} {{ transaction.bucket.name }}</span>
+            </div>
+            {% endif %}
+            {% if transaction.vendor %}
+            <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                <span>Vendor</span>
+                <span style="color: var(--text-primary); font-weight: 500;">{{ transaction.vendor }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <button type="submit" class="btn" style="background-color: #ff4757; color: #fff; border: none;">Delete transaction</button>
+                <a href="{% url 'transaction_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
