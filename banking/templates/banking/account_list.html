@@ -45,7 +45,10 @@
         </div>
         <div style="margin-top: 12px; display: flex; align-items: center; justify-content: space-between;">
             <span style="font-size: 0.75rem; color: var(--text-secondary);">Updated {{ account.updated_at|timesince }} ago</span>
-            <a href="{% url 'account_edit' account.pk %}" style="font-size: 0.75rem; color: var(--text-secondary); text-decoration: none;">Edit</a>
+            <div style="display: flex; gap: 12px;">
+                <a href="{% url 'account_update_balance' account.pk %}" style="font-size: 0.75rem; color: var(--accent-blue); text-decoration: none;">Update Balance</a>
+                <a href="{% url 'account_edit' account.pk %}" style="font-size: 0.75rem; color: var(--text-secondary); text-decoration: none;">Edit</a>
+            </div>
         </div>
     </div>
     {% endfor %}
