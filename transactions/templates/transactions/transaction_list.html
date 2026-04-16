@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load currency_tags %}
+{% block title %}Transactions — Bucket Budget{% endblock %}
+{% block page_title %}Transactions{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 16px; display: flex; justify-content: flex-end;">
+    <a href="{% url 'transaction_add' %}" class="btn btn-primary">+ Add Transaction</a>
+</div>
+
+{% if transactions %}
+<div class="card">
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--border);">
+                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Date</th>
+                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
+                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Account</th>
+                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Bucket</th>
+                <th style="padding: 10px 12px; text-align: right; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for txn in transactions %}
+            <tr style="border-bottom: 1px solid var(--border);">
+                <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap;">{{ txn.date }}</td>
+                <td style="padding: 12px;">
+                    <div style="font-size: 0.9rem; font-weight: 500; color: var(--text-primary);">{{ txn.description }}</div>
+                    {% if txn.vendor %}
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">{{ txn.vendor }}</div>
+                    {% endif %}
+                </td>
+                <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary);">{{ txn.account.name }}</td>
+                <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary);">
+                    {% if txn.bucket %}{{ txn.bucket.icon }} {{ txn.bucket.name }}{% else %}—{% endif %}
+                </td>
+                <td style="padding: 12px; text-align: right; font-weight: 600; white-space: nowrap;">
+                    {% if txn.transaction_type == 'income' %}
+                        <span style="color: var(--accent-green, #00b894);">+{{ txn.amount|currency:request.user.currency }}</span>
+                    {% else %}
+                        <span style="color: var(--accent-red, #d63031);">-{{ txn.amount|currency:request.user.currency }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 48px 24px;">
+    <div style="font-size: 3rem; margin-bottom: 16px;">💳</div>
+    <h3 style="color: var(--text-primary); margin-bottom: 8px;">No transactions yet</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 24px;">Add your first transaction to start tracking your spending.</p>
+    <a href="{% url 'transaction_add' %}" class="btn btn-primary">+ Add Transaction</a>
+</div>
+{% endif %}
+{% endblock %}

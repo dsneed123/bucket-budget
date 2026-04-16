@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Add Transaction — Bucket Budget{% endblock %}
+{% block page_title %}Add Transaction{% endblock %}
+
+{% block content %}
+<div style="max-width: 560px;">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">New Transaction</h2>
+            <p class="card-subtitle">Record an expense or income against one of your accounts.</p>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label class="form-label">Transaction type</label>
+                <div style="display: flex; gap: 16px; margin-top: 4px;">
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
+                        <input
+                            type="radio"
+                            name="transaction_type"
+                            value="expense"
+                            {% if form_data.transaction_type != 'income' %}checked{% endif %}
+                        >
+                        Expense
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
+                        <input
+                            type="radio"
+                            name="transaction_type"
+                            value="income"
+                            {% if form_data.transaction_type == 'income' %}checked{% endif %}
+                        >
+                        Income
+                    </label>
+                </div>
+                {% if errors.transaction_type %}
+                    <p class="form-error">{{ errors.transaction_type }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label for="amount" class="form-label">Amount</label>
+                    <input
+                        type="number"
+                        id="amount"
+                        name="amount"
+                        class="form-control"
+                        value="{{ form_data.amount|default:'' }}"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0.01"
+                        autofocus
+                    >
+                    {% if errors.amount %}
+                        <p class="form-error">{{ errors.amount }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="flex: 1;">
+                    <label for="date" class="form-label">Date</label>
+                    <input
+                        type="date"
+                        id="date"
+                        name="date"
+                        class="form-control"
+                        value="{{ form_data.date|default:'' }}"
+                    >
+                    {% if errors.date %}
+                        <p class="form-error">{{ errors.date }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description" class="form-label">Description</label>
+                <input
+                    type="text"
+                    id="description"
+                    name="description"
+                    class="form-control"
+                    value="{{ form_data.description|default:'' }}"
+                    placeholder="e.g. Weekly groceries"
+                >
+                {% if errors.description %}
+                    <p class="form-error">{{ errors.description }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="vendor" class="form-label">Vendor <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
+                <input
+                    type="text"
+                    id="vendor"
+                    name="vendor"
+                    class="form-control"
+                    value="{{ form_data.vendor|default:'' }}"
+                    placeholder="e.g. Whole Foods"
+                >
+                {% if errors.vendor %}
+                    <p class="form-error">{{ errors.vendor }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label for="account" class="form-label">Account</label>
+                    <select id="account" name="account" class="form-control">
+                        <option value="" disabled {% if not form_data.account %}selected{% endif %}>Select account…</option>
+                        {% for account in accounts %}
+                            <option value="{{ account.pk }}" {% if form_data.account == account.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ account.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if errors.account %}
+                        <p class="form-error">{{ errors.account }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="flex: 1;">
+                    <label for="bucket" class="form-label">Bucket <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
+                    <select id="bucket" name="bucket" class="form-control">
+                        <option value="">No bucket</option>
+                        {% for bucket in buckets %}
+                            <option value="{{ bucket.pk }}" {% if form_data.bucket == bucket.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ bucket.icon }} {{ bucket.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if errors.bucket %}
+                        <p class="form-error">{{ errors.bucket }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                <button type="submit" class="btn btn-primary">Save transaction</button>
+                <a href="{% url 'transaction_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
