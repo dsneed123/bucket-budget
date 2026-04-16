@@ -239,6 +239,82 @@ class TransactionAddViewTest(TestCase):
         self.assertContains(response, 'between 1 and 10')
         self.assertEqual(Transaction.objects.count(), 0)
 
+    def test_duplicate_detection_shows_warning(self):
+        # Create an existing transaction with same amount, vendor, date
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('25.00'),
+            transaction_type='expense',
+            description='Previous purchase',
+            vendor='Test Store',
+            date=datetime.date(2026, 4, 16),
+        )
+        response = self._post()
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Similar transaction found')
+        self.assertEqual(Transaction.objects.count(), 1)
+
+    def test_duplicate_detection_within_7_days(self):
+        # Existing transaction 5 days before new one — should trigger warning
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('25.00'),
+            transaction_type='expense',
+            description='Previous purchase',
+            vendor='Test Store',
+            date=datetime.date(2026, 4, 11),
+        )
+        response = self._post(date='2026-04-16')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Similar transaction found')
+        self.assertEqual(Transaction.objects.count(), 1)
+
+    def test_duplicate_not_triggered_beyond_7_days(self):
+        # Existing transaction 8 days before — should not trigger warning
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('25.00'),
+            transaction_type='expense',
+            description='Old purchase',
+            vendor='Test Store',
+            date=datetime.date(2026, 4, 8),
+        )
+        response = self._post(date='2026-04-16')
+        self.assertRedirects(response, reverse('transaction_list'))
+        self.assertEqual(Transaction.objects.count(), 2)
+
+    def test_duplicate_not_triggered_without_vendor(self):
+        # No vendor — duplicate detection is skipped
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('25.00'),
+            transaction_type='expense',
+            description='Test purchase',
+            vendor='',
+            date=datetime.date(2026, 4, 16),
+        )
+        response = self._post(vendor='')
+        self.assertRedirects(response, reverse('transaction_list'))
+        self.assertEqual(Transaction.objects.count(), 2)
+
+    def test_force_save_bypasses_duplicate_warning(self):
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('25.00'),
+            transaction_type='expense',
+            description='Previous purchase',
+            vendor='Test Store',
+            date=datetime.date(2026, 4, 16),
+        )
+        response = self._post(force_save='1')
+        self.assertRedirects(response, reverse('transaction_list'))
+        self.assertEqual(Transaction.objects.count(), 2)
+
 
 class TransactionEditViewTest(TestCase):
     def setUp(self):

@@ -224,6 +224,29 @@ def transaction_add(request):
                 errors['necessity_score'] = 'Please enter a valid necessity score.'
 
         if not errors:
+            force_save = request.POST.get('force_save', '') == '1'
+            duplicate_warning = None
+
+            if not force_save and vendor:
+                window_start = date_val - datetime.timedelta(days=7)
+                window_end = date_val + datetime.timedelta(days=7)
+                duplicate_warning = Transaction.objects.filter(
+                    user=request.user,
+                    amount=amount_val,
+                    vendor__iexact=vendor,
+                    date__gte=window_start,
+                    date__lte=window_end,
+                ).first()
+
+            if duplicate_warning:
+                return render(request, 'transactions/transaction_add.html', {
+                    'errors': errors,
+                    'form_data': form_data,
+                    'accounts': accounts,
+                    'buckets': buckets,
+                    'duplicate_warning': duplicate_warning,
+                })
+
             Transaction.objects.create(
                 user=request.user,
                 account=account,
