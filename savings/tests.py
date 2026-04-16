@@ -7,6 +7,7 @@ from django.urls import reverse
 
 from banking.models import BankAccount
 from .models import SavingsContribution, SavingsGoal
+from .views import _calculate_projected_completion
 
 User = get_user_model()
 
@@ -158,6 +159,143 @@ class SavingsContributionModelTest(TestCase):
         self.goal.refresh_from_db()
         self.assertEqual(self.account.balance, Decimal('1750.00'))
         self.assertEqual(self.goal.current_amount, Decimal('250.00'))
+
+
+class ProjectedCompletionTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='proj@example.com',
+            password='testpass',
+            first_name='Proj',
+            last_name='User',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('10000.00'),
+        )
+        self.today = datetime.date(2026, 4, 16)
+
+    def _make_goal(self, target=Decimal('1200.00'), current=Decimal('0.00'), deadline=None):
+        return SavingsGoal.objects.create(
+            user=self.user,
+            name='Test Goal',
+            target_amount=target,
+            current_amount=current,
+            deadline=deadline,
+        )
+
+    def _add_contribution(self, goal, amount, days_ago):
+        contrib_date = self.today - datetime.timedelta(days=days_ago)
+        SavingsContribution.objects.create(
+            goal=goal,
+            amount=amount,
+            source_account=self.account,
+            date=contrib_date,
+        )
+
+    def test_no_recent_contributions_returns_none(self):
+        goal = self._make_goal()
+        # Contribution older than 91 days
+        self._add_contribution(goal, Decimal('300.00'), 95)
+        goal.refresh_from_db()
+        result = _calculate_projected_completion(goal, self.today)
+        self.assertIsNone(result)
+
+    def test_achieved_goal_returns_none(self):
+        goal = self._make_goal(target=Decimal('500.00'), current=Decimal('500.00'))
+        goal.is_achieved = True
+        goal.save()
+        self._add_contribution(goal, Decimal('500.00'), 10)
+        result = _calculate_projected_completion(goal, self.today)
+        self.assertIsNone(result)
+
+    def test_projects_future_date(self):
+        goal = self._make_goal(target=Decimal('1200.00'), current=Decimal('0.00'))
+        # $300/month for last 3 months = $900 total, avg $300/month
+        self._add_contribution(goal, Decimal('300.00'), 10)
+        self._add_contribution(goal, Decimal('300.00'), 40)
+        self._add_contribution(goal, Decimal('300.00'), 70)
+        goal.refresh_from_db()
+        result = _calculate_projected_completion(goal, self.today)
+        self.assertIsNotNone(result)
+        self.assertIsInstance(result['projected_date'], datetime.date)
+        self.assertGreater(result['projected_date'], self.today)
+
+    def test_meets_deadline_true_when_on_track(self):
+        # $400/month avg → $2400 target, $1200 contributed → $1200 remaining → 3 months
+        # Set deadline 6 months out
+        deadline = self.today + datetime.timedelta(days=180)
+        goal = self._make_goal(target=Decimal('2400.00'), current=Decimal('0.00'), deadline=deadline)
+        self._add_contribution(goal, Decimal('400.00'), 10)
+        self._add_contribution(goal, Decimal('400.00'), 40)
+        self._add_contribution(goal, Decimal('400.00'), 70)
+        goal.refresh_from_db()
+        result = _calculate_projected_completion(goal, self.today)
+        self.assertIsNotNone(result)
+        self.assertTrue(result['meets_deadline'])
+
+    def test_meets_deadline_false_when_behind(self):
+        # $100/month → $1200 remaining → 12 months
+        # Deadline only 2 months out
+        deadline = self.today + datetime.timedelta(days=60)
+        goal = self._make_goal(target=Decimal('1200.00'), current=Decimal('0.00'), deadline=deadline)
+        self._add_contribution(goal, Decimal('100.00'), 10)
+        self._add_contribution(goal, Decimal('100.00'), 40)
+        self._add_contribution(goal, Decimal('100.00'), 70)
+        goal.refresh_from_db()
+        result = _calculate_projected_completion(goal, self.today)
+        self.assertIsNotNone(result)
+        self.assertFalse(result['meets_deadline'])
+
+    def test_no_deadline_always_meets(self):
+        goal = self._make_goal(target=Decimal('1200.00'), deadline=None)
+        self._add_contribution(goal, Decimal('100.00'), 10)
+        goal.refresh_from_db()
+        result = _calculate_projected_completion(goal, self.today)
+        self.assertIsNotNone(result)
+        self.assertTrue(result['meets_deadline'])
+
+    def test_monthly_avg_in_result(self):
+        goal = self._make_goal(target=Decimal('1200.00'))
+        self._add_contribution(goal, Decimal('300.00'), 10)
+        self._add_contribution(goal, Decimal('300.00'), 40)
+        self._add_contribution(goal, Decimal('300.00'), 70)
+        goal.refresh_from_db()
+        result = _calculate_projected_completion(goal, self.today)
+        self.assertIsNotNone(result)
+        self.assertEqual(result['monthly_avg'], Decimal('300'))
+
+    def test_detail_view_includes_projected(self):
+        self.client.login(email='proj@example.com', password='testpass')
+        # target $1200, contribute $600 → $600 remaining → projection available
+        goal = self._make_goal(target=Decimal('1200.00'))
+        self._add_contribution(goal, Decimal('200.00'), 10)
+        self._add_contribution(goal, Decimal('200.00'), 40)
+        self._add_contribution(goal, Decimal('200.00'), 70)
+        goal.refresh_from_db()
+        url = reverse('savings:savings_goal_detail', kwargs={'goal_id': goal.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('projected', response.context)
+        self.assertIsNotNone(response.context['projected'])
+
+    def test_list_view_includes_projected(self):
+        self.client.login(email='proj@example.com', password='testpass')
+        # target $1200, contribute $600 → $600 remaining → projection available
+        goal = self._make_goal(target=Decimal('1200.00'))
+        self._add_contribution(goal, Decimal('200.00'), 10)
+        self._add_contribution(goal, Decimal('200.00'), 40)
+        self._add_contribution(goal, Decimal('200.00'), 70)
+        goal.refresh_from_db()
+        url = reverse('savings:savings_list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        goal_data = response.context['goal_data']
+        self.assertEqual(len(goal_data), 1)
+        self.assertIn('projected', goal_data[0])
+        self.assertIsNotNone(goal_data[0]['projected'])
 
 
 class SavingsGoalContributeViewTest(TestCase):

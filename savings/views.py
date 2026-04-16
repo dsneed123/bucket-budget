@@ -1,14 +1,50 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from banking.models import BankAccount
 
 from .models import SavingsContribution, SavingsGoal
+
+
+def _calculate_projected_completion(goal, today):
+    """Return projected completion info based on avg monthly contributions over last 3 months.
+
+    Returns a dict with keys: projected_date (date), meets_deadline (bool), monthly_avg (Decimal).
+    Returns None if goal is achieved, already complete, or has no recent contributions.
+    """
+    if goal.is_achieved:
+        return None
+
+    remaining = goal.target_amount - goal.current_amount
+    if remaining <= Decimal('0'):
+        return None
+
+    three_months_ago = today - timedelta(days=91)
+    result = goal.contributions.filter(date__gte=three_months_ago).aggregate(total=Sum('amount'))
+    total_recent = result['total'] or Decimal('0')
+
+    if total_recent <= 0:
+        return None
+
+    monthly_avg = total_recent / Decimal('3')
+    months_needed = float(remaining / monthly_avg)
+    projected_date = today + timedelta(days=months_needed * 30.44)
+
+    meets_deadline = True
+    if goal.deadline:
+        meets_deadline = projected_date <= goal.deadline
+
+    return {
+        'projected_date': projected_date,
+        'meets_deadline': meets_deadline,
+        'monthly_avg': monthly_avg,
+    }
 
 
 @login_required
@@ -40,12 +76,15 @@ def savings_list(request):
         total_saved += goal.current_amount
         total_target += goal.target_amount
 
+        projected = _calculate_projected_completion(goal, today)
+
         goal_data.append({
             'goal': goal,
             'pct': pct,
             'remaining': remaining,
             'days_left': days_left,
             'is_overdue': is_overdue,
+            'projected': projected,
         })
 
     overall_pct = int((total_saved / total_target) * 100) if total_target > 0 else 0
@@ -211,6 +250,7 @@ def savings_goal_detail(request, goal_id):
             days_left = delta
 
     contributions = goal.contributions.select_related('source_account').order_by('-date', '-created_at')
+    projected = _calculate_projected_completion(goal, today)
 
     return render(request, 'savings/savings_goal_detail.html', {
         'goal': goal,
@@ -222,6 +262,7 @@ def savings_goal_detail(request, goal_id):
         'accounts': accounts,
         'errors': errors,
         'contribution_form': contribution_form,
+        'projected': projected,
     })
 
 
@@ -373,6 +414,7 @@ def savings_goal_contribute(request, goal_id):
 
         contributions = goal.contributions.select_related('source_account').order_by('-date', '-created_at')
         all_accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
+        projected = _calculate_projected_completion(goal, today)
 
         return render(request, 'savings/savings_goal_detail.html', {
             'goal': goal,
@@ -389,6 +431,7 @@ def savings_goal_contribute(request, goal_id):
                 'note': note,
                 'date': today.strftime('%Y-%m-%d'),
             },
+            'projected': projected,
         })
 
     SavingsContribution.objects.create(
