@@ -6,8 +6,9 @@
 <div style="max-width: 800px;">
 
     <!-- Back link -->
-    <div class="mb-4">
+    <div class="mb-4" style="display: flex; align-items: center; justify-content: space-between;">
         <a href="{% url 'savings:savings_list' %}" style="font-size: 13px; color: var(--text-secondary); text-decoration: none;">← Savings Goals</a>
+        <a href="{% url 'savings:savings_goal_edit' goal.pk %}" style="font-size: 13px; color: var(--text-secondary); text-decoration: none;">Edit goal</a>
     </div>
 
     <!-- Goal header card -->
