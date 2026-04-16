@@ -2,8 +2,9 @@ import datetime
 import math
 from decimal import Decimal
 
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, Sum
 
+from savings.models import SavingsContribution
 from transactions.models import Transaction
 
 from .models import BankAccount
@@ -56,6 +57,57 @@ def net_worth(request):
         dashoffset = _CIRCUMFERENCE
         color = 'secondary'
 
+    # --- Savings Rate ---
+    def _month_income(year, month):
+        return Transaction.objects.filter(
+            user=request.user,
+            transaction_type='income',
+            date__year=year,
+            date__month=month,
+        ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+
+    def _month_contributions(year, month):
+        return SavingsContribution.objects.filter(
+            goal__user=request.user,
+            transaction_type='contribution',
+            date__year=year,
+            date__month=month,
+        ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+
+    def _savings_rate(contributions, income):
+        if income > 0:
+            return round(float(contributions / income * 100), 1)
+        return None
+
+    cur_income = _month_income(today.year, today.month)
+    cur_contributions = _month_contributions(today.year, today.month)
+    cur_savings_rate = _savings_rate(cur_contributions, cur_income)
+
+    first_of_month = today.replace(day=1)
+    last_month = first_of_month - datetime.timedelta(days=1)
+    prev_income = _month_income(last_month.year, last_month.month)
+    prev_contributions = _month_contributions(last_month.year, last_month.month)
+    prev_savings_rate = _savings_rate(prev_contributions, prev_income)
+
+    if cur_savings_rate is None:
+        savings_rate_color = 'secondary'
+    elif cur_savings_rate >= 20:
+        savings_rate_color = 'green'
+    elif cur_savings_rate >= 10:
+        savings_rate_color = 'gold'
+    else:
+        savings_rate_color = 'red'
+
+    if cur_savings_rate is not None and prev_savings_rate is not None:
+        if cur_savings_rate > prev_savings_rate:
+            savings_rate_arrow = 'up'
+        elif cur_savings_rate < prev_savings_rate:
+            savings_rate_arrow = 'down'
+        else:
+            savings_rate_arrow = 'same'
+    else:
+        savings_rate_arrow = None
+
     return {
         'net_worth': net_worth_value,
         'unscored_count': unscored_count,
@@ -63,4 +115,8 @@ def net_worth(request):
         'sidebar_quality_color': color,
         'sidebar_quality_dashoffset': dashoffset,
         'sidebar_quality_circumference': _CIRCUMFERENCE,
+        'sidebar_savings_rate': cur_savings_rate,
+        'sidebar_savings_rate_color': savings_rate_color,
+        'sidebar_savings_rate_arrow': savings_rate_arrow,
+        'sidebar_savings_rate_prev': prev_savings_rate,
     }

@@ -213,6 +213,66 @@ body {
     line-height: 1;
 }
 
+/* =====================
+   Sidebar Savings Rate Widget
+   ===================== */
+
+.sidebar-savings-rate-widget {
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    padding: 12px 0 10px;
+}
+
+.savings-rate-widget-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-decoration: none;
+    padding: 4px 0;
+    transition: opacity 0.2s;
+}
+
+.savings-rate-widget-link:hover {
+    opacity: 0.85;
+}
+
+.savings-rate-widget-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary);
+}
+
+.savings-rate-value {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.savings-rate-sublabel {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.savings-rate-green  { color: var(--accent-green); }
+.savings-rate-gold   { color: var(--accent-gold); }
+.savings-rate-red    { color: var(--accent-red); }
+.savings-rate-secondary { color: var(--text-secondary); }
+
+.savings-rate-arrow {
+    font-size: 12px;
+    line-height: 1;
+}
+
+.savings-rate-arrow-up   { color: var(--accent-green); }
+.savings-rate-arrow-down { color: var(--accent-red); }
+.savings-rate-arrow-same { color: var(--text-secondary); }
+
 .nav-bottom {
     border-top: 1px solid var(--border);
     flex-shrink: 0;
