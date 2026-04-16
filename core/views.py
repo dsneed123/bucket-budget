@@ -1,4 +1,5 @@
 import datetime
+from collections import defaultdict
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
@@ -104,6 +105,30 @@ def dashboard(request):
     top_bucket_data.sort(key=lambda x: x['pct'], reverse=True)
     top_buckets = top_bucket_data[:3]
 
+    # Daily spending chart
+    daily_totals: dict = defaultdict(Decimal)
+    for row in month_expenses_qs.values('date').annotate(total=Sum('amount')):
+        daily_totals[row['date']] = row['total']
+
+    daily_spending = []
+    cur = fstart
+    while cur <= min(fend, today):
+        spent = daily_totals.get(cur, Decimal('0'))
+        daily_spending.append({'date': cur, 'spent': spent, 'is_today': cur == today})
+        cur += datetime.timedelta(days=1)
+
+    max_daily = max((d['spent'] for d in daily_spending), default=Decimal('0'))
+    if max_daily > 0:
+        for d in daily_spending:
+            d['bar_pct'] = int((d['spent'] / max_daily) * 100)
+    else:
+        for d in daily_spending:
+            d['bar_pct'] = 0
+
+    # Mark days outside the last 7 so template can hide them on small screens
+    for d in daily_spending:
+        d['is_recent'] = (today - d['date']).days < 7
+
     refresh_recommendations(request.user)
     _priority_order = {Recommendation.PRIORITY_HIGH: 0, Recommendation.PRIORITY_MEDIUM: 1, Recommendation.PRIORITY_LOW: 2}
     recommendations = sorted(
@@ -143,4 +168,5 @@ def dashboard(request):
         'top_buckets': top_buckets,
         'upcoming_recurring': upcoming_recurring,
         'recommendations': recommendations,
+        'daily_spending': daily_spending,
     })
