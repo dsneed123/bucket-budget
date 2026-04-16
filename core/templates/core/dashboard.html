@@ -4,19 +4,28 @@
 {% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
+
+<!-- Top Row: Net Worth · Monthly Spending · Savings Rate · Spending Quality -->
 <div class="grid grid-4" style="margin-bottom: 24px;">
+
     <div class="card" style="padding: 20px;">
-        <p class="stat-label">{{ current_month }} Income</p>
-        <p class="stat-value stat-positive">{{ total_income|currency:user.currency }}</p>
+        <p class="stat-label">Net Worth</p>
+        <p class="stat-value {% if net_worth >= 0 %}stat-positive{% else %}stat-negative{% endif %}">
+            {{ net_worth|currency:user.currency }}
+        </p>
+        <p class="stat-label" style="margin-top: 4px;">All active accounts</p>
     </div>
+
     <div class="card" style="padding: 20px;">
-        <p class="stat-label">{{ current_month }} Expenses</p>
+        <p class="stat-label">{{ current_month }} Spending</p>
         <p class="stat-value stat-negative">{{ total_expenses|currency:user.currency }}</p>
+        {% if total_income > 0 %}
+            <p class="stat-label" style="margin-top: 4px;">of {{ total_income|currency:user.currency }} income</p>
+        {% else %}
+            <p class="stat-label" style="margin-top: 4px;">this fiscal month</p>
+        {% endif %}
     </div>
-    <div class="card" style="padding: 20px;">
-        <p class="stat-label">Net</p>
-        <p class="stat-value {% if net >= 0 %}stat-positive{% else %}stat-negative{% endif %}">{{ net|currency:user.currency }}</p>
-    </div>
+
     <div class="card" style="padding: 20px;">
         <p class="stat-label">Savings Rate
             {% if sidebar_savings_rate_arrow == 'up' %}
@@ -31,108 +40,250 @@
             <p class="stat-value savings-rate-{{ sidebar_savings_rate_color }}">{{ sidebar_savings_rate }}%</p>
             {% if sidebar_savings_rate_prev is not None %}
                 <p class="stat-label" style="margin-top: 4px;">vs {{ sidebar_savings_rate_prev }}% last month</p>
+            {% else %}
+                <p class="stat-label" style="margin-top: 4px;">of income saved</p>
             {% endif %}
         {% else %}
             <p class="stat-value" style="color: var(--text-secondary);">—</p>
+            <p class="stat-label" style="margin-top: 4px;">no income recorded</p>
         {% endif %}
     </div>
+
+    <div class="card" style="padding: 20px;">
+        <p class="stat-label">Spending Quality</p>
+        {% if sidebar_quality_score %}
+            <p class="stat-value" style="color: var(--accent-{% if sidebar_quality_color == 'secondary' %}blue{% else %}{{ sidebar_quality_color }}{% endif %});">
+                {{ sidebar_quality_score }}<span style="font-size: 18px; font-weight: 400; color: var(--text-secondary);">/10</span>
+            </p>
+        {% else %}
+            <p class="stat-value" style="color: var(--text-secondary);">—</p>
+        {% endif %}
+        <p class="stat-label" style="margin-top: 4px;"><a href="{% url 'rankings' %}" style="color: var(--text-secondary); text-decoration: none;">View rankings &rarr;</a></p>
+    </div>
+
 </div>
 
-<!-- Recommendations -->
-{% if recommendations %}
-<div class="card" style="margin-bottom: 24px;">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div>
-            <h2 class="card-title">Recommendations</h2>
-            <p class="card-subtitle">Personalized tips based on your spending</p>
-        </div>
-        <a href="{% url 'insights' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
-    </div>
-    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
-        {% for rec in recommendations %}
-        <div class="recommendation-card recommendation-priority-{{ rec.priority }}">
-            <div class="recommendation-icon">
-                {% if rec.category == 'budget' %}&#128179;
-                {% elif rec.category == 'savings' %}&#127381;
-                {% elif rec.category == 'quality' %}&#9888;
-                {% elif rec.category == 'vendor' %}&#128722;
+<!-- Main Grid: Left column (budget + transactions) | Right column (goals + recurring + recs) -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
+
+    <!-- ===== LEFT COLUMN ===== -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+
+        <!-- Budget Overview -->
+        {% if total_allocated > 0 %}
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h2 class="card-title">Budget Overview</h2>
+                    <p class="card-subtitle">{{ current_month }}</p>
+                </div>
+                <a href="{% url 'budget_overview' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">Full budget</a>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+                        <span style="font-size: 14px; font-weight: 500; color: var(--text-primary);">Overall spending</span>
+                        <span style="font-size: 13px; font-weight: 600; color: {% if budget_pct >= 100 %}var(--accent-red){% elif budget_pct >= 80 %}var(--accent-yellow, #f9ca24){% else %}var(--text-secondary){% endif %};">
+                            {{ total_expenses|currency:user.currency }} / {{ total_allocated|currency:user.currency }} ({{ budget_pct }}%)
+                        </span>
+                    </div>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar" style="width: {{ budget_pct }}%; background: {% if budget_pct >= 100 %}var(--accent-red){% elif budget_pct >= 80 %}#f9ca24{% else %}var(--accent-blue){% endif %};"></div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 100px; background: var(--bg-primary); border-radius: var(--radius); padding: 12px 14px;">
+                        <p style="margin: 0 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Days left</p>
+                        <p style="margin: 0; font-size: 20px; font-weight: 700; color: var(--text-primary);">{{ days_left }}</p>
+                    </div>
+                    <div style="flex: 1; min-width: 100px; background: var(--bg-primary); border-radius: var(--radius); padding: 12px 14px;">
+                        <p style="margin: 0 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Daily avg</p>
+                        <p style="margin: 0; font-size: 20px; font-weight: 700; color: var(--text-primary);">{{ actual_daily_avg|currency:user.currency }}</p>
+                    </div>
+                    {% if ideal_daily_spend > 0 %}
+                    <div style="flex: 1; min-width: 100px; background: var(--bg-primary); border-radius: var(--radius); padding: 12px 14px;">
+                        <p style="margin: 0 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Ideal/day</p>
+                        <p style="margin: 0; font-size: 20px; font-weight: 700; color: var(--accent-green);">{{ ideal_daily_spend|currency:user.currency }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if top_buckets %}
+                <div>
+                    <p style="margin: 0 0 10px; font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Top buckets</p>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        {% for item in top_buckets %}
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <span style="font-size: 13px; color: var(--text-primary);">{{ item.bucket.icon }} {{ item.bucket.name }}</span>
+                                <span style="font-size: 12px; font-weight: 600; color: {% if item.over %}var(--accent-red){% else %}var(--text-secondary){% endif %};">
+                                    {{ item.spent|currency:user.currency }} / {{ item.bucket.monthly_allocation|currency:user.currency }} ({{ item.pct }}%)
+                                </span>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar" style="width: {{ item.pct }}%; background: {% if item.over %}var(--accent-red){% else %}{{ item.bucket.color }}{% endif %};"></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
                 {% endif %}
-            </div>
-            <div class="recommendation-body">
-                <span class="recommendation-category text-secondary">{{ rec.get_category_display }}</span>
-                <p class="recommendation-message">{{ rec.message }}</p>
-            </div>
-            <form method="post" action="{% url 'dismiss_recommendation' rec.pk %}">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="/dashboard/">
-                <button type="submit" class="recommendation-dismiss" title="Dismiss">&times;</button>
-            </form>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
 
-<!-- Budget Snapshot Widget -->
-{% if total_allocated > 0 %}
-<div class="card" style="margin-bottom: 24px;">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div>
-            <h2 class="card-title">Budget Snapshot</h2>
-            <p class="card-subtitle">{{ current_month }}</p>
-        </div>
-        <a href="{% url 'budget_overview' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">Full budget</a>
-    </div>
-
-    <div style="display: flex; flex-direction: column; gap: 16px;">
-
-        <!-- Overall progress -->
-        <div>
-            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
-                <span style="font-size: 14px; font-weight: 500; color: var(--text-primary);">Overall spending</span>
-                <span style="font-size: 13px; color: {% if budget_pct >= 100 %}var(--accent-red){% elif budget_pct >= 80 %}var(--accent-yellow, #f9ca24){% else %}var(--text-secondary){% endif %}; font-weight: 600;">
-                    {{ total_expenses|currency:user.currency }} / {{ total_allocated|currency:user.currency }} ({{ budget_pct }}%)
-                </span>
-            </div>
-            <div class="progress" style="height: 10px;">
-                <div class="progress-bar" style="width: {{ budget_pct }}%; background: {% if budget_pct >= 100 %}var(--accent-red){% elif budget_pct >= 80 %}#f9ca24{% else %}var(--accent-blue){% endif %};"></div>
             </div>
         </div>
+        {% endif %}
 
-        <!-- Days left + daily pace -->
-        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 120px; background: var(--bg-primary); border-radius: var(--radius); padding: 12px 16px;">
-                <p style="margin: 0 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Days left</p>
-                <p style="margin: 0; font-size: 22px; font-weight: 700; color: var(--text-primary);">{{ days_left }}</p>
+        <!-- Recent Transactions -->
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h2 class="card-title">Recent Transactions</h2>
+                    <p class="card-subtitle">Last 5 transactions</p>
+                </div>
+                <a href="{% url 'transaction_list' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
             </div>
-            <div style="flex: 1; min-width: 120px; background: var(--bg-primary); border-radius: var(--radius); padding: 12px 16px;">
-                <p style="margin: 0 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Actual daily avg</p>
-                <p style="margin: 0; font-size: 22px; font-weight: 700; color: var(--text-primary);">{{ actual_daily_avg|currency:user.currency }}</p>
-            </div>
-            {% if ideal_daily_spend > 0 %}
-            <div style="flex: 1; min-width: 120px; background: var(--bg-primary); border-radius: var(--radius); padding: 12px 16px;">
-                <p style="margin: 0 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Ideal daily spend</p>
-                <p style="margin: 0; font-size: 22px; font-weight: 700; color: var(--accent-green);">{{ ideal_daily_spend|currency:user.currency }}</p>
-            </div>
+
+            {% if recent_transactions %}
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    {% for txn in recent_transactions %}
+                    <li style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border);">
+                        <div style="min-width: 0; flex: 1;">
+                            <p style="margin: 0; font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                {{ txn.description }}
+                            </p>
+                            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-secondary);">
+                                {{ txn.date }} &middot; {{ txn.account.name }}{% if txn.bucket %} &middot; {{ txn.bucket.icon }} {{ txn.bucket.name }}{% endif %}
+                            </p>
+                        </div>
+                        <span style="margin-left: 16px; font-size: 14px; font-weight: 600; flex-shrink: 0;"
+                              class="{% if txn.transaction_type == 'income' %}text-green{% else %}text-red{% endif %}">
+                            {% if txn.transaction_type == 'income' %}+{% else %}-{% endif %}{{ txn.amount|currency:user.currency }}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <div style="margin-top: 12px;">
+                    <a href="{% url 'transaction_add' %}" class="btn btn-primary btn-sm">+ Add transaction</a>
+                </div>
+            {% else %}
+                <p style="color: var(--text-secondary); font-size: 14px; margin: 0 0 12px;">No transactions yet.</p>
+                <a href="{% url 'transaction_add' %}" class="btn btn-primary btn-sm">+ Add your first transaction</a>
             {% endif %}
         </div>
 
-        <!-- Top 3 most-used buckets -->
-        {% if top_buckets %}
-        <div>
-            <p style="margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Top buckets</p>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                {% for item in top_buckets %}
+    </div>
+
+    <!-- ===== RIGHT COLUMN ===== -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+
+        <!-- Savings Goals -->
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                        <span style="font-size: 13px; color: var(--text-primary);">{{ item.bucket.icon }} {{ item.bucket.name }}</span>
-                        <span style="font-size: 12px; font-weight: 600; color: {% if item.over %}var(--accent-red){% else %}var(--text-secondary){% endif %};">
-                            {{ item.spent|currency:user.currency }} / {{ item.bucket.monthly_allocation|currency:user.currency }} ({{ item.pct }}%)
+                    <h2 class="card-title">Savings Goals</h2>
+                    <p class="card-subtitle">Total saved: <span style="color: var(--accent-green); font-weight: 600;">{{ total_saved|currency:user.currency }}</span></p>
+                </div>
+                <a href="{% url 'savings:savings_list' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
+            </div>
+
+            {% if savings_widget_data %}
+                <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 4px;">
+                    {% for item in savings_widget_data %}
+                    <div style="display: flex; align-items: center; gap: 16px; padding: 12px; background: var(--bg-primary); border-radius: var(--radius); border-left: 3px solid {{ item.goal.color }};">
+                        <span style="font-size: 24px; flex-shrink: 0;">{{ item.goal.icon }}</span>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                <p style="margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.goal.name }}</p>
+                                <span style="flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 10px; text-transform: uppercase;
+                                    {% if item.goal.priority == 'critical' %}background: #ff4757; color: #fff;
+                                    {% elif item.goal.priority == 'high' %}background: #f9ca24; color: #1a1a2e;
+                                    {% elif item.goal.priority == 'medium' %}background: var(--accent-blue); color: #fff;
+                                    {% else %}background: var(--bg-secondary); color: var(--text-secondary);{% endif %}">
+                                    {{ item.goal.priority }}
+                                </span>
+                            </div>
+                            <div class="progress" style="height: 6px; margin-bottom: 4px;">
+                                <div class="progress-bar" style="width: {{ item.pct }}%; background: {{ item.goal.color }};"></div>
+                            </div>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary);">
+                                {{ item.goal.current_amount|currency:user.currency }} of {{ item.goal.target_amount|currency:user.currency }}
+                                <span style="margin-left: 4px;">({{ item.pct }}%)</span>
+                            </p>
+                        </div>
+                        <a href="{% url 'savings:savings_goal_detail' item.goal.pk %}" class="btn btn-primary btn-sm" style="flex-shrink: 0;">Contribute</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 0;">No active savings goals. <a href="{% url 'savings:savings_goal_add' %}" style="color: var(--accent-green);">Create one</a> to get started.</p>
+            {% endif %}
+        </div>
+
+        <!-- Upcoming Recurring -->
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h2 class="card-title">Upcoming Recurring</h2>
+                    <p class="card-subtitle">Due in the next 7 days</p>
+                </div>
+                <a href="{% url 'recurring_list' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
+            </div>
+
+            {% if upcoming_recurring %}
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    {% for item in upcoming_recurring %}
+                    <li style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border);">
+                        <div style="min-width: 0; flex: 1;">
+                            <p style="margin: 0; font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                {{ item.description }}
+                            </p>
+                            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-secondary);">
+                                {{ item.next_due }}{% if item.bucket %} &middot; {{ item.bucket.icon }} {{ item.bucket.name }}{% endif %}
+                            </p>
+                        </div>
+                        <span style="margin-left: 16px; font-size: 14px; font-weight: 600; flex-shrink: 0; color: {% if item.transaction_type == 'income' %}var(--accent-green){% else %}var(--accent-red){% endif %};">
+                            {% if item.transaction_type == 'income' %}+{% else %}-{% endif %}{{ item.amount|currency:user.currency }}
                         </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">No recurring charges due in the next 7 days.</p>
+            {% endif %}
+        </div>
+
+        <!-- Recommendations -->
+        {% if recommendations %}
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h2 class="card-title">Recommendations</h2>
+                    <p class="card-subtitle">Personalized tips based on your spending</p>
+                </div>
+                <a href="{% url 'insights' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+                {% for rec in recommendations %}
+                <div class="recommendation-card recommendation-priority-{{ rec.priority }}">
+                    <div class="recommendation-icon">
+                        {% if rec.category == 'budget' %}&#128179;
+                        {% elif rec.category == 'savings' %}&#127381;
+                        {% elif rec.category == 'quality' %}&#9888;
+                        {% elif rec.category == 'vendor' %}&#128722;
+                        {% endif %}
                     </div>
-                    <div class="progress" style="height: 6px;">
-                        <div class="progress-bar" style="width: {{ item.pct }}%; background: {% if item.over %}var(--accent-red){% else %}{{ item.bucket.color }}{% endif %};"></div>
+                    <div class="recommendation-body">
+                        <span class="recommendation-category text-secondary">{{ rec.get_category_display }}</span>
+                        <p class="recommendation-message">{{ rec.message }}</p>
                     </div>
+                    <form method="post" action="{% url 'dismiss_recommendation' rec.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="/dashboard/">
+                        <button type="submit" class="recommendation-dismiss" title="Dismiss">&times;</button>
+                    </form>
                 </div>
                 {% endfor %}
             </div>
@@ -140,255 +291,7 @@
         {% endif %}
 
     </div>
-</div>
-{% endif %}
-
-<div class="grid grid-2" style="align-items: start;">
-
-    <!-- Quick Add Card -->
-    <div class="card">
-        <div class="card-header">
-            <h2 class="card-title">Quick Add</h2>
-            <p class="card-subtitle">Fast transaction entry</p>
-        </div>
-
-        <form method="post" action="{% url 'transaction_add' %}" novalidate>
-            {% csrf_token %}
-            <input type="hidden" name="next" value="/dashboard/">
-            <input type="hidden" name="date" value="{{ quick_add_form_data.date }}">
-
-            <!-- Type toggle -->
-            <div class="form-group">
-                <div style="display: flex; gap: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;">
-                    <label id="lbl-expense" style="flex: 1; text-align: center; padding: 8px 12px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.15s, color 0.15s;">
-                        <input type="radio" name="transaction_type" value="expense" style="display:none;"
-                               {% if quick_add_form_data.transaction_type != 'income' %}checked{% endif %}>
-                        Expense
-                    </label>
-                    <label id="lbl-income" style="flex: 1; text-align: center; padding: 8px 12px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.15s, color 0.15s; border-left: 1px solid var(--border);">
-                        <input type="radio" name="transaction_type" value="income" style="display:none;"
-                               {% if quick_add_form_data.transaction_type == 'income' %}checked{% endif %}>
-                        Income
-                    </label>
-                </div>
-                {% if quick_add_errors.transaction_type %}
-                    <p class="form-error">{{ quick_add_errors.transaction_type }}</p>
-                {% endif %}
-            </div>
-
-            <!-- Amount -->
-            <div class="form-group">
-                <label for="qa-amount" class="form-label">Amount</label>
-                <input
-                    type="number"
-                    id="qa-amount"
-                    name="amount"
-                    class="form-control"
-                    value="{{ quick_add_form_data.amount|default:'' }}"
-                    placeholder="0.00"
-                    step="0.01"
-                    min="0.01"
-                    autofocus
-                >
-                {% if quick_add_errors.amount %}
-                    <p class="form-error">{{ quick_add_errors.amount }}</p>
-                {% endif %}
-            </div>
-
-            <!-- Description -->
-            <div class="form-group">
-                <label for="qa-description" class="form-label">Description</label>
-                <input
-                    type="text"
-                    id="qa-description"
-                    name="description"
-                    class="form-control"
-                    value="{{ quick_add_form_data.description|default:'' }}"
-                    placeholder="e.g. Weekly groceries"
-                >
-                {% if quick_add_errors.description %}
-                    <p class="form-error">{{ quick_add_errors.description }}</p>
-                {% endif %}
-            </div>
-
-            <!-- Account -->
-            <div class="form-group">
-                <label for="qa-account" class="form-label">Account</label>
-                <select id="qa-account" name="account" class="form-control">
-                    <option value="" disabled {% if not quick_add_form_data.account %}selected{% endif %}>Select account…</option>
-                    {% for account in accounts %}
-                        <option value="{{ account.pk }}" {% if quick_add_form_data.account == account.pk|stringformat:"s" %}selected{% endif %}>
-                            {{ account.name }}
-                        </option>
-                    {% endfor %}
-                </select>
-                {% if quick_add_errors.account %}
-                    <p class="form-error">{{ quick_add_errors.account }}</p>
-                {% endif %}
-            </div>
-
-            <!-- Bucket -->
-            <div class="form-group">
-                <label for="qa-bucket" class="form-label">Bucket <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
-                <select id="qa-bucket" name="bucket" class="form-control">
-                    <option value="">No bucket</option>
-                    {% for bucket in buckets %}
-                        <option value="{{ bucket.pk }}" {% if quick_add_form_data.bucket == bucket.pk|stringformat:"s" %}selected{% endif %}>
-                            {{ bucket.icon }} {{ bucket.name }}
-                        </option>
-                    {% endfor %}
-                </select>
-                {% if quick_add_errors.bucket %}
-                    <p class="form-error">{{ quick_add_errors.bucket }}</p>
-                {% endif %}
-            </div>
-
-            <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
-                <button type="submit" class="btn btn-primary">Add transaction</button>
-                <a href="{% url 'transaction_add' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Full form</a>
-            </div>
-        </form>
-    </div>
-
-    <!-- Recent Transactions -->
-    <div class="card">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-                <h2 class="card-title">Recent Transactions</h2>
-                <p class="card-subtitle">Last 5 transactions</p>
-            </div>
-            <a href="{% url 'transaction_list' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
-        </div>
-
-        {% if recent_transactions %}
-            <ul style="list-style: none; padding: 0; margin: 0;">
-                {% for txn in recent_transactions %}
-                <li style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border);">
-                    <div style="min-width: 0; flex: 1;">
-                        <p style="margin: 0; font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                            {{ txn.description }}
-                        </p>
-                        <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-secondary);">
-                            {{ txn.date }} &middot; {{ txn.account.name }}{% if txn.bucket %} &middot; {{ txn.bucket.icon }} {{ txn.bucket.name }}{% endif %}
-                        </p>
-                    </div>
-                    <span style="margin-left: 16px; font-size: 14px; font-weight: 600; flex-shrink: 0;"
-                          class="{% if txn.transaction_type == 'income' %}text-green{% else %}text-red{% endif %}">
-                        {% if txn.transaction_type == 'income' %}+{% else %}-{% endif %}{{ txn.amount|currency:user.currency }}
-                    </span>
-                </li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">No transactions yet. Add one with Quick Add!</p>
-        {% endif %}
-    </div>
 
 </div>
 
-<!-- Upcoming Recurring Widget -->
-<div class="card" style="margin-top: 24px;">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div>
-            <h2 class="card-title">Upcoming</h2>
-            <p class="card-subtitle">Recurring charges in the next 7 days</p>
-        </div>
-        <a href="{% url 'recurring_list' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
-    </div>
-
-    {% if upcoming_recurring %}
-        <ul style="list-style: none; padding: 0; margin: 0;">
-            {% for item in upcoming_recurring %}
-            <li style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border);">
-                <div style="min-width: 0; flex: 1;">
-                    <p style="margin: 0; font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        {{ item.description }}
-                    </p>
-                    <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-secondary);">
-                        {{ item.next_due }}{% if item.bucket %} &middot; {{ item.bucket.icon }} {{ item.bucket.name }}{% endif %}
-                    </p>
-                </div>
-                <span style="margin-left: 16px; font-size: 14px; font-weight: 600; flex-shrink: 0; color: {% if item.transaction_type == 'income' %}var(--accent-green){% else %}var(--accent-red){% endif %};">
-                    {% if item.transaction_type == 'income' %}+{% else %}-{% endif %}{{ item.amount|currency:user.currency }}
-                </span>
-            </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">No recurring charges due in the next 7 days.</p>
-    {% endif %}
-</div>
-
-<!-- Savings Goals Widget -->
-<div class="card" style="margin-top: 24px;">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div>
-            <h2 class="card-title">Savings Goals</h2>
-            <p class="card-subtitle">Total saved: <span style="color: var(--accent-green); font-weight: 600;">{{ total_saved|currency:user.currency }}</span></p>
-        </div>
-        <a href="{% url 'savings:savings_list' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
-    </div>
-
-    {% if savings_widget_data %}
-        <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 4px;">
-            {% for item in savings_widget_data %}
-            <div style="display: flex; align-items: center; gap: 16px; padding: 12px; background: var(--bg-primary); border-radius: var(--radius); border-left: 3px solid {{ item.goal.color }};">
-                <span style="font-size: 24px; flex-shrink: 0;">{{ item.goal.icon }}</span>
-                <div style="flex: 1; min-width: 0;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                        <p style="margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.goal.name }}</p>
-                        <span style="flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 10px; text-transform: uppercase;
-                            {% if item.goal.priority == 'critical' %}background: #ff4757; color: #fff;
-                            {% elif item.goal.priority == 'high' %}background: #f9ca24; color: #1a1a2e;
-                            {% elif item.goal.priority == 'medium' %}background: var(--accent-blue); color: #fff;
-                            {% else %}background: var(--bg-secondary); color: var(--text-secondary);{% endif %}">
-                            {{ item.goal.priority }}
-                        </span>
-                    </div>
-                    <div class="progress" style="height: 6px; margin-bottom: 4px;">
-                        <div class="progress-bar" style="width: {{ item.pct }}%; background: {{ item.goal.color }};"></div>
-                    </div>
-                    <p style="margin: 0; font-size: 12px; color: var(--text-secondary);">
-                        {{ item.goal.current_amount|currency:user.currency }} of {{ item.goal.target_amount|currency:user.currency }}
-                        <span style="margin-left: 4px;">({{ item.pct }}%)</span>
-                    </p>
-                </div>
-                <a href="{% url 'savings:savings_goal_detail' item.goal.pk %}" class="btn btn-primary btn-sm" style="flex-shrink: 0;">Contribute</a>
-            </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <p style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 0;">No active savings goals. <a href="{% url 'savings:savings_goal_add' %}" style="color: var(--accent-green);">Create one</a> to get started.</p>
-    {% endif %}
-</div>
-
-<script>
-(function () {
-    var radios = document.querySelectorAll('input[name="transaction_type"]');
-    var lblExpense = document.getElementById('lbl-expense');
-    var lblIncome = document.getElementById('lbl-income');
-
-    function updateToggle() {
-        var checked = document.querySelector('input[name="transaction_type"]:checked');
-        if (!checked) return;
-        if (checked.value === 'expense') {
-            lblExpense.style.background = 'var(--accent-red)';
-            lblExpense.style.color = '#fff';
-            lblIncome.style.background = '';
-            lblIncome.style.color = 'var(--text-secondary)';
-        } else {
-            lblIncome.style.background = 'var(--accent-green)';
-            lblIncome.style.color = '#fff';
-            lblExpense.style.background = '';
-            lblExpense.style.color = 'var(--text-secondary)';
-        }
-    }
-
-    radios.forEach(function (r) {
-        r.addEventListener('change', updateToggle);
-    });
-
-    updateToggle();
-}());
-</script>
 {% endblock %}
