@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'transactions',
     'rankings',
     'savings',
+    'budget',
 ]
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
