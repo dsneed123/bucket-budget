@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'accounts',
     'banking',
     'buckets',
+    'transactions',
 ]
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
