@@ -104,7 +104,8 @@
             <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
                 <button type="submit" class="btn btn-primary">Save changes</button>
                 <a href="{% url 'bucket_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
-                <a href="{% url 'bucket_delete' bucket.pk %}" style="font-size: 14px; color: #ff4757; text-decoration: none; margin-left: auto;">Delete bucket</a>
+                <a href="{% url 'bucket_archive' bucket.pk %}" style="font-size: 14px; color: #e67e22; text-decoration: none; margin-left: auto;">Archive bucket</a>
+                <a href="{% url 'bucket_delete' bucket.pk %}" style="font-size: 14px; color: #ff4757; text-decoration: none;">Delete bucket</a>
             </div>
         </form>
     </div>

@@ -138,3 +138,95 @@ class BucketReorderViewTest(TestCase):
         )
         # self.user's order should be unchanged
         self.assertEqual(self._order(), ['Alpha', 'Beta', 'Gamma'])
+
+
+class BucketArchiveViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='archive@example.com',
+            password='testpass',
+            first_name='Test',
+            last_name='User',
+        )
+        self.client.login(email='archive@example.com', password='testpass')
+        Bucket.objects.filter(user=self.user).delete()
+        self.bucket = Bucket.objects.create(
+            user=self.user, name='Groceries', monthly_allocation=Decimal('500'), sort_order=0
+        )
+
+    def test_archive_sets_is_active_false(self):
+        self.client.post(reverse('bucket_archive', args=[self.bucket.pk]))
+        self.bucket.refresh_from_db()
+        self.assertFalse(self.bucket.is_active)
+
+    def test_archive_sets_archived_at(self):
+        self.client.post(reverse('bucket_archive', args=[self.bucket.pk]))
+        self.bucket.refresh_from_db()
+        self.assertIsNotNone(self.bucket.archived_at)
+
+    def test_archive_redirects_to_bucket_list(self):
+        response = self.client.post(reverse('bucket_archive', args=[self.bucket.pk]))
+        self.assertRedirects(response, reverse('bucket_list'), fetch_redirect_response=False)
+
+    def test_archive_get_shows_confirmation(self):
+        response = self.client.get(reverse('bucket_archive', args=[self.bucket.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.bucket.name)
+
+    def test_archived_bucket_not_in_active_list(self):
+        self.client.post(reverse('bucket_archive', args=[self.bucket.pk]))
+        active = list(
+            Bucket.objects.filter(user=self.user, is_active=True).values_list('name', flat=True)
+        )
+        self.assertNotIn('Groceries', active)
+
+    def test_unarchive_sets_is_active_true(self):
+        self.bucket.is_active = False
+        self.bucket.save()
+        self.client.post(reverse('bucket_unarchive', args=[self.bucket.pk]))
+        self.bucket.refresh_from_db()
+        self.assertTrue(self.bucket.is_active)
+
+    def test_unarchive_clears_archived_at(self):
+        from django.utils import timezone
+        self.bucket.is_active = False
+        self.bucket.archived_at = timezone.now()
+        self.bucket.save()
+        self.client.post(reverse('bucket_unarchive', args=[self.bucket.pk]))
+        self.bucket.refresh_from_db()
+        self.assertIsNone(self.bucket.archived_at)
+
+    def test_cannot_archive_other_users_bucket(self):
+        other_user = User.objects.create_user(
+            email='other2@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        Bucket.objects.filter(user=other_user).delete()
+        other_bucket = Bucket.objects.create(
+            user=other_user, name='Other', monthly_allocation=Decimal('100'), sort_order=0
+        )
+        response = self.client.post(reverse('bucket_archive', args=[other_bucket.pk]))
+        self.assertEqual(response.status_code, 404)
+        other_bucket.refresh_from_db()
+        self.assertTrue(other_bucket.is_active)
+
+    def test_archive_requires_login(self):
+        self.client.logout()
+        response = self.client.post(reverse('bucket_archive', args=[self.bucket.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn('bucket_list', response['Location'])
+
+    def test_bucket_list_shows_archived_toggle(self):
+        self.bucket.is_active = False
+        self.bucket.save()
+        response = self.client.get(reverse('bucket_list'))
+        self.assertContains(response, 'Show archived')
+
+    def test_bucket_list_shows_archived_buckets_when_toggled(self):
+        self.bucket.is_active = False
+        self.bucket.save()
+        response = self.client.get(reverse('bucket_list') + '?show_archived=1')
+        self.assertContains(response, 'Groceries')

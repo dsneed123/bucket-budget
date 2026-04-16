@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Archive Bucket — Bucket Budget{% endblock %}
+{% block page_title %}Archive Bucket{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px;">
+    <div class="card" style="border-top: 4px solid #e67e22;">
+        <div class="card-header">
+            <h2 class="card-title">{{ bucket.icon }} {{ bucket.name }}</h2>
+            <p class="card-subtitle">Archived buckets are hidden from the main list but can be restored.</p>
+        </div>
+
+        <div style="background-color: rgba(230, 126, 34, 0.1); border: 1px solid #e67e22; border-radius: var(--radius); padding: 12px 16px; margin-bottom: 24px; font-size: 14px; color: #e67e22;">
+            <strong>Note:</strong> Archiving this bucket will hide it from your main bucket list.
+            {% if transaction_count == 1 %}
+                1 transaction in this bucket will remain intact.
+            {% elif transaction_count > 1 %}
+                {{ transaction_count }} transactions in this bucket will remain intact.
+            {% else %}
+                Transactions will remain intact and the bucket can be unarchived at any time.
+            {% endif %}
+        </div>
+
+        <div style="margin-bottom: 24px; font-size: 14px; color: var(--text-secondary);">
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Bucket</span>
+                <span style="color: var(--text-primary); font-weight: 500;">{{ bucket.icon }} {{ bucket.name }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Monthly allocation</span>
+                <span style="color: var(--text-primary); font-weight: 500;">${{ bucket.monthly_allocation }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                <span>Transactions</span>
+                <span style="color: var(--text-primary); font-weight: 500;">{{ transaction_count }}</span>
+            </div>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <button type="submit" class="btn" style="background-color: #e67e22; color: #fff; border: none;">Archive bucket</button>
+                <a href="{% url 'bucket_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

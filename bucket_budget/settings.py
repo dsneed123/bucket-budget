@@ -86,7 +86,8 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
-TESTING = os.environ.get('DJANGO_TESTING', 'False') == 'True'
+import sys
+TESTING = os.environ.get('DJANGO_TESTING', 'False') == 'True' or 'test' in sys.argv
 if TESTING:
     STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 else:
