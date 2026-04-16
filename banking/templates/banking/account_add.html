@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Add Account — Bucket Budget{% endblock %}
+{% block page_title %}Add Bank Account{% endblock %}
+
+{% block content %}
+<div style="max-width: 560px;">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">New Bank Account</h2>
+            <p class="card-subtitle">Track a checking, savings, credit, or cash account.</p>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="name" class="form-label">Account name</label>
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    class="form-control"
+                    value="{{ form_data.name|default:'' }}"
+                    placeholder="e.g. Chase Checking"
+                    autofocus
+                >
+                {% if errors.name %}
+                    <p class="form-error">{{ errors.name }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label for="account_type" class="form-label">Account type</label>
+                    <select id="account_type" name="account_type" class="form-control">
+                        <option value="" disabled {% if not form_data.account_type %}selected{% endif %}>Select type…</option>
+                        {% for value, label in account_type_choices %}
+                            <option value="{{ value }}" {% if form_data.account_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if errors.account_type %}
+                        <p class="form-error">{{ errors.account_type }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="flex: 1;">
+                    <label for="institution" class="form-label">Institution <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
+                    <input
+                        type="text"
+                        id="institution"
+                        name="institution"
+                        class="form-control"
+                        value="{{ form_data.institution|default:'' }}"
+                        placeholder="e.g. Chase Bank"
+                    >
+                    {% if errors.institution %}
+                        <p class="form-error">{{ errors.institution }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label for="balance" class="form-label">Starting balance</label>
+                    <input
+                        type="number"
+                        id="balance"
+                        name="balance"
+                        class="form-control"
+                        value="{{ form_data.balance|default:'0' }}"
+                        placeholder="0.00"
+                        step="0.01"
+                    >
+                    {% if errors.balance %}
+                        <p class="form-error">{{ errors.balance }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="flex: 1;">
+                    <label for="color" class="form-label">Card color</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input
+                            type="color"
+                            id="color"
+                            name="color"
+                            value="{{ form_data.color|default:'#0984e3' }}"
+                            style="width: 44px; height: 38px; padding: 2px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 4px; cursor: pointer;"
+                        >
+                        <input
+                            type="text"
+                            id="color_hex"
+                            class="form-control"
+                            value="{{ form_data.color|default:'#0984e3' }}"
+                            maxlength="7"
+                            placeholder="#0984e3"
+                            style="flex: 1; font-family: monospace;"
+                        >
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                <button type="submit" class="btn btn-primary">Add account</button>
+                <a href="{% url 'account_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const colorPicker = document.getElementById('color');
+    const colorHex = document.getElementById('color_hex');
+    const colorName = document.getElementById('color');
+
+    colorPicker.addEventListener('input', () => {
+        colorHex.value = colorPicker.value;
+    });
+
+    colorHex.addEventListener('input', () => {
+        const val = colorHex.value.trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+            colorPicker.value = val;
+        }
+    });
+</script>
+{% endblock %}
