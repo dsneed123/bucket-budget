@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Import Transactions — Bucket Budget{% endblock %}
+{% block page_title %}Import Transactions{% endblock %}
+
+{% block content %}
+<div style="max-width: 860px;">
+
+{% if step == 'done' %}
+{# ── Done ─────────────────────────────────────────────────────────────── #}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Import complete</h2>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px;">
+        <div class="card" style="padding: 16px 20px; text-align: center;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Imported</div>
+            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-green);">{{ imported }}</div>
+        </div>
+        <div class="card" style="padding: 16px 20px; text-align: center;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Skipped / Errors</div>
+            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-red);">{{ skipped }}</div>
+        </div>
+    </div>
+    <div style="display: flex; gap: 8px;">
+        <a href="{% url 'transaction_list' %}" class="btn btn-primary">View Transactions</a>
+        <a href="{% url 'transaction_import_csv' %}" class="btn">Import Another File</a>
+    </div>
+</div>
+
+{% elif step == 'preview' %}
+{# ── Preview ──────────────────────────────────────────────────────────── #}
+<div class="card" style="margin-bottom: 16px;">
+    <div class="card-header">
+        <h2 class="card-title">Preview</h2>
+        <p class="card-subtitle">
+            Review the rows below. <strong style="color: var(--accent-green);">{{ ok_count }} row{{ ok_count|pluralize }} will be imported</strong>
+            {% if error_count %} — <strong style="color: var(--accent-red);">{{ error_count }} row{{ error_count|pluralize }} have errors and will be skipped</strong>{% endif %}.
+            Account: <strong>{{ account.name }}</strong>.
+        </p>
+    </div>
+
+    {% if ok_count %}
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="confirm">
+        <input type="hidden" name="account_id" value="{{ account.pk }}">
+        <input type="hidden" name="rows_json" value="{{ rows_json }}">
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+            <button type="submit" class="btn btn-primary">Confirm Import ({{ ok_count }} row{{ ok_count|pluralize }})</button>
+            <a href="{% url 'transaction_import_csv' %}" class="btn">Cancel</a>
+        </div>
+    </form>
+    {% else %}
+    <div style="margin-bottom: 16px;">
+        <a href="{% url 'transaction_import_csv' %}" class="btn">Upload a different file</a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card" style="overflow-x: auto;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--border-color);">
+                <th style="padding: 8px 12px; text-align: left; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">#</th>
+                <th style="padding: 8px 12px; text-align: left; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Date</th>
+                <th style="padding: 8px 12px; text-align: left; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
+                <th style="padding: 8px 12px; text-align: right; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Amount</th>
+                <th style="padding: 8px 12px; text-align: left; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Type</th>
+                <th style="padding: 8px 12px; text-align: left; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Bucket</th>
+                <th style="padding: 8px 12px; text-align: left; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in preview_rows %}
+            <tr style="border-bottom: 1px solid var(--border-color); {% if row.status == 'error' %}opacity: 0.6;{% endif %}">
+                <td style="padding: 8px 12px; color: var(--text-secondary);">{{ row.row_num }}</td>
+                <td style="padding: 8px 12px; white-space: nowrap;">{{ row.date }}</td>
+                <td style="padding: 8px 12px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ row.description }}">{{ row.description }}</td>
+                <td style="padding: 8px 12px; text-align: right; font-weight: 600;
+                    {% if row.transaction_type == 'expense' %}color: var(--accent-red);{% elif row.transaction_type == 'income' %}color: var(--accent-green);{% endif %}">
+                    {% if row.transaction_type == 'expense' %}-{% elif row.transaction_type == 'income' %}+{% endif %}{{ row.amount }}
+                </td>
+                <td style="padding: 8px 12px; text-transform: capitalize;">{{ row.transaction_type }}</td>
+                <td style="padding: 8px 12px;">
+                    {% if row.bucket_name %}
+                        {{ row.bucket_name }}
+                    {% elif row.category %}
+                        <span style="color: var(--accent-orange);" title="No matching bucket found">{{ row.category }} (?)</span>
+                    {% else %}
+                        <span style="color: var(--text-secondary);">—</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 8px 12px;">
+                    {% if row.status == 'ok' %}
+                        <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; background: var(--accent-green); color: #fff; font-size: 0.75rem; font-weight: 600;">OK</span>
+                    {% else %}
+                        <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; background: var(--accent-red); color: #fff; font-size: 0.75rem; font-weight: 600;" title="{{ row.error }}">Error</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" style="padding: 24px; text-align: center; color: var(--text-secondary);">No rows found in file.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% else %}
+{# ── Upload form ──────────────────────────────────────────────────────── #}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Upload CSV</h2>
+        <p class="card-subtitle">
+            Import transactions from a CSV file. Required columns: <code>date</code>, <code>description</code>, <code>amount</code>.
+            Optional: <code>category</code> (or <code>bucket</code>), <code>type</code>, <code>vendor</code>.
+            Negative amounts are treated as expenses; positive amounts as income.
+        </p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="step" value="upload">
+
+        <div class="form-group">
+            <label for="account" class="form-label">Default account <span style="color: var(--accent-red);">*</span></label>
+            <select id="account" name="account" class="form-control">
+                <option value="">— select account —</option>
+                {% for acct in accounts %}
+                <option value="{{ acct.pk }}" {% if form_data.account == acct.pk|stringformat:"s" %}selected{% endif %}>{{ acct.name }}</option>
+                {% endfor %}
+            </select>
+            {% if errors.account %}
+                <p class="form-error">{{ errors.account }}</p>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="csv_file" class="form-label">CSV file <span style="color: var(--accent-red);">*</span></label>
+            <input type="file" id="csv_file" name="csv_file" class="form-control" accept=".csv,text/csv">
+            {% if errors.csv_file %}
+                <p class="form-error">{{ errors.csv_file }}</p>
+            {% endif %}
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <button type="submit" class="btn btn-primary">Preview Import</button>
+            <a href="{% url 'transaction_list' %}" class="btn">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<div class="card" style="margin-top: 16px; padding: 16px 20px;">
+    <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;">Expected CSV format</div>
+    <pre style="font-size: 0.8rem; color: var(--text-secondary); margin: 0; white-space: pre-wrap;">date,description,amount,category,vendor
+2026-01-15,Grocery Store,-45.99,Groceries,Whole Foods
+2026-01-16,Paycheck,2500.00,,Employer Inc
+2026-01-17,Netflix,-15.99,Entertainment,</pre>
+</div>
+
+{% endif %}
+
+</div>
+{% endblock %}
