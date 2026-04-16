@@ -51,7 +51,32 @@ def transaction_list(request):
 
     active_filter_count = sum(bool(f) for f in [date_from, date_to, bucket_id, txn_type, account_id, search])
 
-    paginator = Paginator(qs, 25)
+    # Compute running balance for all filtered transactions
+    # Process oldest-to-newest so balance accumulates in chronological order
+    all_txns = list(qs.order_by('date', 'created_at'))
+
+    if account_id:
+        try:
+            acct_obj = BankAccount.objects.get(pk=account_id, user=request.user)
+            income_sum = qs.filter(transaction_type='income').aggregate(s=Sum('amount'))['s'] or Decimal('0')
+            expense_sum = qs.filter(transaction_type='expense').aggregate(s=Sum('amount'))['s'] or Decimal('0')
+            running = acct_obj.balance - (income_sum - expense_sum)
+        except BankAccount.DoesNotExist:
+            running = Decimal('0')
+    else:
+        running = Decimal('0')
+
+    for txn in all_txns:
+        if txn.transaction_type == 'income':
+            running += txn.amount
+        else:
+            running -= txn.amount
+        txn.running_balance = running
+
+    # Restore newest-first ordering for display
+    all_txns.sort(key=lambda t: (t.date, t.created_at), reverse=True)
+
+    paginator = Paginator(all_txns, 25)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 
@@ -101,6 +126,7 @@ def transaction_list(request):
         },
         'active_filter_count': active_filter_count,
         'filter_qs': filter_qs,
+        'balance_is_absolute': bool(account_id),
     })
 
 
