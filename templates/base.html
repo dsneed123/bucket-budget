@@ -50,6 +50,31 @@
                     <span class="nav-icon">🔄</span>Recurring
                 </a></li>
             </ul>
+            {% if user.is_authenticated %}
+            <div class="sidebar-quality-widget">
+                <a href="/rankings/" class="quality-widget-link">
+                    <div class="quality-widget-label">This Month</div>
+                    <div class="quality-circle-wrapper">
+                        <svg class="quality-circle" viewBox="0 0 70 70" aria-hidden="true">
+                            <circle class="quality-circle-track" cx="35" cy="35" r="28"/>
+                            <circle class="quality-circle-progress quality-circle-{{ sidebar_quality_color }}"
+                                    cx="35" cy="35" r="28"
+                                    stroke-dasharray="{{ sidebar_quality_circumference }}"
+                                    stroke-dashoffset="{{ sidebar_quality_dashoffset }}"/>
+                        </svg>
+                        <div class="quality-circle-text">
+                            {% if sidebar_quality_score %}
+                                <span class="quality-score-number">{{ sidebar_quality_score }}</span>
+                                <span class="quality-score-denom">/10</span>
+                            {% else %}
+                                <span class="quality-score-na">—</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="quality-widget-sublabel">Spending Quality</div>
+                </a>
+            </div>
+            {% endif %}
             <div class="nav-bottom">
                 <ul class="nav-links">
                     <li><a href="/profile/" {% if request.path == '/profile/' %}class="active"{% endif %}>

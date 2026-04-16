@@ -111,6 +111,108 @@ body {
     text-align: center;
 }
 
+/* =====================
+   Sidebar Quality Widget
+   ===================== */
+
+.sidebar-quality-widget {
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    padding: 16px 0 12px;
+}
+
+.quality-widget-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    padding: 4px 0;
+    transition: opacity 0.2s;
+}
+
+.quality-widget-link:hover {
+    opacity: 0.85;
+}
+
+.quality-widget-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary);
+}
+
+.quality-widget-sublabel {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.quality-circle-wrapper {
+    position: relative;
+    width: 70px;
+    height: 70px;
+}
+
+.quality-circle {
+    width: 70px;
+    height: 70px;
+    transform: rotate(-90deg);
+}
+
+.quality-circle-track {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 6;
+}
+
+.quality-circle-bg {
+    display: none;
+}
+
+.quality-circle-progress {
+    fill: none;
+    stroke-width: 6;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.4s ease;
+}
+
+.quality-circle-green  { stroke: var(--accent-green); }
+.quality-circle-gold   { stroke: var(--accent-gold); }
+.quality-circle-red    { stroke: var(--accent-red); }
+.quality-circle-secondary { stroke: var(--text-secondary); }
+
+.quality-circle-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: row;
+    gap: 1px;
+}
+
+.quality-score-number {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.quality-score-denom {
+    font-size: 10px;
+    color: var(--text-secondary);
+    line-height: 1;
+    margin-top: 4px;
+}
+
+.quality-score-na {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    line-height: 1;
+}
+
 .nav-bottom {
     border-top: 1px solid var(--border);
     flex-shrink: 0;
