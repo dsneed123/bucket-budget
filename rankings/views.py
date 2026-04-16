@@ -8,6 +8,56 @@ from django.shortcuts import render
 from transactions.models import Transaction
 
 
+def _get_necessity_breakdown(user, year, month):
+    """Return spending breakdown by necessity category for the given month."""
+    base_qs = Transaction.objects.filter(
+        user=user,
+        transaction_type='expense',
+        date__year=year,
+        date__month=month,
+    )
+
+    def _sum(qs):
+        return qs.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+
+    need_amount = _sum(base_qs.filter(necessity_score__gte=7))
+    useful_amount = _sum(base_qs.filter(necessity_score__gte=4, necessity_score__lte=6))
+    want_amount = _sum(base_qs.filter(necessity_score__gte=1, necessity_score__lte=3))
+    unscored_amount = _sum(base_qs.filter(necessity_score__isnull=True))
+
+    grand_total = need_amount + useful_amount + want_amount + unscored_amount
+    if grand_total == 0:
+        return None
+
+    def _pct(val):
+        return round(float(val / grand_total * 100), 1)
+
+    need_pct = _pct(need_amount)
+    useful_pct = _pct(useful_amount)
+    want_pct = _pct(want_amount)
+    unscored_pct = round(100 - need_pct - useful_pct - want_pct, 1)
+
+    # Cumulative stop positions for conic-gradient
+    need_end = need_pct
+    useful_end = round(need_end + useful_pct, 1)
+    want_end = round(useful_end + want_pct, 1)
+
+    return {
+        'grand_total': grand_total,
+        'need': need_amount,
+        'useful': useful_amount,
+        'want': want_amount,
+        'unscored': unscored_amount,
+        'need_pct': need_pct,
+        'useful_pct': useful_pct,
+        'want_pct': want_pct,
+        'unscored_pct': unscored_pct,
+        'need_end': need_end,
+        'useful_end': useful_end,
+        'want_end': want_end,
+    }
+
+
 def _get_spending_quality_score(user, year, month):
     """Return (avg_score, count) for expense transactions in given month with necessity_score set."""
     qs = Transaction.objects.filter(
@@ -43,6 +93,7 @@ def rankings(request):
     else:
         last_year, last_month = this_year, this_month - 1
 
+    breakdown = _get_necessity_breakdown(request.user, this_year, this_month)
     current_score, current_count = _get_spending_quality_score(request.user, this_year, this_month)
     last_score, last_count = _get_spending_quality_score(request.user, last_year, last_month)
 
@@ -92,6 +143,7 @@ def rankings(request):
         'last_color': _score_color(last_score),
         'trend': trend,
         'bucket_rows': bucket_rows,
+        'breakdown': breakdown,
         'this_month_label': today.strftime('%B %Y'),
         'last_month_label': date(last_year, last_month, 1).strftime('%B %Y'),
     })
