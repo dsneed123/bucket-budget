@@ -110,7 +110,7 @@
                     </div>
                 </div>
 
-                <div class="settings-row" style="border-bottom: none;">
+                <div class="settings-row">
                     <div class="settings-row-info">
                         <div class="settings-row-label">Theme</div>
                         <div class="settings-row-desc">Dark: deep navy · Midnight: deeper blacks · Ocean: navy tones</div>
@@ -118,6 +118,18 @@
                     <select name="theme" class="form-select" style="width: 140px;">
                         {% for value, label in theme_choices %}
                         <option value="{{ value }}" {% if prefs.theme == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="settings-row" style="border-bottom: none;">
+                    <div class="settings-row-info">
+                        <div class="settings-row-label">Time zone</div>
+                        <div class="settings-row-desc">Used to display dates and times in your local time</div>
+                    </div>
+                    <select name="timezone" class="form-select" style="width: 220px;">
+                        {% for value, label in timezone_choices %}
+                        <option value="{{ value }}" {% if prefs.timezone == value %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
                 </div>
