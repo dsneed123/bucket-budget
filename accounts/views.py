@@ -143,6 +143,11 @@ def profile(request):
 
 
 @login_required
+def settings(request):
+    return render(request, 'accounts/settings.html')
+
+
+@login_required
 def delete_account(request):
     errors = {}
 

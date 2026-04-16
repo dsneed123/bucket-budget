@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% load avatar_tags %}
+
+{% block title %}Settings — Bucket Budget{% endblock %}
+
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+<div style="max-width: 720px;">
+
+    <div class="settings-tabs" style="display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 0;">
+        <a href="#account" class="settings-tab" onclick="switchTab(event, 'account')">Account</a>
+        <a href="#preferences" class="settings-tab" onclick="switchTab(event, 'preferences')">Preferences</a>
+        <a href="#data" class="settings-tab" onclick="switchTab(event, 'data')">Data</a>
+        <a href="#danger" class="settings-tab" onclick="switchTab(event, 'danger')">Danger Zone</a>
+    </div>
+
+    <!-- Account -->
+    <div id="tab-account" class="settings-panel">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">Account</h2>
+                    <p class="card-subtitle">Manage your login and personal details</p>
+                </div>
+            </div>
+
+            <div class="settings-row">
+                <div class="settings-row-info">
+                    <div class="settings-row-label">Profile</div>
+                    <div class="settings-row-desc">Update your name, currency, and income</div>
+                </div>
+                <a href="/profile/" class="btn btn-secondary">Edit profile</a>
+            </div>
+
+            <div class="settings-row" style="border-bottom: none;">
+                <div class="settings-row-info">
+                    <div class="settings-row-label">Password</div>
+                    <div class="settings-row-desc">Change your account password</div>
+                </div>
+                <a href="/profile/password/" class="btn btn-secondary">Change password</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preferences -->
+    <div id="tab-preferences" class="settings-panel" style="display: none;">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">Preferences</h2>
+                    <p class="card-subtitle">Your current budgeting preferences</p>
+                </div>
+            </div>
+
+            <div class="settings-row">
+                <div class="settings-row-info">
+                    <div class="settings-row-label">Currency</div>
+                    <div class="settings-row-desc">{{ user.currency }}</div>
+                </div>
+                <a href="/profile/" class="btn btn-secondary">Edit</a>
+            </div>
+
+            <div class="settings-row">
+                <div class="settings-row-info">
+                    <div class="settings-row-label">Monthly income</div>
+                    <div class="settings-row-desc">{{ user.monthly_income }}</div>
+                </div>
+                <a href="/profile/" class="btn btn-secondary">Edit</a>
+            </div>
+
+            <div class="settings-row" style="border-bottom: none;">
+                <div class="settings-row-info">
+                    <div class="settings-row-label">Zero-based budgeting</div>
+                    <div class="settings-row-desc">
+                        {% if user.zero_based_budgeting %}
+                            <span style="color: var(--accent-green);">Enabled</span>
+                        {% else %}
+                            <span style="color: var(--text-secondary);">Disabled</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <a href="/profile/" class="btn btn-secondary">Edit</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data -->
+    <div id="tab-data" class="settings-panel" style="display: none;">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">Data</h2>
+                    <p class="card-subtitle">Import and export your financial data</p>
+                </div>
+            </div>
+
+            <div class="settings-row">
+                <div class="settings-row-info">
+                    <div class="settings-row-label">Export transactions</div>
+                    <div class="settings-row-desc">Download all transactions as a CSV file</div>
+                </div>
+                <a href="/transactions/export/csv/" class="btn btn-secondary">Export CSV</a>
+            </div>
+
+            <div class="settings-row" style="border-bottom: none;">
+                <div class="settings-row-info">
+                    <div class="settings-row-label">Import transactions</div>
+                    <div class="settings-row-desc">Upload a CSV file to import transactions</div>
+                </div>
+                <a href="/transactions/import/csv/" class="btn btn-secondary">Import CSV</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Danger Zone -->
+    <div id="tab-danger" class="settings-panel" style="display: none;">
+        <div class="card" style="border-color: rgba(255, 71, 87, 0.3);">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title" style="color: var(--accent-red);">Danger Zone</h2>
+                    <p class="card-subtitle">Irreversible account actions</p>
+                </div>
+            </div>
+
+            <div class="settings-row" style="border-bottom: none;">
+                <div class="settings-row-info">
+                    <div class="settings-row-label">Delete account</div>
+                    <div class="settings-row-desc">Permanently delete your account and all associated data. This cannot be undone.</div>
+                </div>
+                <a href="/profile/delete/" class="btn btn-danger">Delete account</a>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+.settings-tab {
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s;
+}
+.settings-tab:hover {
+    color: var(--text-primary);
+}
+.settings-tab.active {
+    color: var(--accent-green);
+    border-bottom-color: var(--accent-green);
+}
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+}
+.settings-row-info {
+    flex: 1;
+    min-width: 0;
+}
+.settings-row-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+.settings-row-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var tabs = ['account', 'preferences', 'data', 'danger'];
+
+    function getActiveTab() {
+        var hash = window.location.hash.replace('#', '');
+        return tabs.indexOf(hash) !== -1 ? hash : 'account';
+    }
+
+    function activateTab(name) {
+        tabs.forEach(function (t) {
+            var panel = document.getElementById('tab-' + t);
+            var tab = document.querySelector('.settings-tab[href="#' + t + '"]');
+            if (panel) panel.style.display = t === name ? '' : 'none';
+            if (tab) {
+                if (t === name) tab.classList.add('active');
+                else tab.classList.remove('active');
+            }
+        });
+    }
+
+    window.switchTab = function (e, name) {
+        e.preventDefault();
+        history.replaceState(null, '', '#' + name);
+        activateTab(name);
+    };
+
+    activateTab(getActiveTab());
+}());
+</script>
+{% endblock %}
