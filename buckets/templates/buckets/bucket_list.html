@@ -40,6 +40,28 @@
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 0.75rem; color: var(--text-secondary);">{{ item.pct }}%</span>
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        {% if not forloop.first %}
+                        <form method="post" action="{% url 'bucket_reorder' %}" style="margin: 0;">
+                            {% csrf_token %}
+                            <input type="hidden" name="bucket_id" value="{{ item.bucket.pk }}">
+                            <input type="hidden" name="direction" value="up">
+                            <button type="submit" title="Move up" style="background: none; border: none; cursor: pointer; padding: 0; line-height: 1; font-size: 0.7rem; color: var(--text-secondary);">▲</button>
+                        </form>
+                        {% else %}
+                        <span style="display: block; width: 14px; height: 14px;"></span>
+                        {% endif %}
+                        {% if not forloop.last %}
+                        <form method="post" action="{% url 'bucket_reorder' %}" style="margin: 0;">
+                            {% csrf_token %}
+                            <input type="hidden" name="bucket_id" value="{{ item.bucket.pk }}">
+                            <input type="hidden" name="direction" value="down">
+                            <button type="submit" title="Move down" style="background: none; border: none; cursor: pointer; padding: 0; line-height: 1; font-size: 0.7rem; color: var(--text-secondary);">▼</button>
+                        </form>
+                        {% else %}
+                        <span style="display: block; width: 14px; height: 14px;"></span>
+                        {% endif %}
+                    </div>
                     <a href="{% url 'bucket_edit' item.bucket.pk %}" style="font-size: 0.75rem; color: var(--text-secondary); text-decoration: none;">Edit</a>
                     <a href="{% url 'bucket_delete' item.bucket.pk %}" style="font-size: 0.75rem; color: #ff4757; text-decoration: none;">Delete</a>
                 </div>
