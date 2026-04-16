@@ -372,10 +372,18 @@ def transaction_add(request):
     )
 
     errors = {}
+
+    from accounts.models import UserPreferences
+    prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+    default_account_id = str(prefs.default_account_id) if prefs.default_account_id else ''
+    default_bucket_id = str(prefs.default_bucket_id) if prefs.default_bucket_id else ''
+
     form_data = {
-        'transaction_type': 'expense',
+        'transaction_type': prefs.default_transaction_type or 'expense',
         'date': datetime.date.today().isoformat(),
         'tags': '',
+        'account': default_account_id,
+        'bucket': default_bucket_id,
     }
 
     if request.method == 'POST':

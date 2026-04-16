@@ -52,6 +52,11 @@ class UserPreferences(models.Model):
         ('ocean', 'Ocean'),
     ]
 
+    TRANSACTION_TYPE_CHOICES = [
+        ('expense', 'Expense'),
+        ('income', 'Income'),
+    ]
+
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='preferences')
     email_weekly_digest = models.BooleanField(default=True)
     email_budget_alerts = models.BooleanField(default=True)
@@ -66,6 +71,19 @@ class UserPreferences(models.Model):
     start_of_week = models.CharField(max_length=10, choices=START_OF_WEEK_CHOICES, default='monday')
     fiscal_month_start = models.IntegerField(default=1)
     theme = models.CharField(max_length=10, choices=THEME_CHOICES, default='dark')
+    default_bucket = models.ForeignKey(
+        'buckets.Bucket',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+    )
+    default_transaction_type = models.CharField(
+        max_length=10,
+        choices=TRANSACTION_TYPE_CHOICES,
+        default='expense',
+        blank=True,
+    )
 
     def __str__(self):
         return f'Preferences for {self.user}'

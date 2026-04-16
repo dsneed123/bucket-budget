@@ -12,6 +12,7 @@ from django.contrib import messages
 from django.urls import reverse_lazy
 
 from banking.models import BankAccount
+from buckets.models import Bucket
 from .models import UserPreferences
 
 User = get_user_model()
@@ -163,6 +164,8 @@ def settings(request):
         fiscal_month_start = request.POST.get('fiscal_month_start', '1')
         default_account_id = request.POST.get('default_account', '')
         theme = request.POST.get('theme', 'dark')
+        default_bucket_id = request.POST.get('default_bucket', '')
+        default_transaction_type = request.POST.get('default_transaction_type', 'expense')
 
         valid_weeks = [c[0] for c in UserPreferences.START_OF_WEEK_CHOICES]
         if start_of_week not in valid_weeks:
@@ -187,6 +190,17 @@ def settings(request):
             except BankAccount.DoesNotExist:
                 errors['default_account'] = 'Invalid account selected.'
 
+        default_bucket = None
+        if default_bucket_id:
+            try:
+                default_bucket = Bucket.objects.get(pk=default_bucket_id, user=request.user)
+            except Bucket.DoesNotExist:
+                errors['default_bucket'] = 'Invalid bucket selected.'
+
+        valid_types = [c[0] for c in UserPreferences.TRANSACTION_TYPE_CHOICES]
+        if default_transaction_type not in valid_types:
+            default_transaction_type = 'expense'
+
         if not errors:
             prefs.email_weekly_digest = email_weekly_digest
             prefs.email_budget_alerts = email_budget_alerts
@@ -195,17 +209,22 @@ def settings(request):
             prefs.fiscal_month_start = fiscal_month_start_val
             prefs.default_account = default_account
             prefs.theme = theme
+            prefs.default_bucket = default_bucket
+            prefs.default_transaction_type = default_transaction_type
             prefs.save()
             return redirect('/settings/?saved=1#preferences')
 
     bank_accounts = BankAccount.objects.filter(user=request.user, is_active=True)
+    buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
 
     return render(request, 'accounts/settings.html', {
         'prefs': prefs,
         'errors': errors,
         'week_choices': UserPreferences.START_OF_WEEK_CHOICES,
         'theme_choices': UserPreferences.THEME_CHOICES,
+        'transaction_type_choices': UserPreferences.TRANSACTION_TYPE_CHOICES,
         'bank_accounts': bank_accounts,
+        'buckets': buckets,
     })
 
 

@@ -158,7 +158,7 @@
                     {% if errors.start_of_week %}<div class="field-error">{{ errors.start_of_week }}</div>{% endif %}
                 </div>
 
-                <div class="settings-row" style="border-bottom: none;">
+                <div class="settings-row">
                     <div class="settings-row-info">
                         <div class="settings-row-label">Fiscal month start</div>
                         <div class="settings-row-desc">Day of the month your budget period begins (1–28)</div>
@@ -167,6 +167,33 @@
                            value="{{ prefs.fiscal_month_start }}"
                            class="form-input" style="width: 80px; text-align: center;">
                     {% if errors.fiscal_month_start %}<div class="field-error">{{ errors.fiscal_month_start }}</div>{% endif %}
+                </div>
+
+                <div class="settings-row">
+                    <div class="settings-row-info">
+                        <div class="settings-row-label">Default transaction type</div>
+                        <div class="settings-row-desc">Pre-selected type when adding a new transaction</div>
+                    </div>
+                    <select name="default_transaction_type" class="form-select" style="width: 140px;">
+                        {% for value, label in transaction_type_choices %}
+                        <option value="{{ value }}" {% if prefs.default_transaction_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if errors.default_transaction_type %}<div class="field-error">{{ errors.default_transaction_type }}</div>{% endif %}
+                </div>
+
+                <div class="settings-row" style="border-bottom: none;">
+                    <div class="settings-row-info">
+                        <div class="settings-row-label">Default bucket</div>
+                        <div class="settings-row-desc">Bucket pre-selected when adding a new transaction</div>
+                    </div>
+                    <select name="default_bucket" class="form-select" style="width: 180px;">
+                        <option value="">— None —</option>
+                        {% for bucket in buckets %}
+                        <option value="{{ bucket.pk }}" {% if prefs.default_bucket_id == bucket.pk %}selected{% endif %}>{{ bucket.icon }} {{ bucket.name }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if errors.default_bucket %}<div class="field-error">{{ errors.default_bucket }}</div>{% endif %}
                 </div>
             </div>
 
