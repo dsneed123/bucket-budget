@@ -180,7 +180,7 @@ def rankings(request):
         )
         .values('bucket__id', 'bucket__name', 'bucket__icon', 'bucket__color')
         .annotate(avg_score=Avg('necessity_score'), tx_count=Count('id'), total_spent=Sum('amount'))
-        .order_by('-avg_score')
+        .order_by('avg_score')
     )
 
     bucket_rows = []
