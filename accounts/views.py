@@ -74,7 +74,6 @@ def register(request):
 
         if not errors:
             user = User.objects.create_user(
-                username=email,
                 email=email,
                 first_name=first_name,
                 password=password,
