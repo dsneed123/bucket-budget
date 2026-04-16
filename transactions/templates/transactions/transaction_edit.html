@@ -136,6 +136,28 @@
                 </div>
             </div>
 
+            <!-- Income source (income only) -->
+            <div id="income-source-section" class="form-group"{% if form_data.transaction_type != 'income' %} style="display: none;"{% endif %}>
+                <label for="income_source" class="form-label">Income source <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
+                <select id="income_source" name="income_source" class="form-control">
+                    <option value="">No source</option>
+                    {% for src in income_sources %}
+                        <option value="{{ src.pk }}" {% if form_data.income_source == src.pk|stringformat:"s" %}selected{% endif %}
+                                style="color: {{ src.color }};">
+                            {{ src.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                {% if errors.income_source %}
+                    <p class="form-error">{{ errors.income_source }}</p>
+                {% endif %}
+                {% if not income_sources %}
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                        <a href="{% url 'income_source_add' %}" style="color: var(--accent-green);">Create income sources</a> to categorize your income.
+                    </p>
+                {% endif %}
+            </div>
+
             <!-- Receipt -->
             <div class="form-group">
                 <label for="receipt" class="form-label">Receipt <span style="color: var(--text-secondary); font-weight: 400;">(optional — photo or scan)</span></label>
@@ -291,9 +313,18 @@
         section.style.display = (checked && checked.value === 'expense') ? '' : 'none';
     }
 
+    function toggleIncomeSourceSection() {
+        var checked = document.querySelector('input[name="transaction_type"]:checked');
+        var section = document.getElementById('income-source-section');
+        if (section) {
+            section.style.display = (checked && checked.value === 'income') ? '' : 'none';
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('input[name="transaction_type"]').forEach(function (r) {
             r.addEventListener('change', toggleNecessitySection);
+            r.addEventListener('change', toggleIncomeSourceSection);
         });
 
         var initialScore = parseInt(document.getElementById('necessity-score').value);
