@@ -3,7 +3,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
+from django.db.models import Case, F, IntegerField, Sum, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -114,9 +114,31 @@ def _get_emergency_fund_coverage(current_amount, monthly_avg_expenses):
     return float(current_amount / monthly_avg_expenses)
 
 
+_PRIORITY_RANK = Case(
+    When(priority='critical', then=Value(0)),
+    When(priority='high', then=Value(1)),
+    When(priority='medium', then=Value(2)),
+    When(priority='low', then=Value(3)),
+    default=Value(4),
+    output_field=IntegerField(),
+)
+
+_VALID_SORTS = {'priority', 'deadline', 'progress'}
+
+
 @login_required
 def savings_list(request):
-    goals = SavingsGoal.objects.filter(user=request.user).order_by('is_achieved', '-priority', 'deadline', 'name')
+    sort = request.GET.get('sort', 'priority')
+    if sort not in _VALID_SORTS:
+        sort = 'priority'
+
+    qs = SavingsGoal.objects.filter(user=request.user).annotate(priority_rank=_PRIORITY_RANK)
+
+    if sort == 'deadline':
+        goals = qs.order_by('is_achieved', F('deadline').asc(nulls_last=True), 'priority_rank', 'name')
+    else:
+        # priority sort (also used as base for progress, re-sorted in Python after pct is computed)
+        goals = qs.order_by('is_achieved', 'priority_rank', F('deadline').asc(nulls_last=True), 'name')
 
     today = date.today()
     goal_data = []
@@ -163,6 +185,9 @@ def savings_list(request):
             'emergency_coverage': emergency_coverage,
         })
 
+    if sort == 'progress':
+        goal_data.sort(key=lambda x: (x['goal'].is_achieved, x['pct']))
+
     overall_pct = int((total_saved / total_target) * 100) if total_target > 0 else 0
     achieved_count = sum(1 for g in goal_data if g['goal'].is_achieved)
 
@@ -173,6 +198,7 @@ def savings_list(request):
         'total_remaining': total_target - total_saved,
         'overall_pct': overall_pct,
         'achieved_count': achieved_count,
+        'sort': sort,
     })
 
 

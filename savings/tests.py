@@ -1082,3 +1082,78 @@ class SavingsGoalTypeTest(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertIn('goal_type_choices', response.context)
+
+
+class SavingsListSortTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='sort@example.com',
+            password='testpass',
+            first_name='Sort',
+            last_name='User',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('10000.00'),
+        )
+        self.client.login(email='sort@example.com', password='testpass')
+        self.url = reverse('savings:savings_list')
+
+    def _make_goal(self, name, priority='medium', deadline=None, target=Decimal('1000.00'), current=Decimal('0.00')):
+        return SavingsGoal.objects.create(
+            user=self.user,
+            name=name,
+            priority=priority,
+            deadline=deadline,
+            target_amount=target,
+            current_amount=current,
+        )
+
+    def test_default_sort_is_priority(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['sort'], 'priority')
+
+    def test_invalid_sort_falls_back_to_priority(self):
+        response = self.client.get(self.url + '?sort=bogus')
+        self.assertEqual(response.context['sort'], 'priority')
+
+    def test_priority_sort_critical_first(self):
+        low = self._make_goal('Low Goal', priority='low')
+        high = self._make_goal('High Goal', priority='high')
+        critical = self._make_goal('Critical Goal', priority='critical')
+        medium = self._make_goal('Medium Goal', priority='medium')
+
+        response = self.client.get(self.url + '?sort=priority')
+        names = [item['goal'].name for item in response.context['goal_data']]
+        self.assertEqual(names.index('Critical Goal') < names.index('High Goal'), True)
+        self.assertEqual(names.index('High Goal') < names.index('Medium Goal'), True)
+        self.assertEqual(names.index('Medium Goal') < names.index('Low Goal'), True)
+
+    def test_deadline_sort_soonest_first(self):
+        far = self._make_goal('Far Goal', deadline=datetime.date(2030, 1, 1))
+        near = self._make_goal('Near Goal', deadline=datetime.date(2026, 6, 1))
+        no_dl = self._make_goal('No Deadline Goal')
+
+        response = self.client.get(self.url + '?sort=deadline')
+        names = [item['goal'].name for item in response.context['goal_data']]
+        self.assertLess(names.index('Near Goal'), names.index('Far Goal'))
+        # Goals with no deadline appear after those with deadlines
+        self.assertLess(names.index('Far Goal'), names.index('No Deadline Goal'))
+
+    def test_progress_sort_lowest_first(self):
+        high_progress = self._make_goal('High Progress', target=Decimal('1000.00'), current=Decimal('800.00'))
+        low_progress = self._make_goal('Low Progress', target=Decimal('1000.00'), current=Decimal('100.00'))
+        mid_progress = self._make_goal('Mid Progress', target=Decimal('1000.00'), current=Decimal('500.00'))
+
+        response = self.client.get(self.url + '?sort=progress')
+        names = [item['goal'].name for item in response.context['goal_data']]
+        self.assertLess(names.index('Low Progress'), names.index('Mid Progress'))
+        self.assertLess(names.index('Mid Progress'), names.index('High Progress'))
+
+    def test_sort_context_passed_to_template(self):
+        for sort_val in ('priority', 'deadline', 'progress'):
+            response = self.client.get(self.url + f'?sort={sort_val}')
+            self.assertEqual(response.context['sort'], sort_val)
