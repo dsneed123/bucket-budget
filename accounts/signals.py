@@ -12,6 +12,7 @@ DEFAULT_BUCKETS = [
     {'name': 'Shopping',        'icon': '🛍️', 'color': '#fd79a8', 'monthly_allocation': 0},
     {'name': 'Subscriptions',   'icon': '📱', 'color': '#a29bfe', 'monthly_allocation': 0},
     {'name': 'Personal',        'icon': '👤', 'color': '#6c5ce7', 'monthly_allocation': 0},
+    {'name': 'Uncategorized',   'icon': '❓', 'color': '#636e72', 'monthly_allocation': 0, 'is_uncategorized': True},
 ]
 
 
@@ -29,7 +30,8 @@ def create_default_buckets(sender, instance, created, **kwargs):
             icon=data['icon'],
             color=data['color'],
             monthly_allocation=data['monthly_allocation'],
-            sort_order=i,
+            is_uncategorized=data.get('is_uncategorized', False),
+            sort_order=data.get('sort_order', i),
         )
         for i, data in enumerate(DEFAULT_BUCKETS)
     ]
