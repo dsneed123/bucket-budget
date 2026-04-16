@@ -25,7 +25,10 @@
             </div>
         </div>
     </div>
-    <a href="{% url 'bucket_add' %}" class="btn btn-primary">+ Add Bucket</a>
+    <div style="display: flex; gap: 8px;">
+        <a href="{% url 'quick_allocate' %}" class="btn" style="background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-primary);">Quick Allocate</a>
+        <a href="{% url 'bucket_add' %}" class="btn btn-primary">+ Add Bucket</a>
+    </div>
 </div>
 
 {% if bucket_data %}

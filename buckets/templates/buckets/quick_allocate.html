@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Quick Allocate — Bucket Budget{% endblock %}
+{% block page_title %}Quick Allocate{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px;">
+
+    <div class="card" style="margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <div class="stat-label">Monthly Income</div>
+                <div class="stat-value text-green">${{ monthly_income|floatformat:2 }}</div>
+            </div>
+            <div style="text-align: right;">
+                <div class="stat-label">Unallocated</div>
+                <div class="stat-value" id="unallocated-display">—</div>
+            </div>
+        </div>
+        {% if monthly_income == 0 %}
+        <p style="margin: 12px 0 0; font-size: 0.85rem; color: var(--accent-gold);">
+            ⚠ No monthly income set. <a href="{% url 'profile' %}" style="color: var(--accent-gold);">Update your profile</a> to enable income tracking.
+        </p>
+        {% endif %}
+    </div>
+
+    {% if bucket_rows %}
+    <form method="post" novalidate id="quick-allocate-form">
+        {% csrf_token %}
+        <div class="card">
+            <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+                <h2 class="card-title" style="margin: 0;">Distribute across buckets</h2>
+                <p class="card-subtitle" style="margin: 4px 0 0;">Set a monthly allocation for each bucket. The unallocated amount updates as you type.</p>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                {% for row in bucket_rows %}
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="font-size: 1.3rem; width: 28px; text-align: center; flex-shrink: 0;">{{ row.bucket.icon }}</div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ row.bucket.name }}</div>
+                        {% if row.bucket.description %}
+                        <div style="font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ row.bucket.description }}</div>
+                        {% endif %}
+                    </div>
+                    <div style="flex-shrink: 0; width: 140px;">
+                        <div style="position: relative;">
+                            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.9rem; pointer-events: none;">$</span>
+                            <input
+                                type="number"
+                                name="allocation_{{ row.bucket.pk }}"
+                                class="form-control alloc-input"
+                                value="{{ row.bucket.monthly_allocation|floatformat:2 }}"
+                                placeholder="0.00"
+                                step="0.01"
+                                min="0"
+                                style="padding-left: 22px;"
+                                data-bucket-id="{{ row.bucket.pk }}"
+                            >
+                        </div>
+                        {% if row.error %}
+                        <p class="form-error" style="margin: 2px 0 0; font-size: 0.75rem;">{{ row.error }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if not forloop.last %}
+                <div style="border-top: 1px solid var(--border);"></div>
+                {% endif %}
+                {% endfor %}
+            </div>
+
+            <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px;">
+                <button type="submit" class="btn btn-primary">Save All</button>
+                <a href="{% url 'bucket_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+            </div>
+        </div>
+    </form>
+    {% else %}
+    <div class="card" style="text-align: center; padding: 48px 24px;">
+        <div style="font-size: 3rem; margin-bottom: 16px;">🪣</div>
+        <h3 style="color: var(--text-primary); margin-bottom: 8px;">No buckets yet</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 24px;">Create your first bucket before using Quick Allocate.</p>
+        <a href="{% url 'bucket_add' %}" class="btn btn-primary">+ Add Bucket</a>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+(function () {
+    var income = parseFloat("{{ monthly_income }}") || 0;
+    var display = document.getElementById('unallocated-display');
+    var inputs = document.querySelectorAll('.alloc-input');
+
+    function totalAllocated() {
+        var sum = 0;
+        inputs.forEach(function (inp) {
+            var v = parseFloat(inp.value);
+            if (!isNaN(v) && v >= 0) sum += v;
+        });
+        return sum;
+    }
+
+    function update() {
+        var allocated = totalAllocated();
+        var remaining = income - allocated;
+        var formatted = '$' + Math.abs(remaining).toFixed(2);
+        if (income === 0) {
+            display.textContent = '—';
+            display.style.color = 'var(--text-secondary)';
+        } else if (remaining < 0) {
+            display.textContent = '-' + formatted;
+            display.style.color = 'var(--accent-red)';
+        } else {
+            display.textContent = formatted;
+            display.style.color = remaining === 0 ? 'var(--accent-green)' : 'var(--text-primary)';
+        }
+    }
+
+    inputs.forEach(function (inp) {
+        inp.addEventListener('input', update);
+    });
+
+    update();
+})();
+</script>
+{% endblock %}

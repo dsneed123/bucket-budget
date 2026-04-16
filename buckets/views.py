@@ -235,6 +235,51 @@ def bucket_unarchive(request, bucket_id):
 
 
 @login_required
+def quick_allocate(request):
+    buckets = list(
+        Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
+    )
+    monthly_income = request.user.monthly_income
+    errors = {}
+    success = False
+
+    if request.method == 'POST':
+        allocations = {}
+        has_errors = False
+        for bucket in buckets:
+            raw = request.POST.get(f'allocation_{bucket.pk}', '').strip()
+            if raw == '':
+                raw = '0'
+            try:
+                val = Decimal(raw)
+                if val < 0:
+                    errors[bucket.pk] = 'Must be 0 or more.'
+                    has_errors = True
+                else:
+                    allocations[bucket.pk] = val
+            except Exception:
+                errors[bucket.pk] = 'Enter a valid number.'
+                has_errors = True
+
+        if not has_errors:
+            for bucket in buckets:
+                bucket.monthly_allocation = allocations[bucket.pk]
+            Bucket.objects.bulk_update(buckets, ['monthly_allocation'])
+            success = True
+            return redirect('bucket_list')
+
+    bucket_rows = [
+        {'bucket': b, 'error': errors.get(b.pk)}
+        for b in buckets
+    ]
+
+    return render(request, 'buckets/quick_allocate.html', {
+        'bucket_rows': bucket_rows,
+        'monthly_income': monthly_income,
+    })
+
+
+@login_required
 def bucket_reorder(request):
     if request.method == 'POST':
         bucket_id = request.POST.get('bucket_id', '')
