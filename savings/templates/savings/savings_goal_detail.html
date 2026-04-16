@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}{{ goal.icon }} {{ goal.name }} — Bucket Budget{% endblock %}
+{% block page_title %}{{ goal.icon }} {{ goal.name }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px;">
+
+    <!-- Back link -->
+    <div class="mb-4">
+        <a href="{% url 'savings:savings_list' %}" style="font-size: 13px; color: var(--text-secondary); text-decoration: none;">← Savings Goals</a>
+    </div>
+
+    <!-- Goal header card -->
+    <div class="card mb-4" style="border-top: 4px solid {{ goal.color }};">
+        <div class="flex items-center justify-between" style="margin-bottom: 20px;">
+            <div>
+                <div style="font-size: 2rem; margin-bottom: 6px;">
+                    {% if goal.is_achieved %}✅{% else %}{{ goal.icon }}{% endif %}
+                </div>
+                <h2 style="margin: 0 0 4px; font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">{{ goal.name }}</h2>
+                {% if goal.description %}
+                <p style="margin: 0; font-size: 0.875rem; color: var(--text-secondary);">{{ goal.description }}</p>
+                {% endif %}
+            </div>
+            <div style="text-align: right;">
+                <span class="badge {% if goal.is_achieved %}badge-green{% elif goal.priority == 'critical' %}badge-red{% elif goal.priority == 'high' %}badge-red{% else %}badge-green{% endif %}"
+                      style="{% if goal.priority == 'high' or goal.priority == 'critical' %}background: rgba(255,71,87,0.15); color: var(--accent-red);{% elif goal.priority == 'medium' %}background: rgba(249,202,36,0.15); color: var(--accent-gold);{% else %}background: rgba(0,212,170,0.15); color: var(--accent-green);{% endif %}">
+                    {{ goal.get_priority_display }}
+                </span>
+                {% if goal.is_achieved %}
+                <div style="font-size: 0.8rem; color: var(--accent-green); font-weight: 600; margin-top: 6px;">Goal Achieved!</div>
+                {% elif is_overdue %}
+                <div style="font-size: 0.8rem; color: var(--accent-red); font-weight: 600; margin-top: 6px;">Overdue</div>
+                {% elif days_left is not None %}
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 6px;">{{ days_left }} day{{ days_left|pluralize }} left</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Progress bar (large) -->
+        <div style="margin-bottom: 20px;">
+            <div class="flex items-center justify-between" style="margin-bottom: 8px;">
+                <span style="font-size: 0.875rem; color: var(--text-secondary);">Progress</span>
+                <span style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">{{ pct }}%</span>
+            </div>
+            <div class="progress" style="height: 12px; border-radius: 6px;">
+                <div class="progress-bar" style="width: {{ pct }}%; background: {{ goal.color }}; height: 100%; border-radius: 6px; transition: width 0.4s ease;"></div>
+            </div>
+        </div>
+
+        <!-- Stats grid -->
+        <div class="grid grid-3" style="gap: 12px;">
+            <div class="card card-sm" style="text-align: center; padding: 16px;">
+                <div class="stat-label">Saved</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: var(--accent-green);">${{ goal.current_amount|floatformat:2 }}</div>
+            </div>
+            <div class="card card-sm" style="text-align: center; padding: 16px;">
+                <div class="stat-label">Target</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">${{ goal.target_amount|floatformat:2 }}</div>
+            </div>
+            <div class="card card-sm" style="text-align: center; padding: 16px;">
+                <div class="stat-label">Remaining</div>
+                <div style="font-size: 1.1rem; font-weight: 700; {% if remaining <= 0 %}color: var(--accent-green);{% else %}color: var(--text-primary);{% endif %}">${{ remaining|floatformat:2 }}</div>
+            </div>
+        </div>
+
+        {% if goal.deadline %}
+        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 0.8rem; color: var(--text-secondary);">Deadline</span>
+            <span style="font-size: 0.875rem; font-weight: 600; {% if is_overdue %}color: var(--accent-red);{% else %}color: var(--text-secondary);{% endif %}">
+                {{ goal.deadline|date:"M j, Y" }}
+            </span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Add Contribution form -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">Add Contribution</h3>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label for="amount" class="form-label">Amount</label>
+                    <input
+                        type="number"
+                        id="amount"
+                        name="amount"
+                        class="form-control"
+                        value="{{ contribution_form.amount|default:'' }}"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0.01"
+                    >
+                    {% if errors.amount %}
+                        <p class="form-error">{{ errors.amount }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="flex: 1;">
+                    <label for="source_account" class="form-label">From account</label>
+                    <select id="source_account" name="source_account" class="form-control">
+                        <option value="">— select account —</option>
+                        {% for account in accounts %}
+                        <option value="{{ account.pk }}" {% if contribution_form.source_account == account.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ account.name }} (${{ account.balance|floatformat:2 }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    {% if errors.source_account %}
+                        <p class="form-error">{{ errors.source_account }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label for="date" class="form-label">Date</label>
+                    <input
+                        type="date"
+                        id="date"
+                        name="date"
+                        class="form-control"
+                        value="{{ contribution_form.date|default:'' }}"
+                    >
+                    {% if errors.date %}
+                        <p class="form-error">{{ errors.date }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="flex: 2;">
+                    <label for="note" class="form-label">Note <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span></label>
+                    <input
+                        type="text"
+                        id="note"
+                        name="note"
+                        class="form-control"
+                        value="{{ contribution_form.note|default:'' }}"
+                        placeholder="e.g. Monthly deposit"
+                        maxlength="255"
+                    >
+                </div>
+            </div>
+
+            <div>
+                <button type="submit" class="btn btn-primary">Add contribution</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Contribution history -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Contribution History</h3>
+            <span style="font-size: 13px; color: var(--text-secondary);">{{ contributions|length }} contribution{{ contributions|length|pluralize }}</span>
+        </div>
+
+        {% if contributions %}
+        <div>
+            {% for c in contributions %}
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; {% if not forloop.last %}border-bottom: 1px solid var(--border);{% endif %}">
+                <div>
+                    <div style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">
+                        ${{ c.amount|floatformat:2 }}
+                    </div>
+                    {% if c.note %}
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">{{ c.note }}</div>
+                    {% endif %}
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 0.8rem; color: var(--text-secondary);">{{ c.date|date:"M j, Y" }}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">{{ c.source_account.name }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 32px 0; color: var(--text-secondary);">
+            <div style="font-size: 2rem; margin-bottom: 8px;">💰</div>
+            <p style="margin: 0; font-size: 0.875rem;">No contributions yet. Add your first one above.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

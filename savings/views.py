@@ -1,10 +1,12 @@
-from datetime import date
-from decimal import Decimal
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 
-from .models import SavingsGoal
+from banking.models import BankAccount
+
+from .models import SavingsContribution, SavingsGoal
 
 
 @login_required
@@ -102,7 +104,6 @@ def savings_goal_add(request):
         deadline_val = None
         if deadline:
             try:
-                from datetime import datetime
                 deadline_val = datetime.strptime(deadline, '%Y-%m-%d').date()
             except ValueError:
                 errors['deadline'] = 'Please enter a valid date.'
@@ -126,4 +127,97 @@ def savings_goal_add(request):
     return render(request, 'savings/savings_goal_add.html', {
         'errors': errors,
         'form_data': form_data,
+    })
+
+
+@login_required
+def savings_goal_detail(request, goal_id):
+    goal = get_object_or_404(SavingsGoal, pk=goal_id, user=request.user)
+    accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
+
+    errors = {}
+    contribution_form = {
+        'date': date.today().strftime('%Y-%m-%d'),
+    }
+
+    if request.method == 'POST':
+        amount_raw = request.POST.get('amount', '').strip()
+        account_id = request.POST.get('source_account', '').strip()
+        date_raw = request.POST.get('date', '').strip()
+        note = request.POST.get('note', '').strip()
+
+        contribution_form = {
+            'amount': amount_raw,
+            'source_account': account_id,
+            'date': date_raw,
+            'note': note,
+        }
+
+        amount_val = None
+        if not amount_raw:
+            errors['amount'] = 'Amount is required.'
+        else:
+            try:
+                amount_val = Decimal(amount_raw)
+                if amount_val <= 0:
+                    errors['amount'] = 'Amount must be greater than zero.'
+            except InvalidOperation:
+                errors['amount'] = 'Please enter a valid number.'
+
+        account_obj = None
+        if not account_id:
+            errors['source_account'] = 'Please select an account.'
+        else:
+            try:
+                account_obj = accounts.get(pk=account_id)
+            except BankAccount.DoesNotExist:
+                errors['source_account'] = 'Invalid account.'
+
+        date_val = None
+        if not date_raw:
+            errors['date'] = 'Date is required.'
+        else:
+            try:
+                date_val = datetime.strptime(date_raw, '%Y-%m-%d').date()
+            except ValueError:
+                errors['date'] = 'Please enter a valid date.'
+
+        if not errors:
+            SavingsContribution.objects.create(
+                goal=goal,
+                amount=amount_val,
+                source_account=account_obj,
+                date=date_val,
+                note=note,
+            )
+            return redirect('savings:savings_goal_detail', goal_id=goal.pk)
+
+    # Refresh goal after any contribution changes
+    goal.refresh_from_db()
+
+    today = date.today()
+    pct = min(int((goal.current_amount / goal.target_amount) * 100), 100) if goal.target_amount > 0 else 0
+    remaining = max(goal.target_amount - goal.current_amount, Decimal('0'))
+
+    days_left = None
+    is_overdue = False
+    if goal.deadline and not goal.is_achieved:
+        delta = (goal.deadline - today).days
+        if delta < 0:
+            is_overdue = True
+        else:
+            days_left = delta
+
+    contributions = goal.contributions.select_related('source_account').order_by('-date', '-created_at')
+
+    return render(request, 'savings/savings_goal_detail.html', {
+        'goal': goal,
+        'pct': pct,
+        'remaining': remaining,
+        'days_left': days_left,
+        'is_overdue': is_overdue,
+        'contributions': contributions,
+        'accounts': accounts,
+        'errors': errors,
+        'contribution_form': contribution_form,
     })

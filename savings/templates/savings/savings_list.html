@@ -32,7 +32,8 @@
 {% if goal_data %}
 <div class="grid grid-3">
     {% for item in goal_data %}
-    <div class="card" style="border-top: 4px solid {{ item.goal.color }};{% if item.goal.is_achieved %} opacity: 0.65;{% endif %}">
+    <a href="{% url 'savings:savings_goal_detail' item.goal.pk %}" style="text-decoration: none; display: block;">
+    <div class="card" style="border-top: 4px solid {{ item.goal.color }};{% if item.goal.is_achieved %} opacity: 0.65;{% endif %} cursor: pointer;">
         <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
             <div class="flex items-center justify-between">
                 <div>
@@ -90,6 +91,7 @@
         </div>
         {% endif %}
     </div>
+    </a>
     {% endfor %}
 </div>
 {% else %}
