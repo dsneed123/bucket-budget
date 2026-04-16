@@ -246,6 +246,57 @@
     </div>
     {% endif %}
 
+    <!-- Regret Rate -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Regret Rate</h2>
+            <span class="card-subtitle">{{ this_month_label }}</span>
+        </div>
+        {% if regret_rate is not None %}
+        <div class="regret-hero">
+            <span class="regret-rate-value {% if regret_rate == 0 %}text-green{% elif regret_rate <= 15 %}text-gold{% else %}text-red{% endif %}">{{ regret_rate }}%</span>
+            <span class="regret-rate-label text-secondary">of expenses marked as regret</span>
+        </div>
+        {% if regret_to_review %}
+        <div class="regret-nudge">
+            <span>{{ regret_to_review }} purchase{{ regret_to_review|pluralize }} older than 7 days need a verdict.</span>
+            <a href="{% url 'rankings_review_regret' %}" class="regret-nudge-link">Review now</a>
+        </div>
+        {% endif %}
+        {% if regret_bucket_rows %}
+        <table class="rankings-table" style="margin-top: 16px;">
+            <thead>
+                <tr>
+                    <th>Bucket</th>
+                    <th>Regret Rate</th>
+                    <th>Regrets</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in regret_bucket_rows %}
+                <tr>
+                    <td>
+                        <span class="bucket-chip" style="background: {{ row.color }}20; border-color: {{ row.color }}40;">
+                            {% if row.icon %}<span>{{ row.icon }}</span>{% endif %}
+                            {{ row.name }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="rankings-bucket-score {% if row.rate == 0 %}text-green{% elif row.rate <= 15 %}text-gold{% else %}text-red{% endif %}">{{ row.rate }}%</span>
+                    </td>
+                    <td class="text-secondary">{{ row.regret_count }}</td>
+                    <td class="text-secondary">{{ row.total_count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        {% else %}
+        <p class="text-secondary" style="padding: 16px 0;">No expense data this month. <a href="{% url 'rankings_review_regret' %}">Review older purchases</a> to start tracking regret.</p>
+        {% endif %}
+    </div>
+
     <!-- Vendors by Quality -->
     {% if vendor_rows %}
     <div class="card">
@@ -378,6 +429,46 @@
 
 {% block extra_css %}
 <style>
+.regret-hero {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 16px 0 8px;
+}
+
+.regret-rate-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.regret-rate-label {
+    font-size: 0.925rem;
+}
+
+.regret-nudge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(255, 71, 87, 0.07);
+    border: 1px solid rgba(255, 71, 87, 0.25);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    margin-bottom: 4px;
+}
+
+.regret-nudge-link {
+    font-weight: 600;
+    color: var(--accent-red);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.regret-nudge-link:hover {
+    text-decoration: underline;
+}
+
 .rankings-page {
     display: flex;
     flex-direction: column;

@@ -12,6 +12,47 @@ from transactions.models import Transaction
 from .models import ScoreStreak
 
 
+def _get_regret_stats(user, year, month):
+    """Return regret rate overall and per bucket for the given month."""
+    base_qs = Transaction.objects.filter(
+        user=user,
+        transaction_type='expense',
+        date__year=year,
+        date__month=month,
+    )
+    total = base_qs.count()
+    if not total:
+        return None, []
+
+    regret_count = base_qs.filter(regret=True).count()
+    overall_rate = round(regret_count / total * 100, 1)
+
+    bucket_data = (
+        base_qs.filter(bucket__isnull=False)
+        .values('bucket__id', 'bucket__name', 'bucket__icon', 'bucket__color')
+        .annotate(
+            total_count=Count('id'),
+            regret_count=Count('id', filter=Q(regret=True)),
+        )
+        .order_by('-regret_count')
+    )
+
+    bucket_rows = []
+    for row in bucket_data:
+        if row['total_count']:
+            rate = round(row['regret_count'] / row['total_count'] * 100, 1)
+            bucket_rows.append({
+                'name': row['bucket__name'],
+                'icon': row['bucket__icon'] or '',
+                'color': row['bucket__color'] or '#0984e3',
+                'regret_count': row['regret_count'],
+                'total_count': row['total_count'],
+                'rate': rate,
+            })
+
+    return overall_rate, bucket_rows
+
+
 def _get_necessity_breakdown(user, year, month):
     """Return spending breakdown by necessity category for the given month."""
     base_qs = Transaction.objects.filter(
@@ -353,6 +394,15 @@ def rankings(request):
         necessity_score__isnull=True,
     ).count()
 
+    regret_to_review = Transaction.objects.filter(
+        user=request.user,
+        transaction_type='expense',
+        regret__isnull=True,
+        date__lte=today - timedelta(days=7),
+    ).count()
+
+    regret_rate, regret_bucket_rows = _get_regret_stats(request.user, this_year, this_month)
+
     return render(request, 'rankings/rankings.html', {
         'current_score': current_score,
         'current_count': current_count,
@@ -376,6 +426,9 @@ def rankings(request):
         'current_streak': current_streak,
         'best_streak': best_streak,
         'unscored_count': unscored_count,
+        'regret_rate': regret_rate,
+        'regret_bucket_rows': regret_bucket_rows,
+        'regret_to_review': regret_to_review,
     })
 
 
@@ -422,4 +475,40 @@ def rankings_review(request):
     return render(request, 'rankings/review.html', {
         'transactions': unscored,
         'unscored_count': unscored.count(),
+    })
+
+
+@login_required
+def rankings_review_regret(request):
+    today = date.today()
+    cutoff = today - timedelta(days=7)
+
+    if request.method == 'POST':
+        tx_id = request.POST.get('transaction_id')
+        action = request.POST.get('action')
+        if tx_id and action in ('regret', 'no_regret'):
+            regret_value = action == 'regret'
+            Transaction.objects.filter(
+                id=tx_id,
+                user=request.user,
+                transaction_type='expense',
+            ).update(regret=regret_value)
+            messages.success(request, 'Response saved.')
+        return redirect('rankings_review_regret')
+
+    to_review = (
+        Transaction.objects.filter(
+            user=request.user,
+            transaction_type='expense',
+            regret__isnull=True,
+            date__lte=cutoff,
+        )
+        .select_related('bucket')
+        .order_by('-date', '-id')
+    )
+
+    return render(request, 'rankings/review_regret.html', {
+        'transactions': to_review,
+        'review_count': to_review.count(),
+        'cutoff_date': cutoff,
     })

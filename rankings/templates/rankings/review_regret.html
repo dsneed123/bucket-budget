@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% load currency_tags %}
+
+{% block title %}Regret Review — Bucket Budget{% endblock %}
+{% block page_title %}Regret Review{% endblock %}
+
+{% block content %}
+<div class="review-page">
+
+    {% if review_count %}
+    <div class="review-streak-banner" style="background: rgba(255, 71, 87, 0.08); border-color: rgba(255, 71, 87, 0.3); color: var(--accent-red);">
+        <span class="review-streak-icon">&#9888;</span>
+        <span>
+            {{ review_count }} transaction{{ review_count|pluralize }} from more than 7 days ago — do you regret any of these?
+        </span>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Purchases to Review</h2>
+            <span class="card-subtitle">
+                {% if review_count %}
+                    {{ review_count }} expense{{ review_count|pluralize }} older than 7 days — mark any you regret
+                {% else %}
+                    Nothing to review right now
+                {% endif %}
+            </span>
+        </div>
+
+        {% if transactions %}
+        <div class="review-hint">
+            <span class="review-hint-label">For each purchase:</span>
+            <span class="review-quick-legend review-quick-need">No Regret — glad I bought it</span>
+            <span class="review-quick-legend review-quick-want">Regret — wish I hadn't</span>
+        </div>
+
+        <table class="rankings-table review-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Vendor</th>
+                    <th>Amount</th>
+                    <th>Bucket</th>
+                    <th class="review-score-col">Verdict</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tx in transactions %}
+                <tr>
+                    <td class="text-secondary review-date">{{ tx.date }}</td>
+                    <td>{{ tx.description }}</td>
+                    <td class="text-secondary">{{ tx.vendor|default:"—" }}</td>
+                    <td class="review-amount">{{ tx.amount|currency:user.currency }}</td>
+                    <td>
+                        {% if tx.bucket %}
+                        <span class="bucket-chip" style="background: {{ tx.bucket.color }}20; border-color: {{ tx.bucket.color }}40;">
+                            {% if tx.bucket.icon %}<span>{{ tx.bucket.icon }}</span>{% endif %}
+                            {{ tx.bucket.name }}
+                        </span>
+                        {% else %}
+                        <span class="text-secondary">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="review-score-col">
+                        <form method="post" action="{% url 'rankings_review_regret' %}" class="score-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="transaction_id" value="{{ tx.id }}">
+                            <div class="score-controls">
+                                <button type="submit" name="action" value="no_regret" class="btn btn-score btn-need" title="No regret">No Regret</button>
+                                <button type="submit" name="action" value="regret" class="btn btn-score btn-want" title="I regret this">Regret</button>
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="review-empty">
+            <span class="review-empty-icon">&#10003;</span>
+            <p class="review-empty-title">All caught up!</p>
+            <p class="text-secondary">No purchases older than 7 days need a regret review. Check back after new transactions age.</p>
+            <a href="/rankings/" class="btn btn-primary" style="margin-top: 16px;">View Rankings</a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.review-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.review-streak-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(249, 202, 36, 0.1);
+    border: 1px solid rgba(249, 202, 36, 0.35);
+    border-radius: var(--radius);
+    font-size: 0.925rem;
+    color: var(--accent-gold);
+    font-weight: 500;
+}
+
+.review-streak-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.review-hint {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 0 16px;
+    font-size: 0.875rem;
+}
+
+.review-hint-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.review-quick-legend {
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+
+.review-quick-want   { background: rgba(255, 71, 87, 0.15); color: var(--accent-red);   border-color: rgba(255, 71, 87, 0.3); }
+.review-quick-need   { background: rgba(0, 212, 170, 0.15); color: var(--accent-green); border-color: rgba(0, 212, 170, 0.3); }
+
+.review-table {
+    table-layout: auto;
+}
+
+.review-date {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.review-amount {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.review-score-col {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.score-form {
+    margin: 0;
+}
+
+.score-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-score {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: var(--radius);
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: opacity 0.15s;
+}
+
+.btn-score:hover {
+    opacity: 0.85;
+}
+
+.btn-want {
+    background: rgba(255, 71, 87, 0.15);
+    color: var(--accent-red);
+    border-color: rgba(255, 71, 87, 0.4);
+}
+
+.btn-need {
+    background: rgba(0, 212, 170, 0.15);
+    color: var(--accent-green);
+    border-color: rgba(0, 212, 170, 0.4);
+}
+
+.review-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 48px 24px;
+    gap: 8px;
+}
+
+.review-empty-icon {
+    font-size: 3rem;
+    line-height: 1;
+    margin-bottom: 8px;
+    color: var(--accent-green);
+}
+
+.review-empty-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .review-table thead th:nth-child(3),
+    .review-table tbody td:nth-child(3),
+    .review-table thead th:nth-child(5),
+    .review-table tbody td:nth-child(5) {
+        display: none;
+    }
+
+    .score-controls {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+}
+</style>
+{% endblock %}

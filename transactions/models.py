@@ -96,6 +96,7 @@ class Transaction(models.Model):
     notes = models.TextField(blank=True)
     receipt = models.ImageField(upload_to='receipts/', null=True, blank=True)
     is_recurring = models.BooleanField(default=False)
+    regret = models.BooleanField(null=True, blank=True, default=None)
     split_group = models.UUIDField(null=True, blank=True, db_index=True)
     transfer_id = models.UUIDField(null=True, blank=True, db_index=True)
     income_source = models.ForeignKey('IncomeSource', on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions')
