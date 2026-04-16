@@ -6,8 +6,9 @@ from django.test import TestCase
 from django.urls import reverse
 
 from banking.models import BankAccount
-from .models import SavingsContribution, SavingsGoal
+from .models import AutoSaveRule, SavingsContribution, SavingsGoal
 from .views import _calculate_projected_completion
+from .management.commands.process_auto_saves import _advance_next_run
 
 User = get_user_model()
 
@@ -429,3 +430,269 @@ class SavingsGoalContributeViewTest(TestCase):
             'source_account': self.account.pk,
         })
         self.assertEqual(response.status_code, 404)
+
+
+class AdvanceNextRunTest(TestCase):
+    def test_weekly(self):
+        d = datetime.date(2026, 4, 16)
+        self.assertEqual(_advance_next_run(d, 'weekly'), datetime.date(2026, 4, 23))
+
+    def test_biweekly(self):
+        d = datetime.date(2026, 4, 16)
+        self.assertEqual(_advance_next_run(d, 'biweekly'), datetime.date(2026, 4, 30))
+
+    def test_monthly(self):
+        d = datetime.date(2026, 4, 16)
+        self.assertEqual(_advance_next_run(d, 'monthly'), datetime.date(2026, 5, 16))
+
+    def test_monthly_year_rollover(self):
+        d = datetime.date(2026, 12, 15)
+        self.assertEqual(_advance_next_run(d, 'monthly'), datetime.date(2027, 1, 15))
+
+    def test_monthly_clamps_short_month(self):
+        d = datetime.date(2026, 1, 31)
+        self.assertEqual(_advance_next_run(d, 'monthly'), datetime.date(2026, 2, 28))
+
+
+class AutoSaveRuleViewTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='auto@example.com',
+            password='testpass',
+            first_name='Auto',
+            last_name='User',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('5000.00'),
+        )
+        self.goal = SavingsGoal.objects.create(
+            user=self.user,
+            name='Car',
+            target_amount=Decimal('10000.00'),
+            current_amount=Decimal('0.00'),
+        )
+        self.client.login(email='auto@example.com', password='testpass')
+        self.list_url = reverse('savings:auto_save_rules')
+
+    def test_list_view_renders(self):
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_create_rule(self):
+        response = self.client.post(self.list_url, {
+            'amount': '200.00',
+            'goal': self.goal.pk,
+            'frequency': 'monthly',
+            'source_account': self.account.pk,
+            'next_run': '2026-05-01',
+        })
+        self.assertRedirects(response, self.list_url)
+        self.assertEqual(AutoSaveRule.objects.count(), 1)
+        rule = AutoSaveRule.objects.get()
+        self.assertEqual(rule.amount, Decimal('200.00'))
+        self.assertEqual(rule.frequency, 'monthly')
+        self.assertTrue(rule.is_active)
+
+    def test_create_rule_missing_amount(self):
+        response = self.client.post(self.list_url, {
+            'goal': self.goal.pk,
+            'frequency': 'monthly',
+            'source_account': self.account.pk,
+            'next_run': '2026-05-01',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('amount', response.context['errors'])
+        self.assertEqual(AutoSaveRule.objects.count(), 0)
+
+    def test_create_rule_invalid_frequency(self):
+        response = self.client.post(self.list_url, {
+            'amount': '100.00',
+            'goal': self.goal.pk,
+            'frequency': 'daily',
+            'source_account': self.account.pk,
+            'next_run': '2026-05-01',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('frequency', response.context['errors'])
+
+    def test_toggle_rule(self):
+        rule = AutoSaveRule.objects.create(
+            user=self.user,
+            goal=self.goal,
+            amount=Decimal('100.00'),
+            frequency='monthly',
+            source_account=self.account,
+            next_run=datetime.date(2026, 5, 1),
+        )
+        toggle_url = reverse('savings:auto_save_rule_toggle', kwargs={'rule_id': rule.pk})
+        self.client.post(toggle_url)
+        rule.refresh_from_db()
+        self.assertFalse(rule.is_active)
+
+        self.client.post(toggle_url)
+        rule.refresh_from_db()
+        self.assertTrue(rule.is_active)
+
+    def test_toggle_requires_post(self):
+        rule = AutoSaveRule.objects.create(
+            user=self.user,
+            goal=self.goal,
+            amount=Decimal('100.00'),
+            frequency='monthly',
+            source_account=self.account,
+            next_run=datetime.date(2026, 5, 1),
+        )
+        toggle_url = reverse('savings:auto_save_rule_toggle', kwargs={'rule_id': rule.pk})
+        response = self.client.get(toggle_url)
+        self.assertEqual(response.status_code, 405)
+
+    def test_delete_rule(self):
+        rule = AutoSaveRule.objects.create(
+            user=self.user,
+            goal=self.goal,
+            amount=Decimal('100.00'),
+            frequency='monthly',
+            source_account=self.account,
+            next_run=datetime.date(2026, 5, 1),
+        )
+        delete_url = reverse('savings:auto_save_rule_delete', kwargs={'rule_id': rule.pk})
+        response = self.client.post(delete_url)
+        self.assertRedirects(response, self.list_url)
+        self.assertEqual(AutoSaveRule.objects.count(), 0)
+
+    def test_delete_confirm_page(self):
+        rule = AutoSaveRule.objects.create(
+            user=self.user,
+            goal=self.goal,
+            amount=Decimal('100.00'),
+            frequency='monthly',
+            source_account=self.account,
+            next_run=datetime.date(2026, 5, 1),
+        )
+        delete_url = reverse('savings:auto_save_rule_delete', kwargs={'rule_id': rule.pk})
+        response = self.client.get(delete_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('rule', response.context)
+
+    def test_other_user_rule_returns_404(self):
+        other_user = User.objects.create_user(
+            email='other2@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        other_goal = SavingsGoal.objects.create(
+            user=other_user,
+            name='Other Goal',
+            target_amount=Decimal('500.00'),
+        )
+        other_account = BankAccount.objects.create(
+            user=other_user,
+            name='Other Checking',
+            account_type='checking',
+            balance=Decimal('1000.00'),
+        )
+        rule = AutoSaveRule.objects.create(
+            user=other_user,
+            goal=other_goal,
+            amount=Decimal('50.00'),
+            frequency='weekly',
+            source_account=other_account,
+            next_run=datetime.date(2026, 5, 1),
+        )
+        toggle_url = reverse('savings:auto_save_rule_toggle', kwargs={'rule_id': rule.pk})
+        response = self.client.post(toggle_url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_requires_login(self):
+        self.client.logout()
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response.url)
+
+
+class ProcessAutoSavesCommandTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='cmd@example.com',
+            password='testpass',
+            first_name='Cmd',
+            last_name='User',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('5000.00'),
+        )
+        self.goal = SavingsGoal.objects.create(
+            user=self.user,
+            name='Vacation',
+            target_amount=Decimal('2000.00'),
+            current_amount=Decimal('0.00'),
+        )
+
+    def _make_rule(self, next_run, frequency='monthly', is_active=True, amount=Decimal('200.00')):
+        return AutoSaveRule.objects.create(
+            user=self.user,
+            goal=self.goal,
+            amount=amount,
+            frequency=frequency,
+            source_account=self.account,
+            next_run=next_run,
+            is_active=is_active,
+        )
+
+    def test_processes_due_rule(self):
+        from django.core.management import call_command
+        rule = self._make_rule(next_run=datetime.date(2026, 4, 1))
+        call_command('process_auto_saves', date='2026-04-16', verbosity=0)
+        self.assertEqual(SavingsContribution.objects.count(), 1)
+        contribution = SavingsContribution.objects.get()
+        self.assertEqual(contribution.amount, Decimal('200.00'))
+        self.assertEqual(contribution.goal, self.goal)
+
+    def test_advances_next_run_after_processing(self):
+        from django.core.management import call_command
+        rule = self._make_rule(next_run=datetime.date(2026, 4, 1), frequency='monthly')
+        call_command('process_auto_saves', date='2026-04-16', verbosity=0)
+        rule.refresh_from_db()
+        self.assertEqual(rule.next_run, datetime.date(2026, 5, 1))
+
+    def test_skips_future_rule(self):
+        from django.core.management import call_command
+        self._make_rule(next_run=datetime.date(2026, 5, 1))
+        call_command('process_auto_saves', date='2026-04-16', verbosity=0)
+        self.assertEqual(SavingsContribution.objects.count(), 0)
+
+    def test_skips_inactive_rule(self):
+        from django.core.management import call_command
+        self._make_rule(next_run=datetime.date(2026, 4, 1), is_active=False)
+        call_command('process_auto_saves', date='2026-04-16', verbosity=0)
+        self.assertEqual(SavingsContribution.objects.count(), 0)
+
+    def test_skips_achieved_goal(self):
+        from django.core.management import call_command
+        self.goal.is_achieved = True
+        self.goal.save()
+        self._make_rule(next_run=datetime.date(2026, 4, 1))
+        call_command('process_auto_saves', date='2026-04-16', verbosity=0)
+        self.assertEqual(SavingsContribution.objects.count(), 0)
+
+    def test_dry_run_makes_no_changes(self):
+        from django.core.management import call_command
+        self._make_rule(next_run=datetime.date(2026, 4, 1))
+        call_command('process_auto_saves', date='2026-04-16', dry_run=True, verbosity=0)
+        self.assertEqual(SavingsContribution.objects.count(), 0)
+
+    def test_marks_goal_achieved_when_target_reached(self):
+        from django.core.management import call_command
+        self.goal.target_amount = Decimal('200.00')
+        self.goal.save()
+        self._make_rule(next_run=datetime.date(2026, 4, 1), amount=Decimal('200.00'))
+        call_command('process_auto_saves', date='2026-04-16', verbosity=0)
+        self.goal.refresh_from_db()
+        self.assertTrue(self.goal.is_achieved)

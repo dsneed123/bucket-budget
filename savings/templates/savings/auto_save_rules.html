@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Auto-Save Rules — Bucket Budget{% endblock %}
+{% block page_title %}Auto-Save Rules{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 380px; gap: 24px; align-items: start;">
+
+    <!-- Rules list -->
+    <div>
+        {% if rules %}
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            {% for rule in rules %}
+            <div class="card" style="opacity: {% if rule.is_active %}1{% else %}0.55{% endif %};">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span style="font-size: 1rem; font-weight: 600; color: var(--text-primary);">
+                                {{ rule.goal.icon }} {{ rule.goal.name }}
+                            </span>
+                            <span class="badge {% if rule.is_active %}badge-green{% else %}badge-gray{% endif %}" style="font-size: 0.7rem; padding: 2px 8px; border-radius: 9999px; background: {% if rule.is_active %}rgba(0,212,170,0.15){% else %}var(--bg-secondary){% endif %}; color: {% if rule.is_active %}var(--accent-green){% else %}var(--text-secondary){% endif %}; font-weight: 600;">
+                                {% if rule.is_active %}Active{% else %}Paused{% endif %}
+                            </span>
+                        </div>
+                        <div style="margin-top: 6px; font-size: 0.85rem; color: var(--text-secondary);">
+                            <strong style="color: var(--text-primary);">${{ rule.amount|floatformat:2 }}</strong>
+                            {{ rule.get_frequency_display|lower }}
+                            from <strong style="color: var(--text-primary);">{{ rule.source_account.name }}</strong>
+                        </div>
+                        <div style="margin-top: 4px; font-size: 0.78rem; color: var(--text-secondary);">
+                            Next run: {{ rule.next_run|date:"M j, Y" }}
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                        <form method="post" action="{% url 'savings:auto_save_rule_toggle' rule.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn" style="font-size: 0.8rem; padding: 6px 12px; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border);">
+                                {% if rule.is_active %}Pause{% else %}Resume{% endif %}
+                            </button>
+                        </form>
+                        <a href="{% url 'savings:auto_save_rule_delete' rule.pk %}" class="btn" style="font-size: 0.8rem; padding: 6px 12px; background: rgba(255,71,87,0.1); color: var(--accent-red); border: 1px solid rgba(255,71,87,0.3); text-decoration: none;">
+                            Delete
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card" style="text-align: center; padding: 48px 24px;">
+            <div style="font-size: 3rem; margin-bottom: 16px;">⚙️</div>
+            <h3 style="color: var(--text-primary); margin-bottom: 8px;">No auto-save rules yet</h3>
+            <p style="color: var(--text-secondary);">Set up a rule to automatically contribute to a savings goal on a schedule.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Add rule form -->
+    <div class="card" style="position: sticky; top: 24px;">
+        <div class="card-header">
+            <h2 class="card-title">New Auto-Save Rule</h2>
+            <p class="card-subtitle">Automatically contribute on a recurring schedule.</p>
+        </div>
+
+        {% if not goals %}
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">
+            You need at least one active savings goal before creating an auto-save rule.
+            <a href="{% url 'savings:savings_goal_add' %}" style="color: var(--accent-green);">Add a goal</a>.
+        </p>
+        {% elif not accounts %}
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">
+            You need at least one active bank account to create an auto-save rule.
+        </p>
+        {% else %}
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="goal" class="form-label">Savings goal</label>
+                <select id="goal" name="goal" class="form-control">
+                    <option value="">— select a goal —</option>
+                    {% for g in goals %}
+                    <option value="{{ g.pk }}" {% if form_data.goal == g.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ g.icon }} {{ g.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if errors.goal %}
+                    <p class="form-error">{{ errors.goal }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label for="amount" class="form-label">Amount</label>
+                    <input
+                        type="number"
+                        id="amount"
+                        name="amount"
+                        class="form-control"
+                        value="{{ form_data.amount|default:'' }}"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0.01"
+                    >
+                    {% if errors.amount %}
+                        <p class="form-error">{{ errors.amount }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="flex: 1;">
+                    <label for="frequency" class="form-label">Frequency</label>
+                    <select id="frequency" name="frequency" class="form-control">
+                        <option value="weekly" {% if form_data.frequency == 'weekly' %}selected{% endif %}>Weekly</option>
+                        <option value="biweekly" {% if form_data.frequency == 'biweekly' %}selected{% endif %}>Biweekly</option>
+                        <option value="monthly" {% if form_data.frequency == 'monthly' or not form_data.frequency %}selected{% endif %}>Monthly</option>
+                    </select>
+                    {% if errors.frequency %}
+                        <p class="form-error">{{ errors.frequency }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="source_account" class="form-label">Source account</label>
+                <select id="source_account" name="source_account" class="form-control">
+                    <option value="">— select an account —</option>
+                    {% for acct in accounts %}
+                    <option value="{{ acct.pk }}" {% if form_data.source_account == acct.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ acct.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if errors.source_account %}
+                    <p class="form-error">{{ errors.source_account }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="next_run" class="form-label">First run date</label>
+                <input
+                    type="date"
+                    id="next_run"
+                    name="next_run"
+                    class="form-control"
+                    value="{{ form_data.next_run|default:'' }}"
+                >
+                {% if errors.next_run %}
+                    <p class="form-error">{{ errors.next_run }}</p>
+                {% endif %}
+            </div>
+
+            <div style="margin-top: 8px;">
+                <button type="submit" class="btn btn-primary">Add rule</button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
