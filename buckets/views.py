@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import date
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -46,6 +47,59 @@ def bucket_list(request):
         'total_allocated': total_allocated,
         'total_spent': total_spent,
         'total_remaining': total_allocated - total_spent,
+    })
+
+
+@login_required
+def bucket_detail(request, bucket_id):
+    bucket = get_object_or_404(Bucket, pk=bucket_id, user=request.user, is_active=True)
+
+    today = date.today()
+    allocated = bucket.monthly_allocation
+    spent = Decimal('0')  # Will be calculated from transactions once available
+    remaining = allocated - spent
+    if allocated > 0:
+        pct = min(int((spent / allocated) * 100), 100)
+    else:
+        pct = 0
+
+    if pct >= 90:
+        bar_class = 'progress-bar-red'
+    elif pct >= 75:
+        bar_class = 'progress-bar-gold'
+    else:
+        bar_class = 'progress-bar'
+
+    # Build last 6 months history (placeholder until Transaction model exists)
+    monthly_history = []
+    year = today.year
+    month = today.month
+    for i in range(5, -1, -1):
+        m = month - i
+        y = year
+        while m <= 0:
+            m += 12
+            y -= 1
+        label = date(y, m, 1).strftime('%b')
+        monthly_history.append({'label': label, 'spent': Decimal('0'), 'allocated': allocated})
+
+    max_spent = max((h['spent'] for h in monthly_history), default=Decimal('0'))
+    max_bar = max(max_spent, allocated) or Decimal('1')
+    for h in monthly_history:
+        h['bar_pct'] = int((h['spent'] / max_bar) * 100)
+        h['alloc_pct'] = int((h['allocated'] / max_bar) * 100)
+
+    transactions = []  # Will be populated from Transaction model once available
+
+    return render(request, 'buckets/bucket_detail.html', {
+        'bucket': bucket,
+        'spent': spent,
+        'remaining': remaining,
+        'pct': pct,
+        'bar_class': bar_class,
+        'monthly_history': monthly_history,
+        'transactions': transactions,
+        'current_month': today.strftime('%B %Y'),
     })
 
 

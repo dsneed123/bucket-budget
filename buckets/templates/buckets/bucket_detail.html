@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}{{ bucket.icon }} {{ bucket.name }} — Bucket Budget{% endblock %}
+{% block page_title %}{{ bucket.icon }} {{ bucket.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex items-center justify-between">
+    <a href="{% url 'bucket_list' %}" style="font-size: 0.85rem; color: var(--text-secondary); text-decoration: none;">← Back to Buckets</a>
+    <div style="display: flex; gap: 10px;">
+        <a href="{% url 'bucket_edit' bucket.pk %}" class="btn btn-secondary" style="font-size: 0.85rem; padding: 6px 14px;">Edit</a>
+        <a href="{% url 'bucket_delete' bucket.pk %}" style="font-size: 0.85rem; padding: 6px 14px; background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.3); border-radius: 6px; color: #ff4757; text-decoration: none;">Delete</a>
+    </div>
+</div>
+
+<!-- Bucket header card -->
+<div class="card mb-4" style="border-top: 4px solid {{ bucket.color }};">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <div style="font-size: 2.5rem; margin-bottom: 6px;">{{ bucket.icon }}</div>
+            <h2 style="margin: 0 0 4px; font-size: 1.3rem; font-weight: 700; color: var(--text-primary);">{{ bucket.name }}</h2>
+            {% if bucket.description %}
+            <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);">{{ bucket.description }}</p>
+            {% endif %}
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; text-align: center; min-width: 300px;">
+            <div>
+                <div class="stat-label">Allocated</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">${{ bucket.monthly_allocation|floatformat:2 }}</div>
+            </div>
+            <div>
+                <div class="stat-label">Spent</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">${{ spent|floatformat:2 }}</div>
+            </div>
+            <div>
+                <div class="stat-label">Remaining</div>
+                <div style="font-size: 1.1rem; font-weight: 700; {% if remaining >= 0 %}color: var(--accent-green);{% else %}color: var(--accent-red);{% endif %}">${{ remaining|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px;">
+            <span>{{ current_month }} spending</span>
+            <span>{{ pct }}% used</span>
+        </div>
+        <div class="progress" style="height: 10px;">
+            <div class="{{ bar_class }}" style="width: {{ pct }}%;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 6-month spending history chart -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title" style="font-size: 1rem;">Spending History</h3>
+        <p class="card-subtitle">Last 6 months</p>
+    </div>
+    <div style="display: flex; align-items: flex-end; gap: 12px; height: 120px; padding-top: 8px;">
+        {% for month in monthly_history %}
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%;">
+            <div style="flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; position: relative;">
+                <!-- allocation guide line -->
+                <div style="position: absolute; bottom: {{ month.alloc_pct }}%; left: 0; right: 0; border-top: 1px dashed rgba(255,255,255,0.15);"></div>
+                <!-- spent bar -->
+                <div style="width: 100%; height: {{ month.bar_pct }}%; background: {{ bucket.color }}; border-radius: 3px 3px 0 0; min-height: {% if month.spent > 0 %}4px{% else %}2px{% endif %}; opacity: {% if month.spent > 0 %}1{% else %}0.25{% endif %};"></div>
+            </div>
+            <div style="font-size: 0.7rem; color: var(--text-secondary); white-space: nowrap;">{{ month.label }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    <div style="display: flex; align-items: center; gap: 16px; margin-top: 12px; font-size: 0.75rem; color: var(--text-secondary);">
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="width: 12px; height: 12px; background: {{ bucket.color }}; border-radius: 2px;"></div>
+            <span>Spent</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="width: 12px; height: 1px; border-top: 1px dashed rgba(255,255,255,0.4);"></div>
+            <span>Allocation</span>
+        </div>
+    </div>
+</div>
+
+<!-- Transactions this month -->
+<div class="card">
+    <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0;">
+        <div>
+            <h3 class="card-title" style="font-size: 1rem;">Transactions — {{ current_month }}</h3>
+            <p class="card-subtitle">All spending recorded in this bucket this month.</p>
+        </div>
+    </div>
+
+    {% if transactions %}
+    <div style="margin-top: 16px;">
+        <div style="display: grid; grid-template-columns: 1fr auto auto; gap: 0; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 8px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">
+            <span>Description</span>
+            <span style="text-align: right; padding-right: 24px;">Date</span>
+            <span style="text-align: right;">Amount</span>
+        </div>
+        {% for tx in transactions %}
+        <div style="display: grid; grid-template-columns: 1fr auto auto; gap: 0; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; align-items: center;">
+            <div>
+                <span style="color: var(--text-primary);">{{ tx.description }}</span>
+                {% if tx.note %}
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">{{ tx.note }}</div>
+                {% endif %}
+            </div>
+            <div style="text-align: right; padding-right: 24px; color: var(--text-secondary); font-size: 0.8rem; white-space: nowrap;">{{ tx.date }}</div>
+            <div style="text-align: right; font-weight: 600; color: var(--accent-red);">-${{ tx.amount|floatformat:2 }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 32px 0; color: var(--text-secondary);">
+        <div style="font-size: 2rem; margin-bottom: 8px;">🧾</div>
+        <p style="margin: 0; font-size: 0.9rem;">No transactions this month.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
