@@ -6,6 +6,7 @@
     <title>{% block title %}Bucket Budget{% endblock %}</title>
     {% load static %}
     {% load avatar_tags %}
+    {% load currency_tags %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     {% block extra_css %}{% endblock %}
 </head>
@@ -73,7 +74,7 @@
                 </div>
                 <div class="user-info">
                     {% if user.is_authenticated %}
-                        <span class="balance-display">$0.00</span>
+                        <span class="balance-display {% if net_worth >= 0 %}balance-positive{% else %}balance-negative{% endif %}">{{ net_worth|currency:user.currency }}</span>
                         <span class="username">Hi, {{ user.first_name|default:user.username }}</span>
                         <a href="/profile/" class="avatar" style="background-color: {{ user.email|avatar_color }};" title="{{ user.first_name }} {{ user.last_name }}">{{ user|avatar_initials }}</a>
                     {% else %}
