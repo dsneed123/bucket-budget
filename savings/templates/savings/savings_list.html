@@ -30,6 +30,15 @@
 </div>
 
 {% if goal_data %}
+<div class="flex items-center" style="gap: 8px; margin-bottom: 16px;">
+    <span style="font-size: 0.8rem; color: var(--text-secondary);">Sort by:</span>
+    <a href="?sort=priority" class="btn {% if sort == 'priority' %}btn-primary{% endif %}"
+       style="padding: 4px 12px; font-size: 0.8rem;">Priority</a>
+    <a href="?sort=deadline" class="btn {% if sort == 'deadline' %}btn-primary{% endif %}"
+       style="padding: 4px 12px; font-size: 0.8rem;">Deadline</a>
+    <a href="?sort=progress" class="btn {% if sort == 'progress' %}btn-primary{% endif %}"
+       style="padding: 4px 12px; font-size: 0.8rem;">Progress</a>
+</div>
 <div class="grid grid-3">
     {% for item in goal_data %}
     <a href="{% url 'savings:savings_goal_detail' item.goal.pk %}" style="text-decoration: none; display: block;">
