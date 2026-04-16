@@ -402,4 +402,7 @@ def dismiss_recommendation(request, rec_id):
         rec = get_object_or_404(Recommendation, pk=rec_id, user=request.user)
         rec.is_dismissed = True
         rec.save()
+        next_url = request.POST.get('next', '')
+        if next_url == '/dashboard/':
+            return redirect('dashboard')
     return redirect('insights')

@@ -38,6 +38,41 @@
     </div>
 </div>
 
+<!-- Recommendations -->
+{% if recommendations %}
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+            <h2 class="card-title">Recommendations</h2>
+            <p class="card-subtitle">Personalized tips based on your spending</p>
+        </div>
+        <a href="{% url 'insights' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+        {% for rec in recommendations %}
+        <div class="recommendation-card recommendation-priority-{{ rec.priority }}">
+            <div class="recommendation-icon">
+                {% if rec.category == 'budget' %}&#128179;
+                {% elif rec.category == 'savings' %}&#127381;
+                {% elif rec.category == 'quality' %}&#9888;
+                {% elif rec.category == 'vendor' %}&#128722;
+                {% endif %}
+            </div>
+            <div class="recommendation-body">
+                <span class="recommendation-category text-secondary">{{ rec.get_category_display }}</span>
+                <p class="recommendation-message">{{ rec.message }}</p>
+            </div>
+            <form method="post" action="{% url 'dismiss_recommendation' rec.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="/dashboard/">
+                <button type="submit" class="recommendation-dismiss" title="Dismiss">&times;</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <!-- Budget Snapshot Widget -->
 {% if total_allocated > 0 %}
 <div class="card" style="margin-bottom: 24px;">

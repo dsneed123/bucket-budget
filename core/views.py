@@ -9,6 +9,8 @@ from django.shortcuts import render
 
 from banking.models import BankAccount
 from buckets.models import Bucket
+from insights.models import Recommendation
+from insights.recommendations import refresh_recommendations
 from savings.models import SavingsGoal
 from transactions.models import RecurringTransaction, Transaction
 
@@ -98,6 +100,13 @@ def dashboard(request):
     top_bucket_data.sort(key=lambda x: x['pct'], reverse=True)
     top_buckets = top_bucket_data[:3]
 
+    refresh_recommendations(request.user)
+    _priority_order = {Recommendation.PRIORITY_HIGH: 0, Recommendation.PRIORITY_MEDIUM: 1, Recommendation.PRIORITY_LOW: 2}
+    recommendations = sorted(
+        Recommendation.objects.filter(user=request.user, is_dismissed=False),
+        key=lambda r: _priority_order.get(r.priority, 3),
+    )[:3]
+
     upcoming_end = today + datetime.timedelta(days=7)
     upcoming_recurring = (
         RecurringTransaction.objects.filter(
@@ -129,4 +138,5 @@ def dashboard(request):
         'ideal_daily_spend': ideal_daily_spend,
         'top_buckets': top_buckets,
         'upcoming_recurring': upcoming_recurring,
+        'recommendations': recommendations,
     })
