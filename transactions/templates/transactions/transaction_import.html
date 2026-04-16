@@ -99,6 +99,15 @@
 
 {% elif step == 'preview' %}
 {# ── Preview ──────────────────────────────────────────────────────────── #}
+
+{% if ok_count %}
+<form method="post">
+{% csrf_token %}
+<input type="hidden" name="step" value="confirm">
+<input type="hidden" name="account_id" value="{{ account.pk }}">
+<input type="hidden" name="rows_json" value="{{ rows_json }}">
+{% endif %}
+
 <div class="card" style="margin-bottom: 16px;">
     <div class="card-header">
         <h2 class="card-title">Preview</h2>
@@ -110,16 +119,14 @@
     </div>
 
     {% if ok_count %}
-    <form method="post">
-        {% csrf_token %}
-        <input type="hidden" name="step" value="confirm">
-        <input type="hidden" name="account_id" value="{{ account.pk }}">
-        <input type="hidden" name="rows_json" value="{{ rows_json }}">
-        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-            <button type="submit" class="btn btn-primary">Confirm Import ({{ ok_count }} row{{ ok_count|pluralize }})</button>
-            <a href="{% url 'transaction_import_csv' %}" class="btn">Cancel</a>
-        </div>
-    </form>
+    <div style="display: flex; gap: 8px; margin-bottom: 4px;">
+        <button type="submit" class="btn btn-primary">Confirm Import ({{ ok_count }} row{{ ok_count|pluralize }})</button>
+        <a href="{% url 'transaction_import_csv' %}" class="btn">Cancel</a>
+    </div>
+    <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0 0 8px;">
+        <span style="display: inline-block; padding: 1px 6px; border-radius: 9999px; background: var(--accent-blue, #0984e3); color: #fff; font-size: 0.7rem; font-weight: 600; vertical-align: middle;">Auto</span>
+        = bucket matched via your saved vendor mappings. Use the dropdown to override before importing.
+    </p>
     {% else %}
     <div style="margin-bottom: 16px;">
         <a href="{% url 'transaction_import_csv' %}" class="btn">Upload a different file</a>
@@ -145,19 +152,31 @@
             <tr style="border-bottom: 1px solid var(--border-color); {% if row.status == 'error' %}opacity: 0.6;{% endif %}">
                 <td style="padding: 8px 12px; color: var(--text-secondary);">{{ row.row_num }}</td>
                 <td style="padding: 8px 12px; white-space: nowrap;">{{ row.date }}</td>
-                <td style="padding: 8px 12px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ row.description }}">{{ row.description }}</td>
+                <td style="padding: 8px 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ row.description }}">{{ row.description }}</td>
                 <td style="padding: 8px 12px; text-align: right; font-weight: 600;
                     {% if row.transaction_type == 'expense' %}color: var(--accent-red);{% elif row.transaction_type == 'income' %}color: var(--accent-green);{% endif %}">
                     {% if row.transaction_type == 'expense' %}-{% elif row.transaction_type == 'income' %}+{% endif %}{{ row.amount }}
                 </td>
                 <td style="padding: 8px 12px; text-transform: capitalize;">{{ row.transaction_type }}</td>
-                <td style="padding: 8px 12px;">
-                    {% if row.bucket_name %}
-                        {{ row.bucket_name }}
-                    {% elif row.category %}
-                        <span style="color: var(--accent-orange);" title="No matching bucket found">{{ row.category }} (?)</span>
+                <td style="padding: 8px 12px; min-width: 180px;">
+                    {% if row.status == 'ok' %}
+                        {% if row.match_source == 'vendor' %}
+                            <span style="display: inline-block; padding: 1px 5px; border-radius: 9999px; background: var(--accent-blue, #0984e3); color: #fff; font-size: 0.7rem; font-weight: 600; margin-right: 4px; vertical-align: middle;">Auto</span>
+                        {% endif %}
+                        <select name="bucket_{{ row.row_num }}" style="font-size: 0.8rem; padding: 2px 4px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary); max-width: 180px;">
+                            <option value="">— no bucket —</option>
+                            {% for b in buckets %}
+                            <option value="{{ b.pk }}" {% if b.pk == row.bucket_id %}selected{% endif %}>{{ b.name }}</option>
+                            {% endfor %}
+                        </select>
                     {% else %}
-                        <span style="color: var(--text-secondary);">—</span>
+                        {% if row.bucket_name %}
+                            {{ row.bucket_name }}
+                        {% elif row.category %}
+                            <span style="color: var(--accent-orange);" title="No matching bucket found">{{ row.category }} (?)</span>
+                        {% else %}
+                            <span style="color: var(--text-secondary);">—</span>
+                        {% endif %}
                     {% endif %}
                 </td>
                 <td style="padding: 8px 12px;">
@@ -176,6 +195,10 @@
         </tbody>
     </table>
 </div>
+
+{% if ok_count %}
+</form>
+{% endif %}
 
 {% else %}
 {# ── Upload form ──────────────────────────────────────────────────────── #}
