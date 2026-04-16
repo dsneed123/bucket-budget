@@ -511,3 +511,155 @@ class TransactionDeleteViewTest(TestCase):
         self.client.post(self.url)
         count_after = BalanceHistory.objects.filter(account=self.account).count()
         self.assertGreater(count_after, count_before)
+
+
+class TransactionAddSplitViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='split@example.com',
+            password='testpass',
+            first_name='Split',
+            last_name='User',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('500.00'),
+        )
+        self.bucket1 = Bucket.objects.create(
+            user=self.user,
+            name='Groceries',
+            monthly_allocation=Decimal('300.00'),
+        )
+        self.bucket2 = Bucket.objects.create(
+            user=self.user,
+            name='Shopping',
+            monthly_allocation=Decimal('200.00'),
+        )
+        self.client.login(email='split@example.com', password='testpass')
+        self.url = reverse('transaction_add_split')
+
+    def _post(self, **overrides):
+        data = {
+            'transaction_type': 'expense',
+            'description': 'Costco run',
+            'vendor': 'Costco',
+            'account': str(self.account.pk),
+            'date': '2026-04-16',
+            'split_amount': ['60.00', '40.00'],
+            'split_bucket': [str(self.bucket1.pk), str(self.bucket2.pk)],
+        }
+        data.update(overrides)
+        return self.client.post(self.url, data)
+
+    def test_get_renders_form(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Split Transaction')
+
+    def test_redirect_if_not_logged_in(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response['Location'])
+
+    def test_successful_split_creates_two_transactions(self):
+        response = self._post()
+        self.assertRedirects(response, reverse('transaction_list'))
+        txns = Transaction.objects.filter(user=self.user, description='Costco run').order_by('amount')
+        self.assertEqual(txns.count(), 2)
+        amounts = [t.amount for t in txns]
+        self.assertIn(Decimal('40.00'), amounts)
+        self.assertIn(Decimal('60.00'), amounts)
+
+    def test_split_transactions_share_same_split_group(self):
+        self._post()
+        txns = Transaction.objects.filter(user=self.user, description='Costco run')
+        groups = set(t.split_group for t in txns)
+        self.assertEqual(len(groups), 1)
+        self.assertIsNotNone(list(groups)[0])
+
+    def test_split_reduces_account_balance_by_total(self):
+        self._post()
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('400.00'))
+
+    def test_split_assigns_buckets_correctly(self):
+        self._post()
+        txns = {t.bucket_id: t for t in Transaction.objects.filter(user=self.user, description='Costco run')}
+        self.assertIn(self.bucket1.pk, txns)
+        self.assertIn(self.bucket2.pk, txns)
+        self.assertEqual(txns[self.bucket1.pk].amount, Decimal('60.00'))
+        self.assertEqual(txns[self.bucket2.pk].amount, Decimal('40.00'))
+
+    def test_split_with_no_bucket_is_allowed(self):
+        response = self._post(**{
+            'split_amount': ['60.00', '40.00'],
+            'split_bucket': ['', ''],
+        })
+        self.assertRedirects(response, reverse('transaction_list'))
+        txns = Transaction.objects.filter(user=self.user, description='Costco run')
+        self.assertEqual(txns.count(), 2)
+        for t in txns:
+            self.assertIsNone(t.bucket)
+
+    def test_missing_description_shows_error(self):
+        response = self._post(description='')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Description is required')
+        self.assertEqual(Transaction.objects.filter(user=self.user).count(), 0)
+
+    def test_missing_account_shows_error(self):
+        response = self._post(account='')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Account is required')
+
+    def test_only_one_split_row_shows_error(self):
+        response = self._post(**{
+            'split_amount': ['100.00'],
+            'split_bucket': [''],
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'At least two splits')
+
+    def test_zero_amount_split_shows_error(self):
+        response = self._post(**{
+            'split_amount': ['0.00', '40.00'],
+            'split_bucket': ['', ''],
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Transaction.objects.filter(user=self.user).count(), 0)
+
+    def test_invalid_amount_shows_error(self):
+        response = self._post(**{
+            'split_amount': ['abc', '40.00'],
+            'split_bucket': ['', ''],
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Transaction.objects.filter(user=self.user).count(), 0)
+
+    def test_other_user_account_rejected(self):
+        other_user = User.objects.create_user(
+            email='other@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        other_account = BankAccount.objects.create(
+            user=other_user,
+            name='Other Checking',
+            account_type='checking',
+            balance=Decimal('200.00'),
+        )
+        response = self._post(account=str(other_account.pk))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'valid account')
+        self.assertEqual(Transaction.objects.filter(user=self.user).count(), 0)
+
+    def test_income_split_increases_balance(self):
+        response = self._post(transaction_type='income')
+        self.assertRedirects(response, reverse('transaction_list'))
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('600.00'))

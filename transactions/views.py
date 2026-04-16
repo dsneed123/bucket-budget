@@ -1,4 +1,5 @@
 import datetime
+import uuid
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
 
@@ -365,6 +366,134 @@ def transaction_edit(request, transaction_id):
 
     return render(request, 'transactions/transaction_edit.html', {
         'transaction': transaction,
+        'errors': errors,
+        'form_data': form_data,
+        'accounts': accounts,
+        'buckets': buckets,
+    })
+
+
+@login_required
+def transaction_add_split(request):
+    accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
+    buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
+
+    errors = {}
+    # Default two empty split rows
+    default_splits = [{'amount': '', 'bucket': ''}, {'amount': '', 'bucket': ''}]
+    form_data = {
+        'transaction_type': 'expense',
+        'date': datetime.date.today().isoformat(),
+        'splits': default_splits,
+    }
+
+    if request.method == 'POST':
+        transaction_type = request.POST.get('transaction_type', '').strip()
+        description = request.POST.get('description', '').strip()
+        vendor = request.POST.get('vendor', '').strip()
+        account_id = request.POST.get('account', '').strip()
+        date_str = request.POST.get('date', '').strip()
+
+        # Collect split rows from POST (arrays: split_amount[], split_bucket[])
+        split_amounts = request.POST.getlist('split_amount')
+        split_buckets = request.POST.getlist('split_bucket')
+        splits_raw = [
+            {'amount': a.strip(), 'bucket': b.strip()}
+            for a, b in zip(split_amounts, split_buckets)
+        ]
+
+        form_data = {
+            'transaction_type': transaction_type,
+            'description': description,
+            'vendor': vendor,
+            'account': account_id,
+            'date': date_str,
+            'splits': splits_raw if splits_raw else default_splits,
+        }
+
+        # Validate transaction_type
+        if not transaction_type:
+            errors['transaction_type'] = 'Transaction type is required.'
+        elif transaction_type not in ('expense', 'income'):
+            errors['transaction_type'] = 'Please select expense or income.'
+
+        # Validate description
+        if not description:
+            errors['description'] = 'Description is required.'
+
+        # Validate account
+        account = None
+        if not account_id:
+            errors['account'] = 'Account is required.'
+        else:
+            try:
+                account = accounts.get(pk=account_id)
+            except BankAccount.DoesNotExist:
+                errors['account'] = 'Please select a valid account.'
+
+        # Validate date
+        date_val = None
+        if not date_str:
+            errors['date'] = 'Date is required.'
+        else:
+            try:
+                date_val = datetime.date.fromisoformat(date_str)
+            except ValueError:
+                errors['date'] = 'Please enter a valid date.'
+
+        # Validate splits
+        split_errors = {}
+        validated_splits = []
+        non_empty = [(i, s) for i, s in enumerate(splits_raw) if s['amount'] or s['bucket']]
+
+        if len(non_empty) < 2:
+            errors['splits'] = 'At least two splits are required.'
+        else:
+            for i, split in non_empty:
+                row_errors = {}
+                amount_val = None
+                if not split['amount']:
+                    row_errors['amount'] = 'Required.'
+                else:
+                    try:
+                        amount_val = Decimal(split['amount'])
+                        if amount_val <= 0:
+                            row_errors['amount'] = 'Must be greater than zero.'
+                    except InvalidOperation:
+                        row_errors['amount'] = 'Enter a valid amount.'
+
+                bucket = None
+                if split['bucket']:
+                    try:
+                        bucket = buckets.get(pk=split['bucket'])
+                    except Bucket.DoesNotExist:
+                        row_errors['bucket'] = 'Invalid bucket.'
+
+                if row_errors:
+                    split_errors[i] = row_errors
+                else:
+                    validated_splits.append({'amount': amount_val, 'bucket': bucket, 'index': i})
+
+            if split_errors:
+                errors['split_rows'] = split_errors
+
+        if not errors:
+            group_id = uuid.uuid4()
+            for split in validated_splits:
+                Transaction.objects.create(
+                    user=request.user,
+                    account=account,
+                    bucket=split['bucket'],
+                    amount=split['amount'],
+                    transaction_type=transaction_type,
+                    description=description,
+                    vendor=vendor,
+                    date=date_val,
+                    split_group=group_id,
+                )
+            return redirect('transaction_list')
+
+    return render(request, 'transactions/transaction_add_split.html', {
         'errors': errors,
         'form_data': form_data,
         'accounts': accounts,
