@@ -81,12 +81,26 @@ def budget_overview(request, year=None, month=None):
 
     bucket_data.sort(key=lambda x: x['pct'], reverse=True)
 
+    zero_based = request.user.zero_based_budgeting
+    every_dollar_assigned = zero_based and monthly_income > 0 and unallocated == Decimal('0')
+
     alerts = []
     if monthly_income > 0 and total_allocated > monthly_income:
         alerts.append({
             'level': 'error',
             'message': f'Total allocations ({total_allocated:,.2f}) exceed your monthly income. Reduce bucket allocations to balance your budget.',
         })
+    if zero_based and monthly_income > 0 and unallocated != Decimal('0'):
+        if unallocated > 0:
+            alerts.append({
+                'level': 'warning',
+                'message': f'Zero-based budgeting: {unallocated:,.2f} unallocated. Assign every dollar to a bucket to complete your budget.',
+            })
+        else:
+            alerts.append({
+                'level': 'warning',
+                'message': f'Zero-based budgeting: allocations exceed income by {abs(unallocated):,.2f}. Reduce bucket allocations to reach zero.',
+            })
     for item in bucket_data:
         threshold = item['bucket'].alert_threshold
         if item['pct'] >= threshold and item['bucket'].monthly_allocation > 0:
@@ -151,6 +165,8 @@ def budget_overview(request, year=None, month=None):
         'ideal_daily_spend': ideal_daily_spend,
         'alloc_saved': request.GET.get('saved') == '1',
         'alerts': alerts,
+        'zero_based': zero_based,
+        'every_dollar_assigned': every_dollar_assigned,
     })
 
 
