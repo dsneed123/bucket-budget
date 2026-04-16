@@ -89,6 +89,7 @@
                 <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Vendor</th>
                 <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Bucket</th>
                 <th style="padding: 10px 12px; text-align: right; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Amount</th>
+                <th style="padding: 10px 12px; text-align: right; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Balance</th>
                 <th style="padding: 10px 12px; text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Score</th>
                 <th style="padding: 10px 12px; text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;"></th>
             </tr>
@@ -107,6 +108,13 @@
                         <span style="color: var(--accent-green);">+{{ txn.amount|currency:request.user.currency }}</span>
                     {% else %}
                         <span style="color: var(--accent-red);">-{{ txn.amount|currency:request.user.currency }}</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 12px; text-align: right; font-size: 0.85rem; white-space: nowrap;">
+                    {% if balance_is_absolute %}
+                        <span style="color: {% if txn.running_balance >= 0 %}var(--accent-green){% else %}var(--accent-red){% endif %};">{{ txn.running_balance|currency:request.user.currency }}</span>
+                    {% else %}
+                        <span style="color: var(--text-secondary);">{{ txn.running_balance|currency:request.user.currency }}</span>
                     {% endif %}
                 </td>
                 <td style="padding: 12px; text-align: center; font-size: 0.85rem; color: var(--text-secondary);">
