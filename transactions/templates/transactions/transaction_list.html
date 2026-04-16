@@ -114,6 +114,8 @@
                 </td>
                 <td style="padding: 12px; text-align: center;">
                     <a href="{% url 'transaction_edit' txn.pk %}" style="font-size: 0.8rem; color: var(--text-secondary); text-decoration: none;">Edit</a>
+                    <span style="color: var(--border); margin: 0 6px;">|</span>
+                    <a href="{% url 'transaction_delete' txn.pk %}" style="font-size: 0.8rem; color: #ff4757; text-decoration: none;">Delete</a>
                 </td>
             </tr>
             {% endfor %}

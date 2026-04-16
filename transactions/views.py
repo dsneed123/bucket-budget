@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 
 from banking.models import BankAccount
 from buckets.models import Bucket
@@ -228,7 +228,6 @@ def transaction_add(request):
 
 @login_required
 def transaction_edit(request, transaction_id):
-    from django.shortcuts import get_object_or_404
     transaction = get_object_or_404(Transaction, pk=transaction_id, user=request.user)
 
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
@@ -378,4 +377,26 @@ def transaction_edit(request, transaction_id):
         'form_data': form_data,
         'accounts': accounts,
         'buckets': buckets,
+    })
+
+
+@login_required
+def transaction_delete(request, transaction_id):
+    transaction = get_object_or_404(Transaction, pk=transaction_id, user=request.user)
+
+    if request.method == 'POST':
+        account = transaction.account
+
+        # Reverse the balance impact before deleting
+        if transaction.transaction_type == 'expense':
+            account.balance = account.balance + transaction.amount
+        else:  # income
+            account.balance = account.balance - transaction.amount
+        account.save(change_reason='transaction')
+
+        transaction.delete()
+        return redirect('transaction_list')
+
+    return render(request, 'transactions/transaction_delete.html', {
+        'transaction': transaction,
     })

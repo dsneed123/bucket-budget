@@ -414,3 +414,100 @@ class TransactionEditViewTest(TestCase):
         self.assertRedirects(response, reverse('transaction_list'))
         self.transaction.refresh_from_db()
         self.assertIsNone(self.transaction.necessity_score)
+
+
+class TransactionDeleteViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='delete@example.com',
+            password='testpass',
+            first_name='Delete',
+            last_name='User',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('450.00'),
+        )
+        self.client.login(email='delete@example.com', password='testpass')
+        self.transaction = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('50.00'),
+            transaction_type='expense',
+            description='Purchase to delete',
+            date=datetime.date(2026, 4, 16),
+        )
+        self.url = reverse('transaction_delete', args=[self.transaction.pk])
+
+    def test_get_renders_confirmation_page(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Purchase to delete')
+
+    def test_redirect_if_not_logged_in(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response['Location'])
+
+    def test_cannot_delete_other_users_transaction(self):
+        other_user = User.objects.create_user(
+            email='other4@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        other_account = BankAccount.objects.create(
+            user=other_user,
+            name='Other Checking',
+            account_type='checking',
+            balance=Decimal('200.00'),
+        )
+        other_txn = Transaction.objects.create(
+            user=other_user,
+            account=other_account,
+            amount=Decimal('20.00'),
+            transaction_type='expense',
+            description='Other transaction',
+            date=datetime.date(2026, 4, 16),
+        )
+        url = reverse('transaction_delete', args=[other_txn.pk])
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_delete_expense_removes_transaction_and_restores_balance(self):
+        response = self.client.post(self.url)
+        self.assertRedirects(response, reverse('transaction_list'))
+        self.assertFalse(Transaction.objects.filter(pk=self.transaction.pk).exists())
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('500.00'))
+
+    def test_delete_income_removes_transaction_and_reduces_balance(self):
+        income_txn = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('100.00'),
+            transaction_type='income',
+            description='Income to delete',
+            date=datetime.date(2026, 4, 16),
+        )
+        # Manually reflect the income in balance
+        self.account.balance = Decimal('550.00')
+        self.account.save()
+
+        url = reverse('transaction_delete', args=[income_txn.pk])
+        response = self.client.post(url)
+        self.assertRedirects(response, reverse('transaction_list'))
+        self.assertFalse(Transaction.objects.filter(pk=income_txn.pk).exists())
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('450.00'))
+
+    def test_delete_creates_balance_history(self):
+        from banking.models import BalanceHistory
+        count_before = BalanceHistory.objects.filter(account=self.account).count()
+        self.client.post(self.url)
+        count_after = BalanceHistory.objects.filter(account=self.account).count()
+        self.assertGreater(count_after, count_before)
