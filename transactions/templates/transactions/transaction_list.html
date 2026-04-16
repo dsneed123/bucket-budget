@@ -5,6 +5,7 @@
 
 {% block content %}
 <div style="margin-bottom: 16px; display: flex; justify-content: flex-end; gap: 8px;">
+    <a href="{% url 'transaction_import_csv' %}" class="btn">Import CSV</a>
     <a href="{% url 'transaction_export_csv' %}{% if filter_qs %}?{{ filter_qs }}{% endif %}" class="btn">Export CSV</a>
     <a href="{% url 'transaction_add' %}" class="btn btn-primary">+ Add Transaction</a>
 </div>

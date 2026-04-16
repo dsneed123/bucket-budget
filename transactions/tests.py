@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, Client
 from django.urls import reverse
 
@@ -1307,3 +1308,254 @@ class TransactionExportCsvViewTest(TestCase):
         response = self.client.get(self.url)
         rows = self._get_csv_rows(response)
         self.assertEqual(rows[1][7], '7')
+
+
+class TransactionImportCsvViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='import@example.com',
+            password='testpass',
+            first_name='Import',
+            last_name='User',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('500.00'),
+        )
+        self.bucket = Bucket.objects.create(
+            user=self.user,
+            name='Groceries',
+            monthly_allocation=Decimal('300.00'),
+        )
+        self.client.login(email='import@example.com', password='testpass')
+        self.url = reverse('transaction_import_csv')
+
+    def _make_csv(self, content):
+        """Return an in-memory CSV file-like object."""
+        return io.BytesIO(content.encode('utf-8'))
+
+    def test_redirect_if_not_logged_in(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response['Location'])
+
+    def test_get_shows_upload_form(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Upload CSV')
+        self.assertContains(response, 'csv_file')
+
+    def test_upload_missing_file_shows_error(self):
+        response = self.client.post(self.url, {
+            'step': 'upload',
+            'account': str(self.account.pk),
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Please select a CSV file')
+
+    def test_upload_missing_account_shows_error(self):
+        csv_content = 'date,description,amount\n2026-01-15,Test,-10.00\n'
+        f = self._make_csv(csv_content)
+        f.name = 'test.csv'
+        response = self.client.post(self.url, {
+            'step': 'upload',
+            'csv_file': f,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Account is required')
+
+    def test_upload_missing_required_columns_shows_error(self):
+        csv_content = 'date,description\n2026-01-15,No amount column\n'
+        f = self._make_csv(csv_content)
+        f.name = 'test.csv'
+        response = self.client.post(self.url, {
+            'step': 'upload',
+            'account': str(self.account.pk),
+            'csv_file': f,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Missing required columns')
+
+    def test_upload_valid_csv_shows_preview(self):
+        csv_content = 'date,description,amount\n2026-01-15,Grocery Store,-45.99\n'
+        f = self._make_csv(csv_content)
+        f.name = 'test.csv'
+        response = self.client.post(self.url, {
+            'step': 'upload',
+            'account': str(self.account.pk),
+            'csv_file': f,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['step'], 'preview')
+        self.assertEqual(response.context['ok_count'], 1)
+        self.assertEqual(response.context['error_count'], 0)
+
+    def test_preview_negative_amount_is_expense(self):
+        csv_content = 'date,description,amount\n2026-01-15,Coffee,-5.00\n'
+        f = self._make_csv(csv_content)
+        f.name = 'test.csv'
+        response = self.client.post(self.url, {
+            'step': 'upload',
+            'account': str(self.account.pk),
+            'csv_file': f,
+        })
+        row = response.context['preview_rows'][0]
+        self.assertEqual(row['transaction_type'], 'expense')
+        self.assertEqual(row['amount'], '5.00')
+
+    def test_preview_positive_amount_is_income(self):
+        csv_content = 'date,description,amount\n2026-01-16,Paycheck,2500.00\n'
+        f = self._make_csv(csv_content)
+        f.name = 'test.csv'
+        response = self.client.post(self.url, {
+            'step': 'upload',
+            'account': str(self.account.pk),
+            'csv_file': f,
+        })
+        row = response.context['preview_rows'][0]
+        self.assertEqual(row['transaction_type'], 'income')
+
+    def test_preview_category_matched_to_bucket(self):
+        csv_content = 'date,description,amount,category\n2026-01-15,Groceries,-20.00,Groceries\n'
+        f = self._make_csv(csv_content)
+        f.name = 'test.csv'
+        response = self.client.post(self.url, {
+            'step': 'upload',
+            'account': str(self.account.pk),
+            'csv_file': f,
+        })
+        row = response.context['preview_rows'][0]
+        self.assertEqual(row['bucket_id'], self.bucket.pk)
+        self.assertEqual(row['bucket_name'], 'Groceries')
+
+    def test_preview_unmatched_category_has_no_bucket(self):
+        csv_content = 'date,description,amount,category\n2026-01-15,Tech,-99.00,Electronics\n'
+        f = self._make_csv(csv_content)
+        f.name = 'test.csv'
+        response = self.client.post(self.url, {
+            'step': 'upload',
+            'account': str(self.account.pk),
+            'csv_file': f,
+        })
+        row = response.context['preview_rows'][0]
+        self.assertIsNone(row['bucket_id'])
+        self.assertEqual(row['category'], 'Electronics')
+
+    def test_preview_invalid_date_row_is_error(self):
+        csv_content = 'date,description,amount\nnot-a-date,Bad Row,-10.00\n'
+        f = self._make_csv(csv_content)
+        f.name = 'test.csv'
+        response = self.client.post(self.url, {
+            'step': 'upload',
+            'account': str(self.account.pk),
+            'csv_file': f,
+        })
+        self.assertEqual(response.context['error_count'], 1)
+        self.assertEqual(response.context['ok_count'], 0)
+
+    def test_confirm_imports_transactions(self):
+        import json as _json
+        rows_json = _json.dumps([{
+            'row_num': 2,
+            'date': '2026-01-15',
+            'description': 'Grocery Store',
+            'vendor': '',
+            'amount': '45.99',
+            'transaction_type': 'expense',
+            'category': 'Groceries',
+            'bucket_name': 'Groceries',
+            'bucket_id': self.bucket.pk,
+            'status': 'ok',
+            'error': '',
+        }])
+        response = self.client.post(self.url, {
+            'step': 'confirm',
+            'account_id': str(self.account.pk),
+            'rows_json': rows_json,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['step'], 'done')
+        self.assertEqual(response.context['imported'], 1)
+        self.assertEqual(response.context['skipped'], 0)
+        self.assertEqual(Transaction.objects.filter(user=self.user, description='Grocery Store').count(), 1)
+        txn = Transaction.objects.get(user=self.user, description='Grocery Store')
+        self.assertEqual(txn.amount, Decimal('45.99'))
+        self.assertEqual(txn.transaction_type, 'expense')
+        self.assertEqual(txn.bucket, self.bucket)
+        self.assertEqual(txn.date, datetime.date(2026, 1, 15))
+
+    def test_confirm_skips_error_rows(self):
+        import json as _json
+        rows_json = _json.dumps([{
+            'row_num': 2,
+            'date': '',
+            'description': 'Bad Row',
+            'vendor': '',
+            'amount': '',
+            'transaction_type': '',
+            'category': '',
+            'bucket_name': '',
+            'bucket_id': None,
+            'status': 'error',
+            'error': 'missing date',
+        }])
+        response = self.client.post(self.url, {
+            'step': 'confirm',
+            'account_id': str(self.account.pk),
+            'rows_json': rows_json,
+        })
+        self.assertEqual(response.context['imported'], 0)
+        self.assertEqual(response.context['skipped'], 1)
+        self.assertFalse(Transaction.objects.filter(user=self.user).exists())
+
+    def test_csv_with_bom_is_parsed(self):
+        # utf-8-sig encoding prepends the BOM byte sequence automatically
+        csv_content = 'date,description,amount\n2026-01-15,BOM Test,-10.00\n'
+        bom_bytes = csv_content.encode('utf-8-sig')
+        f = SimpleUploadedFile('bom.csv', bom_bytes, content_type='text/csv')
+        response = self.client.post(self.url, {
+            'step': 'upload',
+            'account': str(self.account.pk),
+            'csv_file': f,
+        })
+        self.assertEqual(response.context['ok_count'], 1)
+
+    def test_only_imports_to_own_account(self):
+        """Attempting to confirm import with another user's account_id fails gracefully."""
+        other_user = User.objects.create_user(
+            email='other2@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        other_account = BankAccount.objects.create(
+            user=other_user,
+            name='Other Checking',
+            account_type='checking',
+            balance=Decimal('100.00'),
+        )
+        import json as _json
+        rows_json = _json.dumps([{
+            'row_num': 2,
+            'date': '2026-01-15',
+            'description': 'Test',
+            'vendor': '',
+            'amount': '10.00',
+            'transaction_type': 'expense',
+            'category': '',
+            'bucket_name': '',
+            'bucket_id': None,
+            'status': 'ok',
+            'error': '',
+        }])
+        response = self.client.post(self.url, {
+            'step': 'confirm',
+            'account_id': str(other_account.pk),
+            'rows_json': rows_json,
+        })
+        # Should redirect (account not found for this user)
+        self.assertEqual(response.status_code, 302)

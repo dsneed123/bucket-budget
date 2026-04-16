@@ -1,5 +1,6 @@
 import csv
 import datetime
+import io
 import json
 import uuid
 from decimal import Decimal, InvalidOperation
@@ -940,6 +941,232 @@ def transaction_bulk_action(request):
     if filter_params:
         redirect_url += '?' + urlencode(filter_params)
     return redirect(redirect_url)
+
+
+@login_required
+def transaction_import_csv(request):
+    """Two-step CSV import: upload → preview → confirm → done."""
+    accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
+    buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
+    bucket_map = {b.name.lower(): b for b in buckets}
+
+    if request.method == 'POST':
+        step = request.POST.get('step', 'upload')
+
+        # ── Step 1: parse the uploaded file and show a preview ───────────────
+        if step == 'upload':
+            errors = {}
+            account = None
+            account_id = request.POST.get('account', '').strip()
+
+            csv_file = request.FILES.get('csv_file')
+            if not csv_file:
+                errors['csv_file'] = 'Please select a CSV file.'
+            elif not (csv_file.name.lower().endswith('.csv') or csv_file.content_type in ('text/csv', 'application/csv')):
+                errors['csv_file'] = 'File must be a CSV (.csv).'
+
+            if not account_id:
+                errors['account'] = 'Account is required.'
+            else:
+                try:
+                    account = accounts.get(pk=account_id)
+                except BankAccount.DoesNotExist:
+                    errors['account'] = 'Please select a valid account.'
+
+            if errors:
+                return render(request, 'transactions/transaction_import.html', {
+                    'accounts': accounts,
+                    'errors': errors,
+                    'form_data': {'account': account_id},
+                })
+
+            # Decode file (handle optional UTF-8 BOM)
+            raw_bytes = csv_file.read()
+            try:
+                decoded = raw_bytes.decode('utf-8-sig')
+            except UnicodeDecodeError:
+                decoded = raw_bytes.decode('latin-1')
+
+            reader = csv.DictReader(io.StringIO(decoded))
+
+            # Normalise header names to lowercase, stripped
+            if reader.fieldnames is None:
+                return render(request, 'transactions/transaction_import.html', {
+                    'accounts': accounts,
+                    'errors': {'csv_file': 'CSV file appears to be empty or has no header row.'},
+                    'form_data': {'account': account_id},
+                })
+
+            headers = [h.strip().lower() for h in reader.fieldnames]
+            required = {'date', 'description', 'amount'}
+            missing = required - set(headers)
+            if missing:
+                return render(request, 'transactions/transaction_import.html', {
+                    'accounts': accounts,
+                    'errors': {'csv_file': f'Missing required columns: {", ".join(sorted(missing))}.'},
+                    'form_data': {'account': account_id},
+                })
+
+            # Determine which header aliases exist
+            # category/bucket column name
+            cat_col = next((h for h in headers if h in ('category', 'bucket')), None)
+            type_col = next((h for h in headers if h in ('type', 'transaction_type')), None)
+            vendor_col = next((h for h in headers if h == 'vendor'), None)
+
+            preview_rows = []
+            importable_rows = []
+
+            for row_num, raw_row in enumerate(reader, start=2):
+                # Normalise keys
+                row = {k.strip().lower(): v.strip() if v else '' for k, v in raw_row.items() if k}
+
+                date_raw = row.get('date', '')
+                description_raw = row.get('description', '')
+                amount_raw = row.get('amount', '')
+
+                parse_errors = []
+
+                # Validate date
+                date_val = None
+                if not date_raw:
+                    parse_errors.append('missing date')
+                else:
+                    for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m-%d-%Y'):
+                        try:
+                            date_val = datetime.datetime.strptime(date_raw, fmt).date()
+                            break
+                        except ValueError:
+                            pass
+                    if date_val is None:
+                        parse_errors.append(f'unrecognised date "{date_raw}"')
+
+                # Validate description
+                if not description_raw:
+                    parse_errors.append('missing description')
+
+                # Validate amount
+                amount_val = None
+                if not amount_raw:
+                    parse_errors.append('missing amount')
+                else:
+                    try:
+                        amount_val = Decimal(amount_raw.replace(',', ''))
+                    except InvalidOperation:
+                        parse_errors.append(f'invalid amount "{amount_raw}"')
+
+                # Derive transaction type
+                txn_type = None
+                if type_col:
+                    raw_type = row.get(type_col, '').lower()
+                    if raw_type in ('expense', 'debit', 'dr'):
+                        txn_type = 'expense'
+                    elif raw_type in ('income', 'credit', 'cr'):
+                        txn_type = 'income'
+
+                if txn_type is None and amount_val is not None:
+                    txn_type = 'income' if amount_val > 0 else 'expense'
+
+                if amount_val is not None:
+                    amount_val = abs(amount_val)
+
+                # Match category to bucket
+                matched_bucket = None
+                category_raw = ''
+                if cat_col:
+                    category_raw = row.get(cat_col, '')
+                    if category_raw:
+                        matched_bucket = bucket_map.get(category_raw.lower())
+
+                vendor_raw = row.get(vendor_col, '') if vendor_col else ''
+
+                status = 'error' if parse_errors else 'ok'
+
+                preview_row = {
+                    'row_num': row_num,
+                    'date': date_val.isoformat() if date_val else date_raw,
+                    'description': description_raw,
+                    'vendor': vendor_raw,
+                    'amount': str(amount_val) if amount_val is not None else amount_raw,
+                    'transaction_type': txn_type or '',
+                    'category': category_raw,
+                    'bucket_name': matched_bucket.name if matched_bucket else '',
+                    'bucket_id': matched_bucket.pk if matched_bucket else None,
+                    'status': status,
+                    'error': '; '.join(parse_errors),
+                }
+                preview_rows.append(preview_row)
+                if status == 'ok':
+                    importable_rows.append(preview_row)
+
+            ok_count = sum(1 for r in preview_rows if r['status'] == 'ok')
+            error_count = sum(1 for r in preview_rows if r['status'] == 'error')
+
+            return render(request, 'transactions/transaction_import.html', {
+                'accounts': accounts,
+                'step': 'preview',
+                'preview_rows': preview_rows,
+                'ok_count': ok_count,
+                'error_count': error_count,
+                'account': account,
+                'rows_json': json.dumps(importable_rows),
+            })
+
+        # ── Step 2: user confirmed — import the valid rows ───────────────────
+        elif step == 'confirm':
+            account_id = request.POST.get('account_id', '').strip()
+            rows_json = request.POST.get('rows_json', '[]')
+
+            try:
+                account = accounts.get(pk=account_id)
+            except BankAccount.DoesNotExist:
+                return redirect('transaction_import_csv')
+
+            try:
+                rows_data = json.loads(rows_json)
+            except (json.JSONDecodeError, ValueError):
+                return redirect('transaction_import_csv')
+
+            imported = 0
+            skipped = 0
+
+            for row in rows_data:
+                if row.get('status') != 'ok':
+                    skipped += 1
+                    continue
+
+                bucket = None
+                if row.get('bucket_id'):
+                    try:
+                        bucket = buckets.get(pk=row['bucket_id'])
+                    except Bucket.DoesNotExist:
+                        pass
+
+                try:
+                    txn = Transaction.objects.create(
+                        user=request.user,
+                        account=account,
+                        bucket=bucket,
+                        amount=Decimal(row['amount']),
+                        transaction_type=row['transaction_type'],
+                        description=row['description'],
+                        vendor=row.get('vendor', ''),
+                        date=datetime.date.fromisoformat(row['date']),
+                    )
+                    imported += 1
+                except Exception:
+                    skipped += 1
+
+            return render(request, 'transactions/transaction_import.html', {
+                'accounts': accounts,
+                'step': 'done',
+                'imported': imported,
+                'skipped': skipped,
+            })
+
+    # GET — show upload form
+    return render(request, 'transactions/transaction_import.html', {
+        'accounts': accounts,
+    })
 
 
 # ── Income Source CRUD ────────────────────────────────────────────────────────
