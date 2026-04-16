@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from .models import SavingsGoal
 
@@ -54,4 +54,76 @@ def savings_list(request):
         'total_remaining': total_target - total_saved,
         'overall_pct': overall_pct,
         'achieved_count': achieved_count,
+    })
+
+
+@login_required
+def savings_goal_add(request):
+    errors = {}
+    form_data = {
+        'color': '#00d4aa',
+        'icon': '🎯',
+        'priority': 'medium',
+    }
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '').strip()
+        target_amount = request.POST.get('target_amount', '').strip()
+        deadline = request.POST.get('deadline', '').strip()
+        priority = request.POST.get('priority', 'medium').strip()
+        color = request.POST.get('color', '#00d4aa').strip()
+        icon = request.POST.get('icon', '🎯').strip()
+
+        form_data = {
+            'name': name,
+            'description': description,
+            'target_amount': target_amount,
+            'deadline': deadline,
+            'priority': priority,
+            'color': color,
+            'icon': icon,
+        }
+
+        if not name:
+            errors['name'] = 'Goal name is required.'
+
+        target_amount_val = None
+        if not target_amount:
+            errors['target_amount'] = 'Target amount is required.'
+        else:
+            try:
+                target_amount_val = Decimal(target_amount)
+                if target_amount_val <= 0:
+                    errors['target_amount'] = 'Target amount must be greater than zero.'
+            except Exception:
+                errors['target_amount'] = 'Please enter a valid number.'
+
+        deadline_val = None
+        if deadline:
+            try:
+                from datetime import datetime
+                deadline_val = datetime.strptime(deadline, '%Y-%m-%d').date()
+            except ValueError:
+                errors['deadline'] = 'Please enter a valid date.'
+
+        if priority not in ('low', 'medium', 'high', 'critical'):
+            priority = 'medium'
+
+        if not errors:
+            SavingsGoal.objects.create(
+                user=request.user,
+                name=name,
+                description=description,
+                target_amount=target_amount_val,
+                deadline=deadline_val,
+                priority=priority,
+                color=color or '#00d4aa',
+                icon=icon or '🎯',
+            )
+            return redirect('savings:savings_list')
+
+    return render(request, 'savings/savings_goal_add.html', {
+        'errors': errors,
+        'form_data': form_data,
     })
