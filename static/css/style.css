@@ -170,7 +170,16 @@ body {
 }
 
 .user-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
     font-size: 14px;
+}
+
+.balance-display {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent-green);
 }
 
 .username {
