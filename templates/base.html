@@ -193,5 +193,64 @@
             });
         })();
     </script>
+
+    <div class="kbd-modal-overlay" id="kbd-modal-overlay" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+        <div class="kbd-modal">
+            <div class="kbd-modal-header">
+                <span class="kbd-modal-title">Keyboard Shortcuts</span>
+                <button class="kbd-modal-close" id="kbd-modal-close" aria-label="Close">&times;</button>
+            </div>
+            <ul class="kbd-list">
+                <li><span>Dashboard</span><kbd>d</kbd></li>
+                <li><span>New transaction</span><kbd>n</kbd></li>
+                <li><span>Buckets</span><kbd>b</kbd></li>
+                <li><span>Savings Goals</span><kbd>s</kbd></li>
+                <li><span>Search transactions</span><kbd>/</kbd></li>
+                <li><span>Show this help</span><kbd>?</kbd></li>
+                <li><span>Close</span><kbd>Esc</kbd></li>
+            </ul>
+        </div>
+    </div>
+    <div class="kbd-hint">Press <kbd>?</kbd> for shortcuts</div>
+
+    <script>
+        (function () {
+            var overlay = document.getElementById('kbd-modal-overlay');
+
+            function openModal() { overlay.classList.add('open'); }
+            function closeModal() { overlay.classList.remove('open'); }
+
+            document.getElementById('kbd-modal-close').addEventListener('click', closeModal);
+            overlay.addEventListener('click', function (e) {
+                if (e.target === overlay) closeModal();
+            });
+
+            document.addEventListener('keydown', function (e) {
+                var tag = document.activeElement && document.activeElement.tagName;
+                var inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+                if (e.key === 'Escape') { closeModal(); return; }
+                if (inInput) return;
+
+                switch (e.key) {
+                    case '?': openModal(); break;
+                    case 'd': window.location.href = '/dashboard/'; break;
+                    case 'n': window.location.href = '/transactions/add/'; break;
+                    case 'b': window.location.href = '/buckets/'; break;
+                    case 's': window.location.href = '/savings/'; break;
+                    case '/':
+                        e.preventDefault();
+                        var search = document.getElementById('search-input');
+                        if (search) {
+                            search.focus();
+                            search.select();
+                        } else {
+                            window.location.href = '/transactions/';
+                        }
+                        break;
+                }
+            });
+        })();
+    </script>
 </body>
 </html>
