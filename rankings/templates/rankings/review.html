@@ -7,6 +7,15 @@
 {% block content %}
 <div class="review-page">
 
+    {% if unscored_count %}
+    <div class="review-streak-banner">
+        <span class="review-streak-icon">&#9654;</span>
+        <span>
+            Keep your streak going! Score {{ unscored_count }} unscored transaction{{ unscored_count|pluralize }} to stay on track.
+        </span>
+    </div>
+    {% endif %}
+
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">Unscored Expenses</h2>
@@ -95,6 +104,24 @@
     display: flex;
     flex-direction: column;
     gap: 24px;
+}
+
+.review-streak-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(249, 202, 36, 0.1);
+    border: 1px solid rgba(249, 202, 36, 0.35);
+    border-radius: var(--radius);
+    font-size: 0.925rem;
+    color: var(--accent-gold);
+    font-weight: 500;
+}
+
+.review-streak-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
 }
 
 .review-hint {

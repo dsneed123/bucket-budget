@@ -1,13 +1,15 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Avg, Count, Sum
+from django.db.models import Avg, Count, Q, Sum
 from django.db.models.functions import ExtractWeekDay
 from django.shortcuts import redirect, render
 
 from transactions.models import Transaction
+
+from .models import ScoreStreak
 
 
 def _get_necessity_breakdown(user, year, month):
@@ -208,6 +210,57 @@ def _get_daily_spending_quality(user):
     return rows, worst_day
 
 
+def _compute_score_streak(user, today):
+    """Return the current scoring streak (consecutive days where all expenses are scored).
+
+    A day counts toward the streak only if it has at least one expense and every
+    expense has a necessity_score.  Days with no expenses are skipped (neither
+    counted nor broken).  The streak includes today only if today has no unscored
+    expenses.
+    """
+    lookback_start = today - timedelta(days=365)
+
+    daily_stats = (
+        Transaction.objects.filter(
+            user=user,
+            transaction_type='expense',
+            date__gte=lookback_start,
+            date__lte=today,
+        )
+        .values('date')
+        .annotate(
+            total=Count('id'),
+            unscored=Count('id', filter=Q(necessity_score__isnull=True)),
+        )
+    )
+
+    daily_map = {row['date']: row['unscored'] for row in daily_stats}
+
+    # If today has unscored transactions, today can't contribute to the streak.
+    if daily_map.get(today, 0) > 0:
+        start_date = today - timedelta(days=1)
+    else:
+        start_date = today
+
+    streak = 0
+    current_date = start_date
+    days_checked = 0
+    while days_checked < 365:
+        unscored = daily_map.get(current_date)
+        if unscored is None:
+            # No expenses this day — skip without breaking the streak
+            current_date -= timedelta(days=1)
+            days_checked += 1
+            continue
+        if unscored > 0:
+            break
+        streak += 1
+        current_date -= timedelta(days=1)
+        days_checked += 1
+
+    return streak
+
+
 def _get_score_trend(user, today):
     """Return last 6 months of avg necessity scores for the trend bar chart, oldest first."""
     months = []
@@ -287,6 +340,19 @@ def rankings(request):
     vendor_rows = _get_vendor_averages(request.user, this_year, this_month)
     daily_quality, worst_day = _get_daily_spending_quality(request.user)
 
+    current_streak = _compute_score_streak(request.user, today)
+    streak_obj, _ = ScoreStreak.objects.get_or_create(user=request.user)
+    if current_streak > streak_obj.best_streak:
+        streak_obj.best_streak = current_streak
+        streak_obj.save(update_fields=['best_streak'])
+    best_streak = streak_obj.best_streak
+
+    unscored_count = Transaction.objects.filter(
+        user=request.user,
+        transaction_type='expense',
+        necessity_score__isnull=True,
+    ).count()
+
     return render(request, 'rankings/rankings.html', {
         'current_score': current_score,
         'current_count': current_count,
@@ -307,6 +373,9 @@ def rankings(request):
         'vendor_rows': vendor_rows,
         'daily_quality': daily_quality,
         'worst_day': worst_day,
+        'current_streak': current_streak,
+        'best_streak': best_streak,
+        'unscored_count': unscored_count,
     })
 
 
