@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'core',
     'accounts',
+    'banking',
 ]
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
