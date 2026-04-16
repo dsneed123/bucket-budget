@@ -179,7 +179,14 @@ body {
 .balance-display {
     font-size: 14px;
     font-weight: 600;
+}
+
+.balance-positive {
     color: var(--accent-green);
+}
+
+.balance-negative {
+    color: var(--accent-red);
 }
 
 .username {
