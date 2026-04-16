@@ -429,7 +429,7 @@ class TransactionDeleteViewTest(TestCase):
             user=self.user,
             name='Checking',
             account_type='checking',
-            balance=Decimal('450.00'),
+            balance=Decimal('500.00'),
         )
         self.client.login(email='delete@example.com', password='testpass')
         self.transaction = Transaction.objects.create(

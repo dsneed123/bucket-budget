@@ -235,13 +235,6 @@ def transaction_add(request):
                 necessity_score=necessity_score_val,
             )
 
-            # Update account balance
-            if transaction_type == 'expense':
-                account.balance = account.balance - amount_val
-            else:  # income
-                account.balance = account.balance + amount_val
-            account.save(change_reason='transaction')
-
             next_url = request.POST.get('next', '').strip()
             if next_url == '/dashboard/':
                 return redirect('dashboard')
@@ -346,11 +339,7 @@ def transaction_edit(request, transaction_id):
                 errors['necessity_score'] = 'Please enter a valid necessity score.'
 
         if not errors:
-            old_account = transaction.account
-            old_amount = transaction.amount
-            old_type = transaction.transaction_type
-
-            # Update transaction fields
+            # Update transaction fields — the post_save signal handles balance.
             transaction.account = account
             transaction.bucket = bucket
             transaction.amount = amount_val
@@ -360,32 +349,6 @@ def transaction_edit(request, transaction_id):
             transaction.date = date_val
             transaction.necessity_score = necessity_score_val
             transaction.save()
-
-            # Recalculate account balances
-            if old_account.pk == account.pk:
-                # Same account: apply net delta on a single object
-                if old_type == 'expense':
-                    account.balance = account.balance + old_amount
-                else:  # income
-                    account.balance = account.balance - old_amount
-                if transaction_type == 'expense':
-                    account.balance = account.balance - amount_val
-                else:  # income
-                    account.balance = account.balance + amount_val
-                account.save(change_reason='transaction')
-            else:
-                # Different accounts: reverse on old, apply on new
-                if old_type == 'expense':
-                    old_account.balance = old_account.balance + old_amount
-                else:  # income
-                    old_account.balance = old_account.balance - old_amount
-                old_account.save(change_reason='transaction')
-
-                if transaction_type == 'expense':
-                    account.balance = account.balance - amount_val
-                else:  # income
-                    account.balance = account.balance + amount_val
-                account.save(change_reason='transaction')
 
             return redirect('transaction_list')
     else:
@@ -414,16 +377,7 @@ def transaction_delete(request, transaction_id):
     transaction = get_object_or_404(Transaction, pk=transaction_id, user=request.user)
 
     if request.method == 'POST':
-        account = transaction.account
-
-        # Reverse the balance impact before deleting
-        if transaction.transaction_type == 'expense':
-            account.balance = account.balance + transaction.amount
-        else:  # income
-            account.balance = account.balance - transaction.amount
-        account.save(change_reason='transaction')
-
-        transaction.delete()
+        transaction.delete()  # post_delete signal handles balance reversal.
         return redirect('transaction_list')
 
     return render(request, 'transactions/transaction_delete.html', {
