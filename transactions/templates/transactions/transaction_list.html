@@ -110,7 +110,9 @@
             {% for txn in page_obj %}
             <tr style="border-bottom: 1px solid var(--border);">
                 <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap;">{{ txn.date }}</td>
-                <td style="padding: 12px; font-size: 0.9rem; font-weight: 500; color: var(--text-primary);">{{ txn.description }}</td>
+                <td style="padding: 12px; font-size: 0.9rem; font-weight: 500; color: var(--text-primary);">
+                    <a href="{% url 'transaction_detail' txn.pk %}" style="color: inherit; text-decoration: none;">{{ txn.description }}</a>
+                </td>
                 <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary);">{{ txn.vendor|default:"—" }}</td>
                 <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary);">
                     {% if txn.bucket %}{{ txn.bucket.icon }} {{ txn.bucket.name }}{% else %}—{% endif %}

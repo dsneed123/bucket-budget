@@ -679,6 +679,48 @@ def transaction_transfer(request):
 
 
 @login_required
+def transaction_detail(request, transaction_id):
+    transaction = get_object_or_404(
+        Transaction.objects.select_related('account', 'bucket').prefetch_related('tags'),
+        pk=transaction_id,
+        user=request.user,
+    )
+
+    split_transactions = None
+    if transaction.split_group:
+        split_transactions = (
+            Transaction.objects.filter(user=request.user, split_group=transaction.split_group)
+            .select_related('account', 'bucket')
+            .order_by('pk')
+        )
+
+    linked_transfer = None
+    if transaction.transfer_id:
+        linked_transfer = (
+            Transaction.objects.filter(user=request.user, transfer_id=transaction.transfer_id)
+            .exclude(pk=transaction.pk)
+            .select_related('account')
+            .first()
+        )
+
+    necessity_label = None
+    if transaction.necessity_score is not None:
+        if transaction.necessity_score <= 3:
+            necessity_label = 'Want'
+        elif transaction.necessity_score <= 6:
+            necessity_label = 'Useful'
+        else:
+            necessity_label = 'Need'
+
+    return render(request, 'transactions/transaction_detail.html', {
+        'transaction': transaction,
+        'split_transactions': split_transactions,
+        'linked_transfer': linked_transfer,
+        'necessity_label': necessity_label,
+    })
+
+
+@login_required
 def transaction_delete(request, transaction_id):
     transaction = get_object_or_404(Transaction, pk=transaction_id, user=request.user)
 
