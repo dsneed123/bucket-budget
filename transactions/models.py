@@ -137,6 +137,12 @@ class RecurringTransaction(models.Model):
     next_due = models.DateField()
     end_date = models.DateField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    is_subscription = models.BooleanField(default=False)
+    necessity_score = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
     last_generated = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
