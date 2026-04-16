@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Savings Goals — Bucket Budget{% endblock %}
+{% block page_title %}Savings Goals{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex items-center justify-between">
+    <div class="flex" style="gap: 12px;">
+        <div class="card card-sm" style="display:inline-block; min-width:160px;">
+            <div class="stat-label">Total Saved</div>
+            <div class="stat-value text-green">${{ total_saved|floatformat:2 }}</div>
+        </div>
+        <div class="card card-sm" style="display:inline-block; min-width:160px;">
+            <div class="stat-label">Total Target</div>
+            <div class="stat-value">${{ total_target|floatformat:2 }}</div>
+        </div>
+        <div class="card card-sm" style="display:inline-block; min-width:160px;">
+            <div class="stat-label">Remaining</div>
+            <div class="stat-value {% if total_remaining <= 0 %}text-green{% endif %}">${{ total_remaining|floatformat:2 }}</div>
+        </div>
+        {% if achieved_count > 0 %}
+        <div class="card card-sm" style="display:inline-block; min-width:140px;">
+            <div class="stat-label">Achieved</div>
+            <div class="stat-value text-green">{{ achieved_count }}</div>
+        </div>
+        {% endif %}
+    </div>
+    <div>
+        <a href="#" class="btn btn-primary">+ Add Goal</a>
+    </div>
+</div>
+
+{% if goal_data %}
+<div class="grid grid-3">
+    {% for item in goal_data %}
+    <div class="card" style="border-top: 4px solid {{ item.goal.color }};{% if item.goal.is_achieved %} opacity: 0.65;{% endif %}">
+        <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div style="font-size: 1.5rem; margin-bottom: 4px;">
+                        {% if item.goal.is_achieved %}✅{% else %}{{ item.goal.icon }}{% endif %}
+                    </div>
+                    <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: {% if item.goal.is_achieved %}var(--text-secondary){% else %}var(--text-primary){% endif %};">
+                        {{ item.goal.name }}
+                    </h3>
+                    {% if item.goal.description %}
+                    <p style="margin: 2px 0 0; font-size: 0.8rem; color: var(--text-secondary);">{{ item.goal.description }}</p>
+                    {% endif %}
+                </div>
+                <div style="text-align: right;">
+                    <span style="font-size: 0.75rem; color: var(--text-secondary);">{{ item.pct }}%</span>
+                    {% if item.goal.is_achieved %}
+                    <div style="font-size: 0.7rem; color: var(--accent-green); font-weight: 600; margin-top: 2px;">Achieved</div>
+                    {% elif item.is_overdue %}
+                    <div style="font-size: 0.7rem; color: var(--accent-red); font-weight: 600; margin-top: 2px;">Overdue</div>
+                    {% elif item.days_left is not None %}
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">{{ item.days_left }} day{{ item.days_left|pluralize }} left</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+            <div class="progress">
+                <div class="{% if item.goal.is_achieved %}progress-bar{% elif item.pct >= 90 %}progress-bar progress-bar-red{% elif item.pct >= 75 %}progress-bar progress-bar-gold{% else %}progress-bar{% endif %}"
+                     style="width: {{ item.pct }}%;{% if item.goal.is_achieved %} background: var(--accent-green);{% else %} background: {{ item.goal.color }};{% endif %}"></div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center;">
+            <div>
+                <div class="stat-label">Saved</div>
+                <div style="font-size: 0.9rem; font-weight: 600; color: var(--accent-green);">${{ item.goal.current_amount|floatformat:2 }}</div>
+            </div>
+            <div>
+                <div class="stat-label">Target</div>
+                <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">${{ item.goal.target_amount|floatformat:2 }}</div>
+            </div>
+            <div>
+                <div class="stat-label">Remaining</div>
+                <div style="font-size: 0.9rem; font-weight: 600; {% if item.remaining <= 0 %}color: var(--accent-green);{% else %}color: var(--text-primary);{% endif %}">${{ item.remaining|floatformat:2 }}</div>
+            </div>
+        </div>
+
+        {% if item.goal.deadline and not item.goal.is_achieved %}
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">Deadline</span>
+            <span style="font-size: 0.8rem; font-weight: 600; {% if item.is_overdue %}color: var(--accent-red);{% else %}color: var(--text-secondary);{% endif %}">
+                {{ item.goal.deadline|date:"M j, Y" }}
+            </span>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 48px 24px;">
+    <div style="font-size: 3rem; margin-bottom: 16px;">🎯</div>
+    <h3 style="color: var(--text-primary); margin-bottom: 8px;">No savings goals yet</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 24px;">Create your first goal to start tracking your savings progress.</p>
+    <a href="#" class="btn btn-primary">+ Add Goal</a>
+</div>
+{% endif %}
+{% endblock %}
