@@ -1,7 +1,34 @@
-db.sqlite3
+# Python
 __pycache__/
-*.pyc
-.env
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+*.so
+
+# Django
+db.sqlite3
+*.sqlite3
 staticfiles/
 media/
+local_settings.py
+
+# Environment
+.env
+.env.*
 .venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
