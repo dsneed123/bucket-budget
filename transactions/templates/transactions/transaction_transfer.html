@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Transfer Between Accounts — Bucket Budget{% endblock %}
+{% block page_title %}Transfer{% endblock %}
+
+{% block content %}
+<div style="max-width: 560px;">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Transfer Between Accounts</h2>
+            <p class="card-subtitle">Move money from one account to another. Net effect on total balance is zero.</p>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="from_account" class="form-label">From account</label>
+                <select id="from_account" name="from_account" class="form-control">
+                    <option value="" disabled {% if not form_data.from_account %}selected{% endif %}>Select source account…</option>
+                    {% for account in accounts %}
+                        <option value="{{ account.pk }}" {% if form_data.from_account == account.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ account.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                {% if errors.from_account %}
+                    <p class="form-error">{{ errors.from_account }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="to_account" class="form-label">To account</label>
+                <select id="to_account" name="to_account" class="form-control">
+                    <option value="" disabled {% if not form_data.to_account %}selected{% endif %}>Select destination account…</option>
+                    {% for account in accounts %}
+                        <option value="{{ account.pk }}" {% if form_data.to_account == account.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ account.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                {% if errors.to_account %}
+                    <p class="form-error">{{ errors.to_account }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label for="amount" class="form-label">Amount</label>
+                    <input
+                        type="number"
+                        id="amount"
+                        name="amount"
+                        class="form-control"
+                        value="{{ form_data.amount|default:'' }}"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0.01"
+                        autofocus
+                    >
+                    {% if errors.amount %}
+                        <p class="form-error">{{ errors.amount }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="flex: 1;">
+                    <label for="date" class="form-label">Date</label>
+                    <input
+                        type="date"
+                        id="date"
+                        name="date"
+                        class="form-control"
+                        value="{{ form_data.date|default:'' }}"
+                    >
+                    {% if errors.date %}
+                        <p class="form-error">{{ errors.date }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description" class="form-label">Description</label>
+                <input
+                    type="text"
+                    id="description"
+                    name="description"
+                    class="form-control"
+                    value="{{ form_data.description|default:'' }}"
+                    placeholder="e.g. Move savings to checking"
+                >
+                {% if errors.description %}
+                    <p class="form-error">{{ errors.description }}</p>
+                {% endif %}
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                <button type="submit" class="btn btn-primary">Transfer</button>
+                <a href="{% url 'transaction_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
