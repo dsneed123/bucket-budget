@@ -3,13 +3,14 @@ import datetime
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Avg, Count, Sum
+from django.db.models import Avg, Count, Max, Min, Sum
 from django.db.models.functions import ExtractWeekDay
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 
 from banking.models import BalanceHistory, BankAccount
 from buckets.models import Bucket
-from savings.models import SavingsContribution, SavingsGoal
+from savings.models import SavingsContribution, SavingsGoal, SavingsMilestone
 from transactions.models import Transaction
 
 from .models import Recommendation
@@ -1468,3 +1469,134 @@ def dismiss_recommendation(request, rec_id):
         if next_url == '/dashboard/':
             return redirect('dashboard')
     return redirect('insights')
+
+
+@login_required
+def annual_report(request, year):
+    today = datetime.date.today()
+    if year < 2000 or year > today.year:
+        raise Http404
+
+    start_date = datetime.date(year, 1, 1)
+    end_date = datetime.date(year, 12, 31)
+
+    # Annual totals
+    annual_income = _range_income(request.user, start_date, end_date)
+    annual_expenses = _range_expenses(request.user, start_date, end_date)
+    annual_contributions = _range_contributions(request.user, start_date, end_date)
+    net_savings = annual_income - annual_expenses
+    avg_monthly_spending = (annual_expenses / Decimal('12')).quantize(Decimal('0.01'))
+
+    if annual_income > 0:
+        annual_savings_rate = round(float(annual_contributions / annual_income * 100), 1)
+        annual_savings_color = 'green' if annual_savings_rate >= 20 else ('gold' if annual_savings_rate >= 10 else 'red')
+    else:
+        annual_savings_rate = None
+        annual_savings_color = 'secondary'
+
+    net_color = 'green' if net_savings > 0 else ('red' if net_savings < 0 else 'secondary')
+
+    # Monthly breakdown table
+    monthly_rows = []
+    for month in range(1, 13):
+        m_income = _month_income(request.user, year, month)
+        m_expenses = _month_expenses(request.user, year, month)
+        m_contributions = _month_contributions(request.user, year, month)
+        m_net = m_income - m_expenses
+        m_sr = _savings_rate(m_contributions, m_income)
+        is_future = year == today.year and month > today.month
+        monthly_rows.append({
+            'month': month,
+            'month_label': datetime.date(year, month, 1).strftime('%B'),
+            'income': m_income,
+            'expenses': m_expenses,
+            'net': m_net,
+            'savings_rate': m_sr,
+            'net_positive': m_net >= 0,
+            'is_future': is_future,
+            'has_data': m_income > 0 or m_expenses > 0,
+        })
+
+    # Best/worst months (exclude future and months with no data)
+    active_months = [m for m in monthly_rows if not m['is_future'] and m['has_data']]
+    best_month = max(active_months, key=lambda m: m['net']) if active_months else None
+    worst_month = min(active_months, key=lambda m: m['net']) if active_months else None
+    highest_spend_month = max(active_months, key=lambda m: m['expenses']) if active_months else None
+    spend_months = [m for m in active_months if m['expenses'] > 0]
+    lowest_spend_month = min(spend_months, key=lambda m: m['expenses']) if spend_months else None
+
+    # Annual spending quality score
+    quality_result = Transaction.objects.filter(
+        user=request.user,
+        transaction_type='expense',
+        date__year=year,
+        necessity_score__isnull=False,
+    ).aggregate(avg=Avg('necessity_score'), count=Count('id'))
+    annual_quality_score = (
+        round(Decimal(str(quality_result['avg'])), 1) if quality_result['count'] else None
+    )
+    annual_quality_count = quality_result['count']
+    annual_quality_color = _score_color(
+        float(annual_quality_score) if annual_quality_score is not None else None
+    )
+
+    # Annual bucket/category breakdown
+    annual_buckets = _range_bucket_breakdown(request.user, start_date, end_date)
+
+    # Top merchants for the year
+    annual_merchants = _range_top_merchants(request.user, start_date, end_date)
+
+    # Expense ratio analysis for the year
+    expense_ratio = _range_expense_ratio(request.user, start_date, end_date)
+
+    # Goals achieved in this year (reached 100% milestone during the year)
+    achieved_goal_ids = SavingsMilestone.objects.filter(
+        goal__user=request.user,
+        percentage=100,
+        reached_at__year=year,
+    ).values_list('goal_id', flat=True)
+    achieved_goals = list(SavingsGoal.objects.filter(pk__in=achieved_goal_ids))
+
+    # Available years for navigation (based on transaction history)
+    date_bounds = Transaction.objects.filter(user=request.user).aggregate(
+        min_date=Min('date'), max_date=Max('date'),
+    )
+    if date_bounds['min_date']:
+        first_year = date_bounds['min_date'].year
+        last_year = min(date_bounds['max_date'].year, today.year)
+        available_years = list(range(last_year, first_year - 1, -1))
+    else:
+        available_years = [today.year]
+
+    prev_year = year - 1 if year - 1 >= (available_years[-1] if available_years else year) else None
+    next_year = year + 1 if year + 1 <= today.year else None
+
+    is_print = request.GET.get('print') == '1'
+
+    return render(request, 'insights/annual.html', {
+        'year': year,
+        'prev_year': prev_year,
+        'next_year': next_year,
+        'available_years': available_years,
+        'annual_income': annual_income,
+        'annual_expenses': annual_expenses,
+        'annual_contributions': annual_contributions,
+        'net_savings': net_savings,
+        'net_color': net_color,
+        'avg_monthly_spending': avg_monthly_spending,
+        'annual_savings_rate': annual_savings_rate,
+        'annual_savings_color': annual_savings_color,
+        'monthly_rows': monthly_rows,
+        'best_month': best_month,
+        'worst_month': worst_month,
+        'highest_spend_month': highest_spend_month,
+        'lowest_spend_month': lowest_spend_month,
+        'annual_quality_score': annual_quality_score,
+        'annual_quality_count': annual_quality_count,
+        'annual_quality_color': annual_quality_color,
+        'annual_buckets': annual_buckets,
+        'annual_merchants': annual_merchants,
+        'expense_ratio': expense_ratio,
+        'achieved_goals': achieved_goals,
+        'is_print': is_print,
+    })

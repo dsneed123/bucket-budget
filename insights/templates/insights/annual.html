@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+{% load currency_tags %}
+
+{% block title %}{{ year }} Annual Report — Bucket Budget{% endblock %}
+{% block page_title %}{{ year }} Annual Report{% endblock %}
+
+{% block content %}
+<div class="insights-page{% if is_print %} print-mode{% endif %}">
+
+    <!-- Header -->
+    <div class="page-header">
+        <h1 class="page-title-inline">{{ year }} Annual Report</h1>
+        <span class="page-subtitle text-secondary">Full year financial summary</span>
+    </div>
+
+    <!-- Year navigation & print -->
+    <div class="date-range-bar" style="justify-content: space-between; align-items: center;">
+        <div class="date-range-presets">
+            {% if prev_year %}
+                <a href="{% url 'annual_report' prev_year %}" class="date-preset-btn">&#8592; {{ prev_year }}</a>
+            {% endif %}
+            {% for y in available_years %}
+                <a href="{% url 'annual_report' y %}" class="date-preset-btn {% if y == year %}date-preset-active{% endif %}">{{ y }}</a>
+            {% endfor %}
+            {% if next_year %}
+                <a href="{% url 'annual_report' next_year %}" class="date-preset-btn">{{ next_year }} &#8594;</a>
+            {% endif %}
+        </div>
+        <button onclick="window.print()" class="date-preset-btn no-print" style="margin-left: auto;">&#128438; Print / Save PDF</button>
+    </div>
+
+    <!-- Annual summary cards -->
+    <div class="grid grid-4 insights-summary-cards">
+
+        <div class="card insights-card">
+            <div class="insights-card-label">Total Income</div>
+            <div class="insights-card-value text-green">{{ annual_income|currency }}</div>
+            <div class="insights-card-meta text-secondary">{{ year }} total</div>
+        </div>
+
+        <div class="card insights-card">
+            <div class="insights-card-label">Total Spending</div>
+            <div class="insights-card-value">{{ annual_expenses|currency }}</div>
+            <div class="insights-card-meta text-secondary">Avg {{ avg_monthly_spending|currency }}/mo</div>
+        </div>
+
+        <div class="card insights-card">
+            <div class="insights-card-label">Net Savings</div>
+            <div class="insights-card-value text-{{ net_color }}">{{ net_savings|currency }}</div>
+            <div class="insights-card-meta text-secondary">Income minus expenses</div>
+        </div>
+
+        <div class="card insights-card">
+            <div class="insights-card-label">Savings Rate</div>
+            <div class="insights-card-value text-{{ annual_savings_color }}">
+                {% if annual_savings_rate is not None %}
+                    {{ annual_savings_rate }}%
+                {% else %}
+                    &mdash;
+                {% endif %}
+            </div>
+            <div class="insights-card-meta text-secondary">
+                {% if annual_contributions > 0 %}
+                    {{ annual_contributions|currency }} contributed
+                {% else %}
+                    No savings contributions
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Monthly income/expense table -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="trend-header">
+            <span class="insights-card-label">Monthly Breakdown</span>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="annual-table" style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--border);">
+                        <th style="text-align: left; padding: 0.5rem 0.75rem; color: var(--text-secondary); font-weight: 500;">Month</th>
+                        <th style="text-align: right; padding: 0.5rem 0.75rem; color: var(--text-secondary); font-weight: 500;">Income</th>
+                        <th style="text-align: right; padding: 0.5rem 0.75rem; color: var(--text-secondary); font-weight: 500;">Expenses</th>
+                        <th style="text-align: right; padding: 0.5rem 0.75rem; color: var(--text-secondary); font-weight: 500;">Net</th>
+                        <th style="text-align: right; padding: 0.5rem 0.75rem; color: var(--text-secondary); font-weight: 500;">Savings Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in monthly_rows %}
+                    <tr style="border-bottom: 1px solid var(--border); {% if row.is_future %}opacity: 0.4;{% endif %}">
+                        <td style="padding: 0.5rem 0.75rem; font-weight: 500;">
+                            {{ row.month_label }}
+                            {% if row.is_future %}<span class="text-secondary" style="font-size: 0.75rem; margin-left: 0.25rem;">(future)</span>{% endif %}
+                        </td>
+                        <td style="text-align: right; padding: 0.5rem 0.75rem;" class="text-green">
+                            {% if row.income > 0 %}{{ row.income|currency }}{% else %}&mdash;{% endif %}
+                        </td>
+                        <td style="text-align: right; padding: 0.5rem 0.75rem;">
+                            {% if row.expenses > 0 %}{{ row.expenses|currency }}{% else %}&mdash;{% endif %}
+                        </td>
+                        <td style="text-align: right; padding: 0.5rem 0.75rem;" class="text-{% if row.net_positive %}green{% else %}red{% endif %}">
+                            {% if row.has_data %}{{ row.net|currency }}{% else %}&mdash;{% endif %}
+                        </td>
+                        <td style="text-align: right; padding: 0.5rem 0.75rem;" class="text-{% if row.savings_rate is not None %}{% if row.savings_rate >= 20 %}green{% elif row.savings_rate >= 10 %}gold{% else %}red{% endif %}{% else %}secondary{% endif %}">
+                            {% if row.savings_rate is not None %}{{ row.savings_rate }}%{% else %}&mdash;{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="border-top: 2px solid var(--border);">
+                        <td style="padding: 0.625rem 0.75rem; font-weight: 600;">Total</td>
+                        <td style="text-align: right; padding: 0.625rem 0.75rem; font-weight: 600;" class="text-green">{{ annual_income|currency }}</td>
+                        <td style="text-align: right; padding: 0.625rem 0.75rem; font-weight: 600;">{{ annual_expenses|currency }}</td>
+                        <td style="text-align: right; padding: 0.625rem 0.75rem; font-weight: 600;" class="text-{{ net_color }}">{{ net_savings|currency }}</td>
+                        <td style="text-align: right; padding: 0.625rem 0.75rem; font-weight: 600;" class="text-{{ annual_savings_color }}">
+                            {% if annual_savings_rate is not None %}{{ annual_savings_rate }}%{% else %}&mdash;{% endif %}
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- Best / worst months highlight row -->
+    <div class="grid grid-4 insights-summary-cards" style="margin-bottom: 1.5rem;">
+
+        <div class="card insights-card">
+            <div class="insights-card-label">Best Month</div>
+            {% if best_month %}
+                <div class="insights-card-value text-green">{{ best_month.month_label }}</div>
+                <div class="insights-card-meta text-secondary">Net {{ best_month.net|currency }}</div>
+            {% else %}
+                <div class="insights-card-value text-secondary">&mdash;</div>
+            {% endif %}
+        </div>
+
+        <div class="card insights-card">
+            <div class="insights-card-label">Worst Month</div>
+            {% if worst_month %}
+                <div class="insights-card-value text-red">{{ worst_month.month_label }}</div>
+                <div class="insights-card-meta text-secondary">Net {{ worst_month.net|currency }}</div>
+            {% else %}
+                <div class="insights-card-value text-secondary">&mdash;</div>
+            {% endif %}
+        </div>
+
+        <div class="card insights-card">
+            <div class="insights-card-label">Highest Spend</div>
+            {% if highest_spend_month %}
+                <div class="insights-card-value">{{ highest_spend_month.month_label }}</div>
+                <div class="insights-card-meta text-secondary">{{ highest_spend_month.expenses|currency }} spent</div>
+            {% else %}
+                <div class="insights-card-value text-secondary">&mdash;</div>
+            {% endif %}
+        </div>
+
+        <div class="card insights-card">
+            <div class="insights-card-label">Lowest Spend</div>
+            {% if lowest_spend_month %}
+                <div class="insights-card-value">{{ lowest_spend_month.month_label }}</div>
+                <div class="insights-card-meta text-secondary">{{ lowest_spend_month.expenses|currency }} spent</div>
+            {% else %}
+                <div class="insights-card-value text-secondary">&mdash;</div>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <div class="grid grid-2" style="gap: 1.5rem; margin-bottom: 1.5rem;">
+
+        <!-- Top spending categories -->
+        <div class="card">
+            <div class="trend-header">
+                <span class="insights-card-label">Top Categories</span>
+            </div>
+            {% if annual_buckets %}
+                <div class="bucket-list" style="margin-top: 1rem;">
+                    {% for bucket in annual_buckets %}
+                    <div class="bucket-row" style="margin-bottom: 0.75rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                            <span style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="width: 10px; height: 10px; border-radius: 50%; background: {{ bucket.color }}; display: inline-block; flex-shrink: 0;"></span>
+                                <span style="font-size: 0.875rem;">{{ bucket.name }}</span>
+                            </span>
+                            <span style="font-size: 0.875rem; font-weight: 500;">{{ bucket.amount|currency }}</span>
+                        </div>
+                        <div style="height: 6px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden;">
+                            <div style="height: 100%; width: {{ bucket.bar_width_pct }}%; background: {{ bucket.color }}; border-radius: 3px;"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-secondary" style="margin-top: 1rem; font-size: 0.875rem;">No expense data for {{ year }}.</p>
+            {% endif %}
+        </div>
+
+        <!-- Spending quality score -->
+        <div class="card">
+            <div class="trend-header">
+                <span class="insights-card-label">Overall Spending Quality</span>
+            </div>
+            <div style="margin-top: 1.25rem; text-align: center;">
+                {% if annual_quality_score is not None %}
+                    <div style="font-size: 3rem; font-weight: 700;" class="text-{{ annual_quality_color }}">
+                        {{ annual_quality_score }}<span style="font-size: 1.25rem; font-weight: 400; color: var(--text-secondary);">/10</span>
+                    </div>
+                    <div class="text-secondary" style="margin-top: 0.5rem; font-size: 0.875rem;">
+                        Based on {{ annual_quality_count }} scored transaction{{ annual_quality_count|pluralize }}
+                    </div>
+                    <div style="margin-top: 1rem; height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden;">
+                        <div style="height: 100%; width: {% widthratio annual_quality_score 10 100 %}%; background: {% if annual_quality_color == 'green' %}var(--green){% elif annual_quality_color == 'gold' %}var(--gold){% else %}var(--red){% endif %}; border-radius: 4px;"></div>
+                    </div>
+                    <div style="margin-top: 1rem;" class="text-secondary" style="font-size: 0.875rem;">
+                        {% if annual_quality_score >= 7 %}
+                            Excellent — mostly necessary, well-considered spending.
+                        {% elif annual_quality_score >= 4 %}
+                            Fair — some impulse or low-necessity purchases.
+                        {% else %}
+                            Needs attention — high proportion of low-necessity spending.
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="text-secondary" style="font-size: 0.875rem; margin-top: 1rem;">
+                        No scored transactions for {{ year }}.<br>
+                        Add necessity scores to your expenses to see this.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <div class="grid grid-2" style="gap: 1.5rem; margin-bottom: 1.5rem;">
+
+        <!-- Top merchants -->
+        <div class="card">
+            <div class="trend-header">
+                <span class="insights-card-label">Top Merchants</span>
+            </div>
+            {% if annual_merchants %}
+                <div style="margin-top: 1rem;">
+                    {% for m in annual_merchants %}
+                    <div style="margin-bottom: 0.875rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                            <span style="font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%;">{{ m.vendor }}</span>
+                            <span style="font-size: 0.875rem; font-weight: 500; flex-shrink: 0; margin-left: 0.5rem;">{{ m.total|currency }}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="flex: 1; height: 5px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden;">
+                                <div style="height: 100%; width: {{ m.bar_width_pct }}%; background: var(--accent); border-radius: 3px;"></div>
+                            </div>
+                            <span class="text-secondary" style="font-size: 0.75rem; flex-shrink: 0;">{{ m.count }} tx</span>
+                            {% if m.avg_necessity is not None %}
+                                <span class="text-{{ m.necessity_color }}" style="font-size: 0.75rem; flex-shrink: 0;">{{ m.avg_necessity }}/10</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-secondary" style="margin-top: 1rem; font-size: 0.875rem;">No vendor data for {{ year }}.</p>
+            {% endif %}
+        </div>
+
+        <!-- Goals achieved -->
+        <div class="card">
+            <div class="trend-header">
+                <span class="insights-card-label">Goals Achieved in {{ year }}</span>
+            </div>
+            {% if achieved_goals %}
+                <div style="margin-top: 1rem;">
+                    {% for goal in achieved_goals %}
+                    <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0; border-bottom: 1px solid var(--border);">
+                        <span style="font-size: 1.25rem;">{{ goal.icon }}</span>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-size: 0.875rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ goal.name }}</div>
+                            <div class="text-secondary" style="font-size: 0.75rem;">{{ goal.target_amount|currency }} target &middot; {{ goal.get_goal_type_display }}</div>
+                        </div>
+                        <span class="text-green" style="font-size: 0.75rem; font-weight: 600; flex-shrink: 0;">&#10003; Done</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-secondary" style="margin-top: 1rem; font-size: 0.875rem;">No goals were completed in {{ year }}.</p>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <!-- Expense ratio analysis -->
+    {% if expense_ratio %}
+    <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="trend-header">
+            <span class="insights-card-label">Spending Ratio Analysis</span>
+            {% if expense_ratio.flagged_count %}
+                <span class="text-gold" style="font-size: 0.75rem;">{{ expense_ratio.flagged_count }} categor{{ expense_ratio.flagged_count|pluralize:"y,ies" }} over target</span>
+            {% endif %}
+        </div>
+        <div style="margin-top: 1.25rem;">
+            {% for row in expense_ratio.rows %}
+            <div style="margin-bottom: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.375rem;">
+                    <div>
+                        <span style="font-size: 0.875rem; font-weight: 500;">{{ row.label }}</span>
+                        <span class="text-secondary" style="font-size: 0.75rem; margin-left: 0.5rem;">{{ row.description }}</span>
+                    </div>
+                    <div style="text-align: right; flex-shrink: 0; margin-left: 1rem;">
+                        <span style="font-size: 0.875rem; font-weight: 500;">{{ row.spent|currency }}</span>
+                        <span class="text-{{ row.status_color }}" style="font-size: 0.75rem; margin-left: 0.375rem;">{{ row.pct }}%</span>
+                    </div>
+                </div>
+                <div style="position: relative; height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden;">
+                    <div style="position: absolute; left: {{ row.rec_min_bar }}%; width: {{ row.rec_band_width }}%; height: 100%; background: var(--green); opacity: 0.2;"></div>
+                    <div style="position: absolute; left: 0; width: {{ row.bar_pct }}%; height: 100%; background: {% if row.status_color == 'green' %}var(--green){% elif row.status_color == 'gold' %}var(--gold){% elif row.status_color == 'red' %}var(--red){% else %}var(--text-secondary){% endif %}; border-radius: 4px;"></div>
+                </div>
+                <div class="text-{{ row.status_color }}" style="font-size: 0.75rem; margin-top: 0.25rem;">
+                    {{ row.status_label }} &middot; target {{ row.min_pct }}&ndash;{{ row.max_pct }}% of income
+                </div>
+            </div>
+            {% endfor %}
+
+            {% with row=expense_ratio.savings_row %}
+            <div style="margin-bottom: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--border);">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.375rem;">
+                    <div>
+                        <span style="font-size: 0.875rem; font-weight: 500;">{{ row.label }}</span>
+                        <span class="text-secondary" style="font-size: 0.75rem; margin-left: 0.5rem;">{{ row.description }}</span>
+                    </div>
+                    <div style="text-align: right; flex-shrink: 0; margin-left: 1rem;">
+                        <span style="font-size: 0.875rem; font-weight: 500;">{{ row.contributed|currency }}</span>
+                        <span class="text-{{ row.status_color }}" style="font-size: 0.75rem; margin-left: 0.375rem;">{{ row.pct }}%</span>
+                    </div>
+                </div>
+                <div style="position: relative; height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden;">
+                    <div style="position: absolute; left: {{ row.rec_target_bar }}%; width: 2px; height: 100%; background: var(--green); opacity: 0.5;"></div>
+                    <div style="position: absolute; left: 0; width: {{ row.bar_pct }}%; height: 100%; background: {% if row.status_color == 'green' %}var(--green){% elif row.status_color == 'gold' %}var(--gold){% else %}var(--red){% endif %}; border-radius: 4px;"></div>
+                </div>
+                <div class="text-{{ row.status_color }}" style="font-size: 0.75rem; margin-top: 0.25rem;">
+                    {{ row.status_label }} &middot; target {{ row.target_pct }}% of income
+                </div>
+            </div>
+            {% endwith %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<style>
+@media print {
+    .no-print { display: none !important; }
+    .sidebar, nav, .topbar { display: none !important; }
+    .main-content { margin: 0 !important; padding: 1rem !important; }
+    .card { break-inside: avoid; box-shadow: none !important; border: 1px solid #ddd !important; }
+    .grid { break-inside: avoid; }
+    body { background: #fff !important; color: #000 !important; }
+}
+</style>
+
+{% endblock %}
