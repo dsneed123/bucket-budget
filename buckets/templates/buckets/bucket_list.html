@@ -94,6 +94,12 @@
                 <div style="font-size: 0.9rem; font-weight: 600; {% if item.remaining >= 0 %}color: var(--accent-green);{% else %}color: var(--accent-red);{% endif %}">${{ item.remaining|floatformat:2 }}</div>
             </div>
         </div>
+        {% if item.bucket.rollover and item.rollover_amount > 0 %}
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">↩ Rolled over from last month</span>
+            <span style="font-size: 0.85rem; font-weight: 600; color: var(--accent-green);">+${{ item.rollover_amount|floatformat:2 }}</span>
+        </div>
+        {% endif %}
     </div>
     {% endfor %}
 </div>
