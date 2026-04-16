@@ -18,4 +18,8 @@ urlpatterns = [
     path('income-sources/add/', views.income_source_add, name='income_source_add'),
     path('income-sources/<int:source_id>/edit/', views.income_source_edit, name='income_source_edit'),
     path('income-sources/<int:source_id>/delete/', views.income_source_delete, name='income_source_delete'),
+    path('recurring/', views.recurring_list, name='recurring_list'),
+    path('recurring/add/', views.recurring_add, name='recurring_add'),
+    path('recurring/<int:recurring_id>/toggle/', views.recurring_toggle, name='recurring_toggle'),
+    path('recurring/<int:recurring_id>/delete/', views.recurring_delete, name='recurring_delete'),
 ]

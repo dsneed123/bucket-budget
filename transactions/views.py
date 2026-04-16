@@ -17,7 +17,7 @@ from django.urls import reverse
 from banking.models import BankAccount
 from buckets.models import Bucket
 
-from .models import CsvColumnMapping, IncomeSource, Tag, Transaction, VendorMapping
+from .models import CsvColumnMapping, IncomeSource, RecurringTransaction, Tag, Transaction, VendorMapping
 
 VALID_TRANSACTION_TYPES = [c[0] for c in Transaction.TRANSACTION_TYPE_CHOICES]
 
@@ -1570,3 +1570,196 @@ def income_source_delete(request, source_id):
         'source': source,
         'txn_count': txn_count,
     })
+
+
+_MONTHLY_MULTIPLIERS = {
+    'daily': Decimal('30'),
+    'weekly': Decimal('4.333'),
+    'biweekly': Decimal('2.167'),
+    'monthly': Decimal('1'),
+    'yearly': Decimal('0.0833'),
+}
+
+
+def _monthly_cost(recurring):
+    return recurring.amount * _MONTHLY_MULTIPLIERS.get(recurring.frequency, Decimal('1'))
+
+
+@login_required
+def recurring_list(request):
+    qs = RecurringTransaction.objects.filter(user=request.user).select_related('account', 'bucket')
+
+    filter_bucket = request.GET.get('bucket', '').strip()
+    filter_frequency = request.GET.get('frequency', '').strip()
+    filter_type = request.GET.get('type', '').strip()
+    filter_status = request.GET.get('status', '').strip()
+
+    if filter_bucket:
+        qs = qs.filter(bucket_id=filter_bucket)
+    if filter_frequency:
+        qs = qs.filter(frequency=filter_frequency)
+    if filter_type:
+        qs = qs.filter(transaction_type=filter_type)
+    if filter_status == 'active':
+        qs = qs.filter(is_active=True)
+    elif filter_status == 'inactive':
+        qs = qs.filter(is_active=False)
+
+    recurring = list(qs)
+    total_monthly = sum(_monthly_cost(r) for r in recurring if r.is_active)
+
+    buckets = Bucket.objects.filter(user=request.user).order_by('name')
+
+    return render(request, 'transactions/recurring_list.html', {
+        'recurring': recurring,
+        'total_monthly': total_monthly,
+        'buckets': buckets,
+        'filter_bucket': filter_bucket,
+        'filter_frequency': filter_frequency,
+        'filter_type': filter_type,
+        'filter_status': filter_status,
+        'frequency_choices': RecurringTransaction.FREQUENCY_CHOICES,
+        'type_choices': RecurringTransaction.TRANSACTION_TYPE_CHOICES,
+    })
+
+
+@login_required
+def recurring_add(request):
+    errors = {}
+    accounts = BankAccount.objects.filter(user=request.user).order_by('name')
+    buckets = Bucket.objects.filter(user=request.user).order_by('name')
+
+    today = datetime.date.today().isoformat()
+    form_data = {
+        'transaction_type': 'expense',
+        'frequency': 'monthly',
+        'start_date': today,
+        'next_due': today,
+        'is_active': True,
+    }
+
+    if request.method == 'POST':
+        description = request.POST.get('description', '').strip()
+        vendor = request.POST.get('vendor', '').strip()
+        amount_str = request.POST.get('amount', '').strip()
+        transaction_type = request.POST.get('transaction_type', '').strip()
+        frequency = request.POST.get('frequency', '').strip()
+        start_date_str = request.POST.get('start_date', '').strip()
+        next_due_str = request.POST.get('next_due', '').strip()
+        end_date_str = request.POST.get('end_date', '').strip()
+        account_id = request.POST.get('account', '').strip()
+        bucket_id = request.POST.get('bucket', '').strip()
+        is_active = request.POST.get('is_active', '') == '1'
+
+        form_data = {
+            'description': description, 'vendor': vendor, 'amount': amount_str,
+            'transaction_type': transaction_type, 'frequency': frequency,
+            'start_date': start_date_str, 'next_due': next_due_str,
+            'end_date': end_date_str, 'account': account_id, 'bucket': bucket_id,
+            'is_active': is_active,
+        }
+
+        if not description:
+            errors['description'] = 'Description is required.'
+
+        amount = None
+        if not amount_str:
+            errors['amount'] = 'Amount is required.'
+        else:
+            try:
+                amount = Decimal(amount_str)
+                if amount <= 0:
+                    errors['amount'] = 'Amount must be greater than zero.'
+            except InvalidOperation:
+                errors['amount'] = 'Enter a valid amount.'
+
+        if not transaction_type or transaction_type not in [c[0] for c in RecurringTransaction.TRANSACTION_TYPE_CHOICES]:
+            errors['transaction_type'] = 'Please select a valid type.'
+
+        if not frequency or frequency not in [c[0] for c in RecurringTransaction.FREQUENCY_CHOICES]:
+            errors['frequency'] = 'Please select a valid frequency.'
+
+        account = None
+        if not account_id:
+            errors['account'] = 'Account is required.'
+        else:
+            try:
+                account = accounts.get(pk=account_id)
+            except BankAccount.DoesNotExist:
+                errors['account'] = 'Please select a valid account.'
+
+        start_date = None
+        if not start_date_str:
+            errors['start_date'] = 'Start date is required.'
+        else:
+            try:
+                start_date = datetime.date.fromisoformat(start_date_str)
+            except ValueError:
+                errors['start_date'] = 'Enter a valid date.'
+
+        next_due = None
+        if not next_due_str:
+            errors['next_due'] = 'Next due date is required.'
+        else:
+            try:
+                next_due = datetime.date.fromisoformat(next_due_str)
+            except ValueError:
+                errors['next_due'] = 'Enter a valid date.'
+
+        end_date = None
+        if end_date_str:
+            try:
+                end_date = datetime.date.fromisoformat(end_date_str)
+            except ValueError:
+                errors['end_date'] = 'Enter a valid date.'
+
+        bucket = None
+        if bucket_id:
+            try:
+                bucket = buckets.get(pk=bucket_id)
+            except Bucket.DoesNotExist:
+                errors['bucket'] = 'Please select a valid bucket.'
+
+        if not errors:
+            RecurringTransaction.objects.create(
+                user=request.user,
+                account=account,
+                bucket=bucket,
+                amount=amount,
+                transaction_type=transaction_type,
+                description=description,
+                vendor=vendor,
+                frequency=frequency,
+                start_date=start_date,
+                next_due=next_due,
+                end_date=end_date,
+                is_active=is_active,
+            )
+            return redirect('recurring_list')
+
+    return render(request, 'transactions/recurring_add.html', {
+        'errors': errors,
+        'form_data': form_data,
+        'accounts': accounts,
+        'buckets': buckets,
+        'frequency_choices': RecurringTransaction.FREQUENCY_CHOICES,
+        'type_choices': RecurringTransaction.TRANSACTION_TYPE_CHOICES,
+    })
+
+
+@login_required
+def recurring_toggle(request, recurring_id):
+    rt = get_object_or_404(RecurringTransaction, pk=recurring_id, user=request.user)
+    if request.method == 'POST':
+        rt.is_active = not rt.is_active
+        rt.save(update_fields=['is_active'])
+    return redirect('recurring_list')
+
+
+@login_required
+def recurring_delete(request, recurring_id):
+    rt = get_object_or_404(RecurringTransaction, pk=recurring_id, user=request.user)
+    if request.method == 'POST':
+        rt.delete()
+        return redirect('recurring_list')
+    return render(request, 'transactions/recurring_delete.html', {'rt': rt})
