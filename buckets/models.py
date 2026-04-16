@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 
@@ -12,3 +14,15 @@ class Bucket(models.Model):
     sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def spent_this_month(self):
+        # Will aggregate expenses for this bucket once the Expense model exists
+        return Decimal('0')
+
+    def remaining_this_month(self):
+        return self.monthly_allocation - self.spent_this_month()
+
+    def percentage_used(self):
+        if self.monthly_allocation <= 0:
+            return 0
+        return min(int((self.spent_this_month() / self.monthly_allocation) * 100), 100)
