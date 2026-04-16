@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Delete Account — Bucket Budget{% endblock %}
+
+{% block page_title %}Delete Account{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px;">
+
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Delete Account</h2>
+                <p class="card-subtitle">This action is permanent and cannot be undone.</p>
+            </div>
+        </div>
+
+        <div style="background-color: rgba(255, 71, 87, 0.1); border: 1px solid #ff4757; border-radius: var(--radius); padding: 12px 16px; margin-bottom: 24px; font-size: 14px; color: #ff4757;">
+            <strong>Warning:</strong> Deleting your account will permanently remove all your data, including all buckets, transactions, and settings. This cannot be reversed.
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="confirmation" class="form-label">Type <strong>DELETE</strong> to confirm</label>
+                <input
+                    type="text"
+                    id="confirmation"
+                    name="confirmation"
+                    class="form-control"
+                    placeholder="DELETE"
+                    autocomplete="off"
+                    autofocus
+                >
+                {% if errors.confirmation %}
+                    <p class="form-error">{{ errors.confirmation }}</p>
+                {% endif %}
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 24px;">
+                <button type="submit" class="btn" style="background-color: #ff4757; color: #fff; border: none;">Delete my account</button>
+                <a href="/profile/" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+            </div>
+        </form>
+    </div>
+
+</div>
+{% endblock %}
