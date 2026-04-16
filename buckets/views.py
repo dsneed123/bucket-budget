@@ -101,6 +101,21 @@ def bucket_add(request):
 
 
 @login_required
+def bucket_delete(request, bucket_id):
+    bucket = get_object_or_404(Bucket, pk=bucket_id, user=request.user, is_active=True)
+    transaction_count = 0  # Will be calculated from transactions once available
+
+    if request.method == 'POST':
+        bucket.delete()
+        return redirect('bucket_list')
+
+    return render(request, 'buckets/bucket_delete.html', {
+        'bucket': bucket,
+        'transaction_count': transaction_count,
+    })
+
+
+@login_required
 def bucket_edit(request, bucket_id):
     bucket = get_object_or_404(Bucket, pk=bucket_id, user=request.user, is_active=True)
     errors = {}
