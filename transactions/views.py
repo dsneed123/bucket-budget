@@ -1,9 +1,10 @@
 import datetime
 from decimal import Decimal, InvalidOperation
+from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.shortcuts import render, redirect
 
 from banking.models import BankAccount
@@ -18,15 +19,69 @@ VALID_TRANSACTION_TYPES = [c[0] for c in Transaction.TRANSACTION_TYPE_CHOICES]
 def transaction_list(request):
     qs = Transaction.objects.filter(user=request.user).select_related('account', 'bucket')
 
+    # Extract filter params
+    date_from = request.GET.get('date_from', '').strip()
+    date_to = request.GET.get('date_to', '').strip()
+    bucket_id = request.GET.get('bucket', '').strip()
+    txn_type = request.GET.get('type', '').strip()
+    account_id = request.GET.get('account', '').strip()
+    search = request.GET.get('search', '').strip()
+
+    # Apply filters
+    if date_from:
+        try:
+            qs = qs.filter(date__gte=datetime.date.fromisoformat(date_from))
+        except ValueError:
+            date_from = ''
+    if date_to:
+        try:
+            qs = qs.filter(date__lte=datetime.date.fromisoformat(date_to))
+        except ValueError:
+            date_to = ''
+    if bucket_id:
+        qs = qs.filter(bucket_id=bucket_id)
+    if txn_type in ('expense', 'income'):
+        qs = qs.filter(transaction_type=txn_type)
+    else:
+        txn_type = ''
+    if account_id:
+        qs = qs.filter(account_id=account_id)
+    if search:
+        qs = qs.filter(Q(description__icontains=search) | Q(vendor__icontains=search))
+
+    active_filter_count = sum(bool(f) for f in [date_from, date_to, bucket_id, txn_type, account_id, search])
+
     paginator = Paginator(qs, 25)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 
     today = datetime.date.today()
-    month_qs = qs.filter(date__year=today.year, date__month=today.month)
+    # Stats always reflect current month across all user transactions (unaffected by filters)
+    month_qs = Transaction.objects.filter(
+        user=request.user, date__year=today.year, date__month=today.month
+    )
     total_income = month_qs.filter(transaction_type='income').aggregate(s=Sum('amount'))['s'] or Decimal('0')
     total_expenses = month_qs.filter(transaction_type='expense').aggregate(s=Sum('amount'))['s'] or Decimal('0')
     net = total_income - total_expenses
+
+    # Build query string for pagination links (preserves active filters)
+    filter_params = {}
+    if date_from:
+        filter_params['date_from'] = date_from
+    if date_to:
+        filter_params['date_to'] = date_to
+    if bucket_id:
+        filter_params['bucket'] = bucket_id
+    if txn_type:
+        filter_params['type'] = txn_type
+    if account_id:
+        filter_params['account'] = account_id
+    if search:
+        filter_params['search'] = search
+    filter_qs = urlencode(filter_params)
+
+    buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
+    accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
 
     return render(request, 'transactions/transaction_list.html', {
         'page_obj': page_obj,
@@ -34,6 +89,18 @@ def transaction_list(request):
         'total_expenses': total_expenses,
         'net': net,
         'current_month': today.strftime('%B %Y'),
+        'buckets': buckets,
+        'accounts': accounts,
+        'filters': {
+            'date_from': date_from,
+            'date_to': date_to,
+            'bucket': bucket_id,
+            'type': txn_type,
+            'account': account_id,
+            'search': search,
+        },
+        'active_filter_count': active_filter_count,
+        'filter_qs': filter_qs,
     })
 
 

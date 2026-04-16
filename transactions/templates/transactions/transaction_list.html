@@ -25,6 +25,60 @@
     </div>
 </div>
 
+{# Filter bar #}
+<div class="card" style="margin-bottom: 16px; padding: 16px 20px;">
+    <form method="get" action="">
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
+            <div style="display: flex; flex-direction: column; gap: 4px; min-width: 130px;">
+                <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">From</label>
+                <input type="date" name="date_from" value="{{ filters.date_from }}" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; min-width: 130px;">
+                <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">To</label>
+                <input type="date" name="date_to" value="{{ filters.date_to }}" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; min-width: 140px;">
+                <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Bucket</label>
+                <select name="bucket" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
+                    <option value="">All buckets</option>
+                    {% for b in buckets %}
+                        <option value="{{ b.pk }}" {% if filters.bucket == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.icon }} {{ b.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; min-width: 120px;">
+                <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Type</label>
+                <select name="type" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
+                    <option value="" {% if not filters.type %}selected{% endif %}>All types</option>
+                    <option value="expense" {% if filters.type == 'expense' %}selected{% endif %}>Expense</option>
+                    <option value="income" {% if filters.type == 'income' %}selected{% endif %}>Income</option>
+                </select>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; min-width: 140px;">
+                <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Account</label>
+                <select name="account" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
+                    <option value="">All accounts</option>
+                    {% for acc in accounts %}
+                        <option value="{{ acc.pk }}" {% if filters.account == acc.pk|stringformat:"s" %}selected{% endif %}>{{ acc.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 160px;">
+                <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Search</label>
+                <input type="text" name="search" value="{{ filters.search }}" placeholder="Description or vendor…" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
+            </div>
+            <div style="display: flex; gap: 8px; align-items: flex-end; padding-bottom: 1px;">
+                <button type="submit" class="btn btn-primary" style="padding: 6px 14px; font-size: 0.85rem; white-space: nowrap;">
+                    Filter{% if active_filter_count %} <span style="display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.25); border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; font-weight: 700; margin-left: 4px;">{{ active_filter_count }}</span>{% endif %}
+                </button>
+                {% if active_filter_count %}
+                    <a href="{% url 'transaction_list' %}" class="btn" style="padding: 6px 14px; font-size: 0.85rem; white-space: nowrap;">Clear</a>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+</div>
+
 {% if page_obj.object_list %}
 <div class="card">
     <table style="width: 100%; border-collapse: collapse;">
@@ -66,7 +120,7 @@
 {% if page_obj.has_other_pages %}
 <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 20px;">
     {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}" class="btn" style="padding: 6px 14px; font-size: 0.85rem;">&larr; Prev</a>
+        <a href="?{% if filter_qs %}{{ filter_qs }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn" style="padding: 6px 14px; font-size: 0.85rem;">&larr; Prev</a>
     {% else %}
         <span class="btn" style="padding: 6px 14px; font-size: 0.85rem; opacity: 0.4; cursor: default;">&larr; Prev</span>
     {% endif %}
@@ -76,7 +130,7 @@
     </span>
 
     {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}" class="btn" style="padding: 6px 14px; font-size: 0.85rem;">Next &rarr;</a>
+        <a href="?{% if filter_qs %}{{ filter_qs }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn" style="padding: 6px 14px; font-size: 0.85rem;">Next &rarr;</a>
     {% else %}
         <span class="btn" style="padding: 6px 14px; font-size: 0.85rem; opacity: 0.4; cursor: default;">Next &rarr;</span>
     {% endif %}
@@ -85,10 +139,17 @@
 
 {% else %}
 <div class="card" style="text-align: center; padding: 48px 24px;">
-    <div style="font-size: 3rem; margin-bottom: 16px;">💳</div>
-    <h3 style="color: var(--text-primary); margin-bottom: 8px;">No transactions yet</h3>
-    <p style="color: var(--text-secondary); margin-bottom: 24px;">Add your first transaction to start tracking your spending.</p>
-    <a href="{% url 'transaction_add' %}" class="btn btn-primary">+ Add Transaction</a>
+    {% if active_filter_count %}
+        <div style="font-size: 3rem; margin-bottom: 16px;">🔍</div>
+        <h3 style="color: var(--text-primary); margin-bottom: 8px;">No transactions match your filters</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 24px;">Try adjusting or clearing your filters.</p>
+        <a href="{% url 'transaction_list' %}" class="btn">Clear Filters</a>
+    {% else %}
+        <div style="font-size: 3rem; margin-bottom: 16px;">💳</div>
+        <h3 style="color: var(--text-primary); margin-bottom: 8px;">No transactions yet</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 24px;">Add your first transaction to start tracking your spending.</p>
+        <a href="{% url 'transaction_add' %}" class="btn btn-primary">+ Add Transaction</a>
+    {% endif %}
 </div>
 {% endif %}
 {% endblock %}
