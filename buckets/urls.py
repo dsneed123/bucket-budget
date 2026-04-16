@@ -8,4 +8,6 @@ urlpatterns = [
     path('buckets/<int:bucket_id>/', views.bucket_detail, name='bucket_detail'),
     path('buckets/<int:bucket_id>/edit/', views.bucket_edit, name='bucket_edit'),
     path('buckets/<int:bucket_id>/delete/', views.bucket_delete, name='bucket_delete'),
+    path('buckets/<int:bucket_id>/archive/', views.bucket_archive, name='bucket_archive'),
+    path('buckets/<int:bucket_id>/unarchive/', views.bucket_unarchive, name='bucket_unarchive'),
 ]

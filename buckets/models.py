@@ -13,6 +13,7 @@ class Bucket(models.Model):
     icon = models.CharField(max_length=10, default='💰')
     sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def spent_this_month(self):

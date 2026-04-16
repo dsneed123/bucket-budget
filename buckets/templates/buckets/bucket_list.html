@@ -63,6 +63,7 @@
                         {% endif %}
                     </div>
                     <a href="{% url 'bucket_edit' item.bucket.pk %}" style="font-size: 0.75rem; color: var(--text-secondary); text-decoration: none;">Edit</a>
+                    <a href="{% url 'bucket_archive' item.bucket.pk %}" style="font-size: 0.75rem; color: #e67e22; text-decoration: none;">Archive</a>
                     <a href="{% url 'bucket_delete' item.bucket.pk %}" style="font-size: 0.75rem; color: #ff4757; text-decoration: none;">Delete</a>
                 </div>
             </div>
@@ -99,4 +100,40 @@
     <a href="{% url 'bucket_add' %}" class="btn btn-primary">+ Add Bucket</a>
 </div>
 {% endif %}
+
+<div style="margin-top: 32px; border-top: 1px solid var(--border); padding-top: 20px;">
+    {% if show_archived %}
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+        <h3 style="margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">Archived buckets</h3>
+        <a href="{% url 'bucket_list' %}" style="font-size: 0.8rem; color: var(--text-secondary); text-decoration: none;">Hide archived</a>
+    </div>
+    {% if archived_buckets %}
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+        {% for bucket in archived_buckets %}
+        <div class="card" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; opacity: 0.7;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.2rem;">{{ bucket.icon }}</span>
+                <div>
+                    <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">{{ bucket.name }}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">${{ bucket.monthly_allocation|floatformat:2 }}/mo{% if bucket.archived_at %} · archived {{ bucket.archived_at|date:"M j, Y" }}{% endif %}</div>
+                </div>
+            </div>
+            <form method="post" action="{% url 'bucket_unarchive' bucket.pk %}" style="margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="btn" style="font-size: 0.75rem; padding: 4px 12px; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border);">Unarchive</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="font-size: 0.9rem; color: var(--text-secondary);">No archived buckets.</p>
+    {% endif %}
+    {% else %}
+    {% if archived_count > 0 %}
+    <a href="{% url 'bucket_list' %}?show_archived=1" style="font-size: 0.85rem; color: var(--text-secondary); text-decoration: none;">
+        Show archived ({{ archived_count }})
+    </a>
+    {% endif %}
+    {% endif %}
+</div>
 {% endblock %}

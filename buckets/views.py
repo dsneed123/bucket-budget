@@ -1,7 +1,9 @@
 from decimal import Decimal
 from datetime import date
+from django.utils import timezone
 
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 
 from .models import Bucket
@@ -9,6 +11,8 @@ from .models import Bucket
 
 @login_required
 def bucket_list(request):
+    show_archived = request.GET.get('show_archived') == '1'
+
     buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
 
     bucket_data = []
@@ -42,11 +46,22 @@ def bucket_list(request):
             'bar_class': bar_class,
         })
 
+    archived_buckets = []
+    if show_archived:
+        archived_buckets = list(
+            Bucket.objects.filter(user=request.user, is_active=False).order_by('-archived_at', 'name')
+        )
+
+    archived_count = Bucket.objects.filter(user=request.user, is_active=False).count()
+
     return render(request, 'buckets/bucket_list.html', {
         'bucket_data': bucket_data,
         'total_allocated': total_allocated,
         'total_spent': total_spent,
         'total_remaining': total_allocated - total_spent,
+        'show_archived': show_archived,
+        'archived_buckets': archived_buckets,
+        'archived_count': archived_count,
     })
 
 
@@ -167,6 +182,35 @@ def bucket_delete(request, bucket_id):
         'bucket': bucket,
         'transaction_count': transaction_count,
     })
+
+
+@login_required
+def bucket_archive(request, bucket_id):
+    bucket = get_object_or_404(Bucket, pk=bucket_id, user=request.user, is_active=True)
+    transaction_count = 0  # Will be calculated from transactions once available
+
+    if request.method == 'POST':
+        bucket.is_active = False
+        bucket.archived_at = timezone.now()
+        bucket.save()
+        return redirect('bucket_list')
+
+    return render(request, 'buckets/bucket_archive.html', {
+        'bucket': bucket,
+        'transaction_count': transaction_count,
+    })
+
+
+@login_required
+def bucket_unarchive(request, bucket_id):
+    bucket = get_object_or_404(Bucket, pk=bucket_id, user=request.user, is_active=False)
+
+    if request.method == 'POST':
+        bucket.is_active = True
+        bucket.archived_at = None
+        bucket.save()
+
+    return redirect(reverse('bucket_list') + '?show_archived=1')
 
 
 @login_required
