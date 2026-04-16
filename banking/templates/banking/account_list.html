@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Bank Accounts — Bucket Budget{% endblock %}
+{% block page_title %}Bank Accounts{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex items-center justify-between">
+    <div class="card card-sm" style="display:inline-block; min-width:220px;">
+        <div class="stat-label">Total Balance</div>
+        <div class="stat-value {% if total_balance >= 0 %}text-green{% else %}text-red{% endif %}">
+            ${{ total_balance|floatformat:2 }}
+        </div>
+    </div>
+    <a href="#" class="btn btn-primary">+ Add Account</a>
+</div>
+
+{% if accounts %}
+<div class="grid grid-3">
+    {% for account in accounts %}
+    <div class="card" style="border-top: 4px solid {{ account.color }};">
+        <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div style="font-size: 1.5rem; margin-bottom: 4px;">
+                        {% if account.account_type == 'checking' %}🏦
+                        {% elif account.account_type == 'savings' %}🐷
+                        {% elif account.account_type == 'credit' %}💳
+                        {% elif account.account_type == 'cash' %}💵
+                        {% endif %}
+                    </div>
+                    <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary);">{{ account.name }}</h3>
+                    {% if account.institution %}
+                    <p style="margin: 2px 0 0; font-size: 0.8rem; color: var(--text-secondary);">{{ account.institution }}</p>
+                    {% endif %}
+                </div>
+                <span class="badge {% if account.account_type == 'checking' %}badge-blue{% elif account.account_type == 'savings' %}badge-green{% elif account.account_type == 'credit' %}badge-red{% else %}badge-gold{% endif %}">
+                    {{ account.get_account_type_display }}
+                </span>
+            </div>
+        </div>
+        <div>
+            <div class="stat-label">Balance</div>
+            <div class="stat-value {% if account.balance >= 0 %}text-green{% else %}text-red{% endif %}" style="font-size: 1.4rem;">
+                ${{ account.balance|floatformat:2 }}
+            </div>
+        </div>
+        <div style="margin-top: 12px; font-size: 0.75rem; color: var(--text-secondary);">
+            Updated {{ account.updated_at|timesince }} ago
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 48px 24px;">
+    <div style="font-size: 3rem; margin-bottom: 16px;">🏦</div>
+    <h3 style="color: var(--text-primary); margin-bottom: 8px;">No bank accounts yet</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 24px;">Add your first bank account to start tracking your finances.</p>
+    <a href="#" class="btn btn-primary">+ Add Account</a>
+</div>
+{% endif %}
+{% endblock %}
