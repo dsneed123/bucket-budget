@@ -219,6 +219,95 @@ class BudgetOverviewTest(TestCase):
         bucket_names = [item['bucket'].name for item in response.context['bucket_data']]
         self.assertNotIn('Other Bucket', bucket_names)
 
+    def test_bucket_data_includes_rollover_fields(self):
+        response = self.client.get(reverse('budget_overview'))
+        item = next(i for i in response.context['bucket_data'] if i['bucket'].name == 'Groceries')
+        self.assertIn('rollover_amount', item)
+        self.assertIn('effective_allocation', item)
+
+    def test_rollover_amount_zero_when_rollover_disabled(self):
+        response = self.client.get(reverse('budget_overview'))
+        item = next(i for i in response.context['bucket_data'] if i['bucket'].name == 'Groceries')
+        self.assertEqual(item['rollover_amount'], Decimal('0'))
+        self.assertEqual(item['effective_allocation'], Decimal('500.00'))
+
+    def test_carry_forward_added_when_rollover_enabled(self):
+        self.bucket.rollover = True
+        self.bucket.save()
+        today = datetime.date.today()
+        if today.month == 1:
+            prev_year, prev_month = today.year - 1, 12
+        else:
+            prev_year, prev_month = today.year, today.month - 1
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            bucket=self.bucket,
+            amount=Decimal('300.00'),
+            transaction_type='expense',
+            description='Last month groceries',
+            date=datetime.date(prev_year, prev_month, 15),
+        )
+        response = self.client.get(reverse('budget_overview'))
+        item = next(i for i in response.context['bucket_data'] if i['bucket'].name == 'Groceries')
+        self.assertEqual(item['rollover_amount'], Decimal('200.00'))
+        self.assertEqual(item['effective_allocation'], Decimal('700.00'))
+
+    def test_rollover_capped_at_zero_when_overspent_last_month(self):
+        self.bucket.rollover = True
+        self.bucket.save()
+        today = datetime.date.today()
+        if today.month == 1:
+            prev_year, prev_month = today.year - 1, 12
+        else:
+            prev_year, prev_month = today.year, today.month - 1
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            bucket=self.bucket,
+            amount=Decimal('600.00'),
+            transaction_type='expense',
+            description='Overspent last month',
+            date=datetime.date(prev_year, prev_month, 20),
+        )
+        response = self.client.get(reverse('budget_overview'))
+        item = next(i for i in response.context['bucket_data'] if i['bucket'].name == 'Groceries')
+        self.assertEqual(item['rollover_amount'], Decimal('0'))
+        self.assertEqual(item['effective_allocation'], Decimal('500.00'))
+
+    def test_remaining_uses_effective_allocation_with_rollover(self):
+        self.bucket.rollover = True
+        self.bucket.save()
+        today = datetime.date.today()
+        if today.month == 1:
+            prev_year, prev_month = today.year - 1, 12
+        else:
+            prev_year, prev_month = today.year, today.month - 1
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            bucket=self.bucket,
+            amount=Decimal('400.00'),
+            transaction_type='expense',
+            description='Last month partial spend',
+            date=datetime.date(prev_year, prev_month, 10),
+        )
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            bucket=self.bucket,
+            amount=Decimal('100.00'),
+            transaction_type='expense',
+            description='This month spend',
+            date=today,
+        )
+        response = self.client.get(reverse('budget_overview'))
+        item = next(i for i in response.context['bucket_data'] if i['bucket'].name == 'Groceries')
+        # rollover = 500 - 400 = 100; effective = 500 + 100 = 600; remaining = 600 - 100 = 500
+        self.assertEqual(item['rollover_amount'], Decimal('100.00'))
+        self.assertEqual(item['effective_allocation'], Decimal('600.00'))
+        self.assertEqual(item['remaining'], Decimal('500.00'))
+
 
 class SaveAllocationsTest(TestCase):
     def setUp(self):

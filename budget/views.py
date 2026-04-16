@@ -60,18 +60,22 @@ def budget_overview(request, year=None, month=None):
     bucket_data = []
     for bucket in buckets:
         spent = month_expenses.filter(bucket=bucket).aggregate(s=Sum('amount'))['s'] or Decimal('0')
-        remaining = bucket.monthly_allocation - spent
-        if bucket.monthly_allocation > 0:
-            pct = min(int((spent / bucket.monthly_allocation) * 100), 100)
+        rollover = bucket.rollover_amount(year, month) if bucket.rollover else Decimal('0')
+        effective_allocation = bucket.monthly_allocation + rollover
+        remaining = effective_allocation - spent
+        if effective_allocation > 0:
+            pct = min(int((spent / effective_allocation) * 100), 100)
         else:
             pct = 0
-        bar_max = max(bucket.monthly_allocation, spent, Decimal('1'))
+        bar_max = max(effective_allocation, spent, Decimal('1'))
         bucket_data.append({
             'bucket': bucket,
             'spent': spent,
+            'rollover_amount': rollover,
+            'effective_allocation': effective_allocation,
             'remaining': remaining,
             'pct': pct,
-            'over': spent > bucket.monthly_allocation,
+            'over': spent > effective_allocation,
             'bar_max': bar_max,
         })
 

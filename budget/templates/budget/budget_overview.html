@@ -198,7 +198,14 @@
                             </div>
                         </td>
                         <td style="padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; font-size: 14px; color: var(--text-secondary);">
-                            <span class="alloc-display">{{ item.bucket.monthly_allocation|currency:user.currency }}</span>
+                            <span class="alloc-display">
+                                {% if item.rollover_amount > 0 %}
+                                <span style="font-weight: 600; color: var(--text-primary);">{{ item.effective_allocation|currency:user.currency }}</span>
+                                <br><span style="font-size: 11px; color: var(--text-muted);">Base: {{ item.bucket.monthly_allocation|currency:user.currency }} + Rollover: {{ item.rollover_amount|currency:user.currency }}</span>
+                                {% else %}
+                                {{ item.bucket.monthly_allocation|currency:user.currency }}
+                                {% endif %}
+                            </span>
                             <input
                                 type="number"
                                 name="allocation_{{ item.bucket.pk }}"
@@ -327,9 +334,12 @@
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
                 <span style="font-size: 11px; color: var(--text-muted); width: 58px; text-align: right; flex-shrink: 0;">Allocated</span>
                 <div style="flex: 1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden;">
-                    <div style="height: 100%; width: {% widthratio item.bucket.monthly_allocation item.bar_max 100 %}%; background: var(--accent-blue); border-radius: 4px;"></div>
+                    <div style="height: 100%; width: {% widthratio item.effective_allocation item.bar_max 100 %}%; background: var(--accent-blue); border-radius: 4px;"></div>
                 </div>
-                <span style="font-size: 11px; color: var(--text-secondary); width: 70px; text-align: right; flex-shrink: 0;">{{ item.bucket.monthly_allocation|currency:user.currency }}</span>
+                <span style="font-size: 11px; color: var(--text-secondary); width: 70px; text-align: right; flex-shrink: 0;">
+                    {{ item.effective_allocation|currency:user.currency }}
+                    {% if item.rollover_amount > 0 %}<span style="display: block; font-size: 10px; color: var(--text-muted);">incl. rollover</span>{% endif %}
+                </span>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 11px; color: var(--text-muted); width: 58px; text-align: right; flex-shrink: 0;">Spent</span>
