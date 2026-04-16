@@ -93,6 +93,47 @@
 
     </div>
 
+    <!-- Spending Forecast -->
+    <div class="card forecast-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Month-End Forecast — {{ current_month }}</span>
+            <span class="text-secondary forecast-pace-label">Based on {{ forecast.days_elapsed }}-day avg of {{ forecast.daily_avg|currency }}/day</span>
+        </div>
+        <div class="forecast-body">
+            <div class="forecast-headline">
+                At this rate, you'll spend
+                <span class="forecast-projected {% if forecast.over_budget %}text-red{% else %}text-green{% endif %}">{{ forecast.projected_amount|currency }}</span>
+                by month end
+                {% if forecast.total_budget > 0 %}
+                    — budgeted
+                    <span class="forecast-budget">{{ forecast.total_budget|currency }}</span>
+                {% endif %}
+            </div>
+            {% if forecast.total_budget > 0 %}
+            <div class="forecast-delta">
+                {% if forecast.over_budget %}
+                    <span class="text-red">&#8593; {{ forecast.abs_delta|currency }} over budget</span>
+                {% else %}
+                    <span class="text-green">&#8595; {{ forecast.abs_delta|currency }} under budget</span>
+                {% endif %}
+                &middot; <span class="text-secondary">{{ forecast.days_remaining }} day{{ forecast.days_remaining|pluralize }} remaining</span>
+            </div>
+            <div class="forecast-bar-wrap">
+                <div class="forecast-bar-track">
+                    <div class="forecast-bar-current" style="width: {{ forecast.current_pct }}%;" title="Spent so far: {{ forecast.current_spending|currency }}"></div>
+                    <div class="forecast-bar-projected {% if forecast.over_budget %}forecast-bar-over{% endif %}" style="width: {{ forecast.budget_pct }}%;" title="Projected: {{ forecast.projected_amount|currency }}"></div>
+                </div>
+                <div class="forecast-bar-labels">
+                    <span class="text-secondary">$0</span>
+                    <span class="text-secondary">{{ forecast.total_budget|currency }}</span>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-secondary forecast-no-budget">Set bucket allocations to see a budget comparison.</div>
+            {% endif %}
+        </div>
+    </div>
+
     <!-- Personalized Recommendations -->
     {% if recommendations %}
     <div class="recommendations-section">
@@ -1245,6 +1286,93 @@
     .yoy-metrics {
         gap: 1.25rem;
     }
+}
+
+/* Spending Forecast */
+.forecast-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.forecast-pace-label {
+    font-size: 0.82rem;
+}
+
+.forecast-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.forecast-headline {
+    font-size: 1rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.forecast-projected {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.forecast-budget {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.forecast-delta {
+    font-size: 0.88rem;
+}
+
+.forecast-bar-wrap {
+    margin-top: 0.5rem;
+}
+
+.forecast-bar-track {
+    position: relative;
+    height: 10px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.forecast-bar-projected {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: var(--accent-green);
+    border-radius: 6px;
+    opacity: 0.45;
+    transition: width 0.3s ease;
+}
+
+.forecast-bar-projected.forecast-bar-over {
+    background: var(--accent-red);
+}
+
+.forecast-bar-current {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: var(--accent-blue);
+    border-radius: 6px;
+    z-index: 1;
+    transition: width 0.3s ease;
+}
+
+.forecast-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.3rem;
+}
+
+.forecast-no-budget {
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
 }
 </style>
 {% endblock %}
