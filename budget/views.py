@@ -77,6 +77,32 @@ def budget_overview(request, year=None, month=None):
 
     bucket_data.sort(key=lambda x: x['pct'], reverse=True)
 
+    alerts = []
+    if monthly_income > 0 and total_allocated > monthly_income:
+        alerts.append({
+            'level': 'error',
+            'message': f'Total allocations ({total_allocated:,.2f}) exceed your monthly income. Reduce bucket allocations to balance your budget.',
+        })
+    for item in bucket_data:
+        threshold = item['bucket'].alert_threshold
+        if item['pct'] >= threshold and item['bucket'].monthly_allocation > 0:
+            alerts.append({
+                'level': 'warning',
+                'message': f'{item["bucket"].icon} {item["bucket"].name} has used {item["pct"]}% of its allocation.',
+            })
+    if monthly_income > 0 and total_spent > monthly_income * Decimal('0.8'):
+        spend_pct = int((total_spent / monthly_income) * 100)
+        alerts.append({
+            'level': 'warning',
+            'message': f'Overall spending is at {spend_pct}% of your monthly income.',
+        })
+    for item in bucket_data:
+        if item['bucket'].monthly_allocation == 0 and item['spent'] > 0:
+            alerts.append({
+                'level': 'warning',
+                'message': f'{item["bucket"].icon} {item["bucket"].name} has no allocation but has ${item["spent"]:,.2f} in spending.',
+            })
+
     total_remaining = total_allocated - total_spent
     if total_allocated > 0:
         total_pct = min(int((total_spent / total_allocated) * 100), 100)
@@ -120,6 +146,7 @@ def budget_overview(request, year=None, month=None):
         'actual_daily_avg': actual_daily_avg,
         'ideal_daily_spend': ideal_daily_spend,
         'alloc_saved': request.GET.get('saved') == '1',
+        'alerts': alerts,
     })
 
 

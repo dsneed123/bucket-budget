@@ -576,3 +576,107 @@ class GenerateBudgetSummariesCommandTest(TestCase):
         summary = BudgetSummary.objects.get(user=self.user, month=3, year=2025)
         # income=5000, spent=1000, surplus=4000
         self.assertEqual(summary.surplus_deficit, Decimal('4000.00'))
+
+
+class BudgetAlertsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='alerts@example.com',
+            password='testpass',
+            first_name='Alert',
+            last_name='Tester',
+            monthly_income=Decimal('5000.00'),
+        )
+        self.client.login(email='alerts@example.com', password='testpass')
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('1000.00'),
+        )
+
+    def _make_bucket(self, name, allocation, icon='💰'):
+        return Bucket.objects.create(
+            user=self.user,
+            name=name,
+            monthly_allocation=allocation,
+            color='#00d4aa',
+            icon=icon,
+        )
+
+    def _spend(self, bucket, amount):
+        today = datetime.date.today()
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            bucket=bucket,
+            amount=amount,
+            transaction_type='expense',
+            description='test',
+            date=today,
+        )
+
+    def _get_alerts(self):
+        response = self.client.get(reverse('budget_overview'))
+        self.assertEqual(response.status_code, 200)
+        return response.context['alerts']
+
+    def test_no_alerts_when_budget_is_healthy(self):
+        self._make_bucket('Groceries', Decimal('500.00'))
+        alerts = self._get_alerts()
+        self.assertEqual(alerts, [])
+
+    def test_error_alert_when_total_allocation_exceeds_income(self):
+        self._make_bucket('Rent', Decimal('4000.00'))
+        self._make_bucket('Food', Decimal('2000.00'))
+        alerts = self._get_alerts()
+        error_alerts = [a for a in alerts if a['level'] == 'error']
+        self.assertEqual(len(error_alerts), 1)
+        self.assertIn('exceed', error_alerts[0]['message'])
+
+    def test_no_error_alert_when_allocation_equals_income(self):
+        self._make_bucket('Rent', Decimal('5000.00'))
+        alerts = self._get_alerts()
+        error_alerts = [a for a in alerts if a['level'] == 'error']
+        self.assertEqual(len(error_alerts), 0)
+
+    def test_warning_alert_when_bucket_exceeds_alert_threshold(self):
+        bucket = self._make_bucket('Dining', Decimal('200.00'))
+        self._spend(bucket, Decimal('185.00'))  # 92%
+        alerts = self._get_alerts()
+        warning_alerts = [a for a in alerts if a['level'] == 'warning']
+        self.assertTrue(any('Dining' in a['message'] for a in warning_alerts))
+
+    def test_no_bucket_alert_when_below_threshold(self):
+        bucket = self._make_bucket('Dining', Decimal('200.00'))
+        self._spend(bucket, Decimal('100.00'))  # 50%
+        alerts = self._get_alerts()
+        warning_alerts = [a for a in alerts if a['level'] == 'warning']
+        self.assertFalse(any('Dining' in a['message'] for a in warning_alerts))
+
+    def test_warning_alert_when_overall_spending_exceeds_80_percent(self):
+        bucket = self._make_bucket('Expenses', Decimal('5000.00'))
+        self._spend(bucket, Decimal('4100.00'))  # 82% of income
+        alerts = self._get_alerts()
+        warning_alerts = [a for a in alerts if a['level'] == 'warning']
+        self.assertTrue(any('82%' in a['message'] or 'spending' in a['message'].lower() for a in warning_alerts))
+
+    def test_no_overall_spending_alert_when_below_80_percent(self):
+        bucket = self._make_bucket('Expenses', Decimal('5000.00'))
+        self._spend(bucket, Decimal('3900.00'))  # 78% of income
+        alerts = self._get_alerts()
+        spend_alerts = [a for a in alerts if 'spending' in a['message'].lower() and 'income' in a['message'].lower()]
+        self.assertEqual(len(spend_alerts), 0)
+
+    def test_warning_alert_for_zero_allocation_bucket_with_spending(self):
+        bucket = self._make_bucket('Misc', Decimal('0.00'))
+        self._spend(bucket, Decimal('50.00'))
+        alerts = self._get_alerts()
+        warning_alerts = [a for a in alerts if a['level'] == 'warning']
+        self.assertTrue(any('Misc' in a['message'] and 'no allocation' in a['message'].lower() for a in warning_alerts))
+
+    def test_no_alert_for_zero_allocation_bucket_without_spending(self):
+        self._make_bucket('Empty', Decimal('0.00'))
+        alerts = self._get_alerts()
+        self.assertFalse(any('Empty' in a['message'] for a in alerts))
