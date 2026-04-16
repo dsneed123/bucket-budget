@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="theme-{{ user_theme }}">
     <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle-input">
     <div class="layout">
         <label for="sidebar-toggle" class="sidebar-overlay"></label>

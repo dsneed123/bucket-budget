@@ -61,6 +61,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'banking.context_processors.net_worth',
+                'accounts.context_processors.user_theme',
             ],
         },
     },
