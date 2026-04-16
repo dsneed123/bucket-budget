@@ -190,6 +190,14 @@ class BudgetOverviewTest(TestCase):
         response = self.client.get(url)
         self.assertTrue(response.context['is_current_month'])
 
+    def test_alloc_saved_flag_in_context(self):
+        response = self.client.get(reverse('budget_overview') + '?saved=1')
+        self.assertTrue(response.context['alloc_saved'])
+
+    def test_alloc_saved_flag_absent_by_default(self):
+        response = self.client.get(reverse('budget_overview'))
+        self.assertFalse(response.context['alloc_saved'])
+
     def test_other_users_data_not_included(self):
         other_user = User.objects.create_user(
             email='other@example.com',
@@ -207,3 +215,82 @@ class BudgetOverviewTest(TestCase):
         response = self.client.get(reverse('budget_overview'))
         bucket_names = [item['bucket'].name for item in response.context['bucket_data']]
         self.assertNotIn('Other Bucket', bucket_names)
+
+
+class SaveAllocationsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='save@example.com',
+            password='testpass',
+            first_name='Save',
+            last_name='Tester',
+            monthly_income=Decimal('4000.00'),
+        )
+        self.client.login(email='save@example.com', password='testpass')
+        self.bucket = Bucket.objects.create(
+            user=self.user,
+            name='Rent',
+            monthly_allocation=Decimal('1000.00'),
+            color='#0984e3',
+            icon='🏠',
+        )
+
+    def test_redirects_when_not_logged_in(self):
+        self.client.logout()
+        response = self.client.post(reverse('budget_save_allocations'), {
+            f'allocation_{self.bucket.pk}': '1200.00',
+        })
+        self.assertEqual(response.status_code, 302)
+
+    def test_get_request_redirects(self):
+        response = self.client.get(reverse('budget_save_allocations'))
+        self.assertRedirects(response, reverse('budget_overview'), fetch_redirect_response=False)
+
+    def test_post_updates_allocation(self):
+        self.client.post(reverse('budget_save_allocations'), {
+            f'allocation_{self.bucket.pk}': '1500.00',
+        })
+        self.bucket.refresh_from_db()
+        self.assertEqual(self.bucket.monthly_allocation, Decimal('1500.00'))
+
+    def test_post_redirects_to_budget_with_saved_flag(self):
+        response = self.client.post(reverse('budget_save_allocations'), {
+            f'allocation_{self.bucket.pk}': '1500.00',
+        })
+        self.assertRedirects(
+            response, reverse('budget_overview') + '?saved=1', fetch_redirect_response=False
+        )
+
+    def test_invalid_value_skips_update(self):
+        response = self.client.post(reverse('budget_save_allocations'), {
+            f'allocation_{self.bucket.pk}': 'not-a-number',
+        })
+        self.bucket.refresh_from_db()
+        self.assertEqual(self.bucket.monthly_allocation, Decimal('1000.00'))
+
+    def test_negative_value_skips_update(self):
+        self.client.post(reverse('budget_save_allocations'), {
+            f'allocation_{self.bucket.pk}': '-100',
+        })
+        self.bucket.refresh_from_db()
+        self.assertEqual(self.bucket.monthly_allocation, Decimal('1000.00'))
+
+    def test_other_users_buckets_not_modified(self):
+        other_user = User.objects.create_user(
+            email='other2@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        other_bucket = Bucket.objects.create(
+            user=other_user,
+            name='Other',
+            monthly_allocation=Decimal('500.00'),
+            color='#ff0000',
+        )
+        self.client.post(reverse('budget_save_allocations'), {
+            f'allocation_{other_bucket.pk}': '9999.00',
+        })
+        other_bucket.refresh_from_db()
+        self.assertEqual(other_bucket.monthly_allocation, Decimal('500.00'))

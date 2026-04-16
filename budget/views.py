@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 
 from buckets.models import Bucket
@@ -95,4 +95,39 @@ def budget_overview(request, year=None, month=None):
         'bucket_data': bucket_data,
         'total_remaining': total_remaining,
         'total_pct': total_pct,
+        'alloc_saved': request.GET.get('saved') == '1',
     })
+
+
+@login_required
+def save_allocations(request):
+    if request.method != 'POST':
+        return redirect('budget_overview')
+
+    buckets = list(
+        Bucket.objects.filter(user=request.user, is_active=True, is_uncategorized=False)
+    )
+
+    allocations = {}
+    has_errors = False
+
+    for bucket in buckets:
+        raw = request.POST.get(f'allocation_{bucket.pk}', '').strip()
+        if raw == '':
+            raw = '0'
+        try:
+            val = Decimal(raw)
+            if val < 0:
+                has_errors = True
+            else:
+                allocations[bucket.pk] = val
+        except Exception:
+            has_errors = True
+
+    if not has_errors:
+        for bucket in buckets:
+            if bucket.pk in allocations:
+                bucket.monthly_allocation = allocations[bucket.pk]
+        Bucket.objects.bulk_update(buckets, ['monthly_allocation'])
+
+    return redirect(reverse('budget_overview') + '?saved=1')

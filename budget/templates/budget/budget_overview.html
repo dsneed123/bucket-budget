@@ -81,70 +81,168 @@
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
         <div>
             <h2 class="card-title">Budget Allocation</h2>
-            <p class="card-subtitle">Sorted by percentage used — most used first</p>
+            <p class="card-subtitle" id="alloc-subtitle">Sorted by percentage used — most used first</p>
         </div>
-        <a href="{% url 'bucket_list' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">Manage Buckets</a>
+        <div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+            <div id="view-actions" style="display: flex; gap: 8px;">
+                <a href="{% url 'bucket_list' %}" class="btn btn-secondary btn-sm">Manage Buckets</a>
+                <button type="button" id="edit-allocations-btn" class="btn btn-primary btn-sm">Edit Allocations</button>
+            </div>
+            <div id="edit-actions" style="display: none; gap: 8px;">
+                <button type="button" id="cancel-edit-btn" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" form="allocations-form" class="btn btn-primary btn-sm">Save</button>
+            </div>
+        </div>
     </div>
 
-    <div class="table-wrapper">
-        <table>
-            <thead>
-                <tr>
-                    <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: left;">Bucket</th>
-                    <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: right;">Allocated</th>
-                    <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: right;">Spent</th>
-                    <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: right;">Remaining</th>
-                    <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: left; min-width: 160px;">Progress</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in bucket_data %}
-                <tr>
-                    <td style="padding: 14px 16px; border-bottom: 1px solid var(--border);">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 1.1rem; flex-shrink: 0; border-left: 3px solid {{ item.bucket.color }}; padding-left: 8px;">{{ item.bucket.icon }}</span>
-                            <span style="font-size: 14px; font-weight: 600; color: var(--text-primary);">{{ item.bucket.name }}</span>
-                        </div>
-                    </td>
-                    <td style="padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; font-size: 14px; color: var(--text-secondary);">{{ item.bucket.monthly_allocation|currency:user.currency }}</td>
-                    <td style="padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; font-size: 14px; color: var(--text-primary);">{{ item.spent|currency:user.currency }}</td>
-                    <td style="padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; font-size: 14px; font-weight: 600; {% if item.over %}color: var(--accent-red);{% else %}color: var(--accent-green);{% endif %}">
-                        {% if item.over %}&minus;{% endif %}{{ item.remaining|currency:user.currency }}
-                    </td>
-                    <td style="padding: 14px 16px; border-bottom: 1px solid var(--border);">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <div class="progress" style="flex: 1; height: 6px;">
-                                <div class="progress-bar {% if item.over %}progress-bar-red{% endif %}"
-                                     style="width: {{ item.pct }}%; {% if not item.over %}background: {{ item.bucket.color }};{% endif %}"></div>
-                            </div>
-                            <span style="font-size: 12px; color: var(--text-secondary); flex-shrink: 0; width: 36px; text-align: right;">{{ item.pct }}%</span>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr style="background: rgba(255,255,255,0.03);">
-                    <td style="padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-primary);">Total</td>
-                    <td style="padding: 14px 16px; text-align: right; font-size: 14px; font-weight: 700; color: var(--text-primary);">{{ total_allocated|currency:user.currency }}</td>
-                    <td style="padding: 14px 16px; text-align: right; font-size: 14px; font-weight: 700; color: var(--text-primary);">{{ total_spent|currency:user.currency }}</td>
-                    <td style="padding: 14px 16px; text-align: right; font-size: 14px; font-weight: 700; {% if total_remaining < 0 %}color: var(--accent-red);{% else %}color: var(--accent-green);{% endif %}">
-                        {% if total_remaining < 0 %}&minus;{% endif %}{{ total_remaining|currency:user.currency }}
-                    </td>
-                    <td style="padding: 14px 16px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <div class="progress" style="flex: 1; height: 6px;">
-                                <div class="progress-bar {% if total_remaining < 0 %}progress-bar-red{% endif %}"
-                                     style="width: {{ total_pct }}%;"></div>
-                            </div>
-                            <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary); flex-shrink: 0; width: 36px; text-align: right;">{{ total_pct }}%</span>
-                        </div>
-                    </td>
-                </tr>
-            </tfoot>
-        </table>
+    {% if alloc_saved %}
+    <div style="margin-bottom: 12px; padding: 10px 14px; background: rgba(0, 200, 83, 0.1); border: 1px solid var(--accent-green); border-radius: 6px; font-size: 13px; color: var(--accent-green);">
+        Allocations saved successfully.
     </div>
+    {% endif %}
+
+    <!-- Edit mode summary bar -->
+    <div id="edit-summary" style="display: none; margin-bottom: 12px; padding: 12px 16px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; gap: 24px; flex-wrap: wrap; align-items: center;">
+        <div style="font-size: 13px; color: var(--text-secondary);">
+            Running total: <strong id="edit-total" style="color: var(--text-primary);">—</strong>
+        </div>
+        <div style="font-size: 13px; color: var(--text-secondary);">
+            Unallocated: <strong id="edit-unallocated">—</strong>
+        </div>
+        <div style="font-size: 12px; color: var(--text-muted);">Monthly income: {{ monthly_income|currency:user.currency }}</div>
+    </div>
+
+    <form id="allocations-form" method="post" action="{% url 'budget_save_allocations' %}">
+        {% csrf_token %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: left;">Bucket</th>
+                        <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: right;">Allocated</th>
+                        <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: right;">Spent</th>
+                        <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: right;">Remaining</th>
+                        <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: left; min-width: 160px;">Progress</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in bucket_data %}
+                    <tr>
+                        <td style="padding: 14px 16px; border-bottom: 1px solid var(--border);">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 1.1rem; flex-shrink: 0; border-left: 3px solid {{ item.bucket.color }}; padding-left: 8px;">{{ item.bucket.icon }}</span>
+                                <span style="font-size: 14px; font-weight: 600; color: var(--text-primary);">{{ item.bucket.name }}</span>
+                            </div>
+                        </td>
+                        <td style="padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; font-size: 14px; color: var(--text-secondary);">
+                            <span class="alloc-display">{{ item.bucket.monthly_allocation|currency:user.currency }}</span>
+                            <input
+                                type="number"
+                                name="allocation_{{ item.bucket.pk }}"
+                                value="{{ item.bucket.monthly_allocation }}"
+                                min="0"
+                                step="0.01"
+                                class="alloc-input form-control"
+                                data-original="{{ item.bucket.monthly_allocation }}"
+                                style="display: none; width: 110px; text-align: right; padding: 4px 8px; font-size: 14px;"
+                            >
+                        </td>
+                        <td style="padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; font-size: 14px; color: var(--text-primary);">{{ item.spent|currency:user.currency }}</td>
+                        <td style="padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; font-size: 14px; font-weight: 600; {% if item.over %}color: var(--accent-red);{% else %}color: var(--accent-green);{% endif %}">
+                            {% if item.over %}&minus;{% endif %}{{ item.remaining|currency:user.currency }}
+                        </td>
+                        <td style="padding: 14px 16px; border-bottom: 1px solid var(--border);">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div class="progress" style="flex: 1; height: 6px;">
+                                    <div class="progress-bar {% if item.over %}progress-bar-red{% endif %}"
+                                         style="width: {{ item.pct }}%; {% if not item.over %}background: {{ item.bucket.color }};{% endif %}"></div>
+                                </div>
+                                <span style="font-size: 12px; color: var(--text-secondary); flex-shrink: 0; width: 36px; text-align: right;">{{ item.pct }}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background: rgba(255,255,255,0.03);">
+                        <td style="padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-primary);">Total</td>
+                        <td style="padding: 14px 16px; text-align: right; font-size: 14px; font-weight: 700; color: var(--text-primary);">
+                            <span id="total-alloc-display">{{ total_allocated|currency:user.currency }}</span>
+                            <span id="total-alloc-edit" style="display: none;">—</span>
+                        </td>
+                        <td style="padding: 14px 16px; text-align: right; font-size: 14px; font-weight: 700; color: var(--text-primary);">{{ total_spent|currency:user.currency }}</td>
+                        <td style="padding: 14px 16px; text-align: right; font-size: 14px; font-weight: 700; {% if total_remaining < 0 %}color: var(--accent-red);{% else %}color: var(--accent-green);{% endif %}">
+                            {% if total_remaining < 0 %}&minus;{% endif %}{{ total_remaining|currency:user.currency }}
+                        </td>
+                        <td style="padding: 14px 16px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div class="progress" style="flex: 1; height: 6px;">
+                                    <div class="progress-bar {% if total_remaining < 0 %}progress-bar-red{% endif %}"
+                                         style="width: {{ total_pct }}%;"></div>
+                                </div>
+                                <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary); flex-shrink: 0; width: 36px; text-align: right;">{{ total_pct }}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </form>
 </div>
+
+<script>
+(function () {
+    var monthlyIncome = parseFloat("{{ monthly_income|floatformat:2 }}") || 0;
+    var userCurrency = "{{ user.currency }}";
+
+    function fmt(val) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: userCurrency }).format(val);
+    }
+
+    function recalc() {
+        var total = 0;
+        document.querySelectorAll('.alloc-input').forEach(function (inp) {
+            total += parseFloat(inp.value) || 0;
+        });
+        var unallocated = monthlyIncome - total;
+        document.getElementById('edit-total').textContent = fmt(total);
+        document.getElementById('total-alloc-edit').textContent = fmt(total);
+        var uEl = document.getElementById('edit-unallocated');
+        uEl.textContent = fmt(unallocated);
+        uEl.style.color = unallocated >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+    }
+
+    document.getElementById('edit-allocations-btn').addEventListener('click', function () {
+        document.querySelectorAll('.alloc-display').forEach(function (el) { el.style.display = 'none'; });
+        document.querySelectorAll('.alloc-input').forEach(function (el) { el.style.display = 'inline-block'; });
+        document.getElementById('view-actions').style.display = 'none';
+        document.getElementById('edit-actions').style.display = 'flex';
+        document.getElementById('edit-summary').style.display = 'flex';
+        document.getElementById('total-alloc-display').style.display = 'none';
+        document.getElementById('total-alloc-edit').style.display = 'inline';
+        document.getElementById('alloc-subtitle').textContent = 'Editing allocations — update amounts and save';
+        recalc();
+    });
+
+    document.getElementById('cancel-edit-btn').addEventListener('click', function () {
+        document.querySelectorAll('.alloc-input').forEach(function (el) {
+            el.value = el.dataset.original;
+            el.style.display = 'none';
+        });
+        document.querySelectorAll('.alloc-display').forEach(function (el) { el.style.display = 'inline'; });
+        document.getElementById('view-actions').style.display = 'flex';
+        document.getElementById('edit-actions').style.display = 'none';
+        document.getElementById('edit-summary').style.display = 'none';
+        document.getElementById('total-alloc-display').style.display = 'inline';
+        document.getElementById('total-alloc-edit').style.display = 'none';
+        document.getElementById('alloc-subtitle').textContent = 'Sorted by percentage used \u2014 most used first';
+    });
+
+    document.querySelectorAll('.alloc-input').forEach(function (inp) {
+        inp.addEventListener('input', recalc);
+    });
+})();
+</script>
 {% else %}
 <div class="card" style="text-align: center; padding: 48px 24px;">
     <div style="font-size: 3rem; margin-bottom: 16px;">🪣</div>
