@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load avatar_tags %}
 
 {% block title %}Profile — Bucket Budget{% endblock %}
 
@@ -9,6 +10,7 @@
 
     <div class="card" style="grid-column: 1 / -1;">
         <div class="card-header">
+            <div class="avatar-lg" style="background-color: {{ user.email|avatar_color }};">{{ user|avatar_initials }}</div>
             <div>
                 <h2 class="card-title">Your Profile</h2>
                 <p class="card-subtitle">Member since {{ user.created_at|date:"F j, Y" }}</p>
