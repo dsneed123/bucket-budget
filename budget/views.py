@@ -1,9 +1,11 @@
 import calendar
+import csv
 import datetime
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Sum
+from django.http import StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
@@ -319,6 +321,34 @@ def budget_history(request):
     return render(request, 'budget/budget_history.html', {
         'history': history,
     })
+
+
+@login_required
+def budget_history_export_csv(request):
+    summaries = BudgetSummary.objects.filter(user=request.user).order_by('-year', '-month')
+
+    def _csv_rows(queryset):
+        class _EchoBuf:
+            def write(self, val):
+                return val
+
+        writer = csv.writer(_EchoBuf())
+        yield writer.writerow(['month', 'year', 'income', 'allocated', 'spent', 'saved', 'surplus_deficit', 'necessity_avg'])
+        for s in queryset.iterator():
+            yield writer.writerow([
+                s.month,
+                s.year,
+                str(s.income),
+                str(s.total_allocated),
+                str(s.total_spent),
+                str(s.total_saved),
+                str(s.surplus_deficit),
+                str(s.necessity_avg) if s.necessity_avg is not None else '',
+            ])
+
+    response = StreamingHttpResponse(_csv_rows(summaries), content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="budget_history.csv"'
+    return response
 
 
 @login_required

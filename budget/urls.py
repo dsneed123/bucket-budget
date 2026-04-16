@@ -5,6 +5,7 @@ from . import views
 urlpatterns = [
     path('budget/', views.budget_overview, name='budget_overview'),
     path('budget/history/', views.budget_history, name='budget_history'),
+    path('budget/history/export/csv/', views.budget_history_export_csv, name='budget_history_export_csv'),
     path('budget/save-allocations/', views.save_allocations, name='budget_save_allocations'),
     path('budget/copy-last-month/', views.copy_last_month_allocations, name='budget_copy_last_month'),
     path('budget/save-notes/', views.save_notes, name='budget_save_notes'),
