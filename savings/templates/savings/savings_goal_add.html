@@ -4,6 +4,76 @@
 
 {% block content %}
 <div style="max-width: 560px;">
+
+    <div class="card" style="margin-bottom: 20px;">
+        <div class="card-header" style="padding-bottom: 12px;">
+            <h2 class="card-title">Quick start with a template</h2>
+            <p class="card-subtitle">Choose a preset to pre-fill the form below.</p>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+            <button type="button" class="goal-template-btn"
+                data-name="Emergency Fund"
+                data-target="10000"
+                data-icon="🛡️"
+                data-color="#00d4aa"
+                data-goal-type="emergency_fund"
+                data-description="3–6 months of living expenses"
+                style="border: 1px solid #00d4aa;">
+                <span style="font-size: 22px;">🛡️</span>
+                <span class="tpl-label">Emergency Fund</span>
+                <span class="tpl-amount">$10,000</span>
+            </button>
+            <button type="button" class="goal-template-btn"
+                data-name="Vacation"
+                data-target="2000"
+                data-icon="✈️"
+                data-color="#0984e3"
+                data-goal-type="vacation"
+                data-description=""
+                style="border: 1px solid #0984e3;">
+                <span style="font-size: 22px;">✈️</span>
+                <span class="tpl-label">Vacation</span>
+                <span class="tpl-amount">$2,000</span>
+            </button>
+            <button type="button" class="goal-template-btn"
+                data-name="New Car"
+                data-target="5000"
+                data-icon="🚗"
+                data-color="#f9ca24"
+                data-goal-type="purchase"
+                data-description=""
+                style="border: 1px solid #f9ca24;">
+                <span style="font-size: 22px;">🚗</span>
+                <span class="tpl-label">New Car</span>
+                <span class="tpl-amount">$5,000</span>
+            </button>
+            <button type="button" class="goal-template-btn"
+                data-name="Down Payment"
+                data-target="20000"
+                data-icon="🏠"
+                data-color="#6c5ce7"
+                data-goal-type="purchase"
+                data-description=""
+                style="border: 1px solid #6c5ce7;">
+                <span style="font-size: 22px;">🏠</span>
+                <span class="tpl-label">Down Payment</span>
+                <span class="tpl-amount">$20,000</span>
+            </button>
+            <button type="button" class="goal-template-btn"
+                data-name="Education Fund"
+                data-target="10000"
+                data-icon="🎓"
+                data-color="#a29bfe"
+                data-goal-type="education"
+                data-description=""
+                style="border: 1px solid #a29bfe;">
+                <span style="font-size: 22px;">🎓</span>
+                <span class="tpl-label">Education</span>
+                <span class="tpl-amount">$10,000</span>
+            </button>
+        </div>
+    </div>
+
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">New Savings Goal</h2>
@@ -138,6 +208,38 @@
     </div>
 </div>
 
+<style>
+.goal-template-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 8px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    text-align: center;
+}
+.goal-template-btn:hover {
+    background: var(--bg-secondary);
+    transform: translateY(-1px);
+}
+.goal-template-btn.selected {
+    background: var(--bg-secondary);
+}
+.tpl-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+.tpl-amount {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+</style>
+
 <script>
     const colorPicker = document.getElementById('color');
     const colorHex = document.getElementById('color_hex');
@@ -151,6 +253,29 @@
         if (/^#[0-9a-fA-F]{6}$/.test(val)) {
             colorPicker.value = val;
         }
+    });
+
+    document.querySelectorAll('.goal-template-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.goal-template-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+
+            document.getElementById('name').value = btn.dataset.name;
+            document.getElementById('target_amount').value = btn.dataset.target;
+            document.getElementById('icon').value = btn.dataset.icon;
+            document.getElementById('description').value = btn.dataset.description;
+
+            const color = btn.dataset.color;
+            colorPicker.value = color;
+            colorHex.value = color;
+
+            const goalTypeSelect = document.getElementById('goal_type');
+            for (const opt of goalTypeSelect.options) {
+                opt.selected = opt.value === btn.dataset.goalType;
+            }
+
+            document.getElementById('name').focus();
+        });
     });
 </script>
 {% endblock %}
