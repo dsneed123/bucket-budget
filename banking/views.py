@@ -1,10 +1,73 @@
+from datetime import timedelta
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.utils import timezone
 
 from .models import BankAccount
 
 ACCOUNT_TYPE_CHOICES = BankAccount.ACCOUNT_TYPE_CHOICES
 VALID_ACCOUNT_TYPES = [c[0] for c in ACCOUNT_TYPE_CHOICES]
+
+
+@login_required
+def account_detail(request, account_id):
+    account = get_object_or_404(BankAccount, pk=account_id, user=request.user, is_active=True)
+
+    today = timezone.now().date()
+    thirty_days_ago = today - timedelta(days=29)
+
+    # History entries within the 30-day window, ascending for chart building
+    window_history = list(
+        account.balance_history.filter(created_at__date__gte=thirty_days_ago).order_by('created_at')
+    )
+
+    # Determine the balance at the start of the window
+    before_window = account.balance_history.filter(
+        created_at__date__lt=thirty_days_ago
+    ).order_by('-created_at').first()
+
+    if before_window:
+        starting_balance = float(before_window.new_balance)
+    elif window_history:
+        starting_balance = float(window_history[0].previous_balance)
+    else:
+        starting_balance = float(account.balance)
+
+    # Build per-day closing balances (last change wins each day)
+    daily_close = {}
+    for entry in window_history:
+        daily_close[entry.created_at.date()] = float(entry.new_balance)
+
+    # Fill forward across all 30 days
+    chart_data = []
+    last_known = starting_balance
+    for i in range(30):
+        day = thirty_days_ago + timedelta(days=i)
+        if day in daily_close:
+            last_known = daily_close[day]
+        chart_data.append({'date': day, 'balance': last_known})
+
+    # Compute bar heights as percentages
+    balances = [d['balance'] for d in chart_data]
+    min_bal = min(balances)
+    max_bal = max(balances)
+    bal_range = max_bal - min_bal
+    for item in chart_data:
+        if bal_range > 0:
+            item['height_pct'] = max(4, round((item['balance'] - min_bal) / bal_range * 100))
+        else:
+            item['height_pct'] = 50
+
+    recent_changes = list(account.balance_history.all()[:20])
+
+    return render(request, 'banking/account_detail.html', {
+        'account': account,
+        'chart_data': chart_data,
+        'recent_changes': recent_changes,
+        'min_bal': min_bal,
+        'max_bal': max_bal,
+    })
 
 
 @login_required

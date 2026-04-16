@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}{{ account.name }} — Bucket Budget{% endblock %}
+{% block page_title %}Account Detail{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px;">
+
+    <!-- Account header card -->
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header" style="border-top: 4px solid {{ account.color }}; margin: -24px -24px 24px; padding: 20px 24px 16px; border-radius: var(--radius) var(--radius) 0 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div style="font-size: 2rem;">
+                        {% if account.account_type == 'checking' %}🏦
+                        {% elif account.account_type == 'savings' %}🐷
+                        {% elif account.account_type == 'credit' %}💳
+                        {% elif account.account_type == 'cash' %}💵
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h2 style="margin: 0; font-size: 1.2rem; font-weight: 700; color: var(--text-primary);">{{ account.name }}</h2>
+                        <p style="margin: 2px 0 0; font-size: 0.85rem; color: var(--text-secondary);">
+                            {{ account.get_account_type_display }}{% if account.institution %} · {{ account.institution }}{% endif %}
+                        </p>
+                    </div>
+                </div>
+                <span class="badge {% if account.account_type == 'checking' %}badge-blue{% elif account.account_type == 'savings' %}badge-green{% elif account.account_type == 'credit' %}badge-red{% else %}badge-gold{% endif %}">
+                    {{ account.get_account_type_display }}
+                </span>
+            </div>
+        </div>
+
+        <!-- Balance stats -->
+        <div style="display: flex; gap: 32px; flex-wrap: wrap;">
+            <div>
+                <div class="stat-label">Current Balance</div>
+                <div class="stat-value {% if account.balance >= 0 %}text-green{% else %}text-red{% endif %}">
+                    ${{ account.balance|floatformat:2 }}
+                </div>
+            </div>
+            <div>
+                <div class="stat-label">30-day Low</div>
+                <div class="stat-value" style="font-size: 1.3rem; color: var(--text-primary);">
+                    ${{ min_bal|floatformat:2 }}
+                </div>
+            </div>
+            <div>
+                <div class="stat-label">30-day High</div>
+                <div class="stat-value" style="font-size: 1.3rem; color: var(--text-primary);">
+                    ${{ max_bal|floatformat:2 }}
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; gap: 12px;">
+            <a href="{% url 'account_update_balance' account.pk %}" class="btn btn-primary" style="font-size: 0.85rem;">Update Balance</a>
+            <a href="{% url 'account_edit' account.pk %}" class="btn btn-secondary" style="font-size: 0.85rem;">Edit Account</a>
+            <a href="{% url 'account_list' %}" style="font-size: 0.85rem; color: var(--text-secondary); text-decoration: none; align-self: center;">← All Accounts</a>
+        </div>
+    </div>
+
+    <!-- Balance history chart -->
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 14px; margin-bottom: 20px;">
+            <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary);">Balance History</h3>
+            <p style="margin: 4px 0 0; font-size: 0.8rem; color: var(--text-secondary);">Last 30 days</p>
+        </div>
+
+        {% if chart_data %}
+        <div style="position: relative;">
+            <!-- Y-axis labels -->
+            <div style="display: flex; align-items: stretch; gap: 0;">
+                <div style="display: flex; flex-direction: column; justify-content: space-between; padding-right: 10px; min-width: 72px; text-align: right;">
+                    <span style="font-size: 0.7rem; color: var(--text-secondary);">${{ max_bal|floatformat:0 }}</span>
+                    <span style="font-size: 0.7rem; color: var(--text-secondary);">${{ min_bal|floatformat:0 }}</span>
+                </div>
+
+                <!-- Chart bars -->
+                <div style="flex: 1; display: flex; align-items: flex-end; gap: 3px; height: 120px; border-bottom: 1px solid var(--border); padding-bottom: 0;">
+                    {% for item in chart_data %}
+                    <div
+                        title="{{ item.date|date:'M j' }}: ${{ item.balance|floatformat:2 }}"
+                        style="
+                            flex: 1;
+                            height: {{ item.height_pct }}%;
+                            background-color: {{ account.color }};
+                            border-radius: 2px 2px 0 0;
+                            opacity: 0.85;
+                            min-width: 0;
+                            transition: opacity 0.15s;
+                        "
+                        onmouseover="this.style.opacity='1'; this.style.outline='1px solid {{ account.color }}'"
+                        onmouseout="this.style.opacity='0.85'; this.style.outline='none'"
+                    ></div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- X-axis date labels -->
+            <div style="display: flex; margin-left: 82px; margin-top: 6px;">
+                {% for item in chart_data %}
+                {% if forloop.counter == 1 or forloop.counter == 8 or forloop.counter == 15 or forloop.counter == 22 or forloop.counter == 30 %}
+                <div style="
+                    flex: 1;
+                    font-size: 0.65rem;
+                    color: var(--text-secondary);
+                    text-align: {% if forloop.last %}right{% else %}left{% endif %};
+                    {% if forloop.counter == 8 %}margin-left: calc((100% / 30) * 7);{% elif forloop.counter == 15 %}margin-left: calc((100% / 30) * 7);{% elif forloop.counter == 22 %}margin-left: calc((100% / 30) * 7);{% endif %}
+                ">{{ item.date|date:"M j" }}</div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 32px 0; color: var(--text-secondary);">
+            <div style="font-size: 2rem; margin-bottom: 8px;">📈</div>
+            <p style="margin: 0; font-size: 0.9rem;">No balance history in the last 30 days.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Recent balance changes list -->
+    <div class="card">
+        <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 14px; margin-bottom: 0;">
+            <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary);">Recent Changes</h3>
+            <p style="margin: 4px 0 0; font-size: 0.8rem; color: var(--text-secondary);">Last 20 balance updates</p>
+        </div>
+
+        {% if recent_changes %}
+        <div>
+            {% for change in recent_changes %}
+            <div style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 14px 0;
+                border-bottom: {% if not forloop.last %}1px solid var(--border){% else %}none{% endif %};
+                gap: 12px;
+            ">
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary);">
+                            {{ change.get_change_reason_display }}
+                        </span>
+                        <span style="font-size: 0.75rem; color: var(--text-secondary);">
+                            {{ change.created_at|date:"M j, Y" }} at {{ change.created_at|time:"g:i A" }}
+                        </span>
+                    </div>
+                    <div style="margin-top: 3px; font-size: 0.8rem; color: var(--text-secondary);">
+                        ${{ change.previous_balance|floatformat:2 }} → ${{ change.new_balance|floatformat:2 }}
+                    </div>
+                </div>
+                <div style="text-align: right; flex-shrink: 0;">
+                    <span style="
+                        font-size: 0.95rem;
+                        font-weight: 600;
+                        color: {% if change.change_amount >= 0 %}var(--accent-green){% else %}var(--accent-red){% endif %};
+                    ">
+                        {% if change.change_amount >= 0 %}+{% endif %}${{ change.change_amount|floatformat:2 }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 32px 0; color: var(--text-secondary);">
+            <div style="font-size: 2rem; margin-bottom: 8px;">📋</div>
+            <p style="margin: 0; font-size: 0.9rem;">No balance changes recorded yet.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

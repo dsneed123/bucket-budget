@@ -27,7 +27,9 @@
                         {% elif account.account_type == 'cash' %}💵
                         {% endif %}
                     </div>
-                    <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary);">{{ account.name }}</h3>
+                    <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary);">
+                        <a href="{% url 'account_detail' account.pk %}" style="color: inherit; text-decoration: none;">{{ account.name }}</a>
+                    </h3>
                     {% if account.institution %}
                     <p style="margin: 2px 0 0; font-size: 0.8rem; color: var(--text-secondary);">{{ account.institution }}</p>
                     {% endif %}
