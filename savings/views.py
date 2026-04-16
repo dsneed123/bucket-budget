@@ -1,8 +1,10 @@
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from banking.models import BankAccount
 
@@ -221,3 +223,90 @@ def savings_goal_detail(request, goal_id):
         'errors': errors,
         'contribution_form': contribution_form,
     })
+
+
+@login_required
+@require_POST
+def savings_goal_contribute(request, goal_id):
+    goal = get_object_or_404(SavingsGoal, pk=goal_id, user=request.user)
+    accounts = BankAccount.objects.filter(user=request.user, is_active=True)
+
+    amount_raw = request.POST.get('amount', '').strip()
+    account_id = request.POST.get('source_account', '').strip()
+    note = request.POST.get('note', '').strip()
+
+    errors = {}
+
+    amount_val = None
+    if not amount_raw:
+        errors['amount'] = 'Amount is required.'
+    else:
+        try:
+            amount_val = Decimal(amount_raw)
+            if amount_val <= 0:
+                errors['amount'] = 'Amount must be greater than zero.'
+        except InvalidOperation:
+            errors['amount'] = 'Please enter a valid number.'
+
+    account_obj = None
+    if not account_id:
+        errors['source_account'] = 'Please select an account.'
+    else:
+        try:
+            account_obj = accounts.get(pk=account_id)
+        except BankAccount.DoesNotExist:
+            errors['source_account'] = 'Invalid account.'
+
+    if errors:
+        # Re-render detail view with errors
+        goal.refresh_from_db()
+        today = date.today()
+        pct = min(int((goal.current_amount / goal.target_amount) * 100), 100) if goal.target_amount > 0 else 0
+        remaining = max(goal.target_amount - goal.current_amount, Decimal('0'))
+
+        days_left = None
+        is_overdue = False
+        if goal.deadline and not goal.is_achieved:
+            delta = (goal.deadline - today).days
+            if delta < 0:
+                is_overdue = True
+            else:
+                days_left = delta
+
+        contributions = goal.contributions.select_related('source_account').order_by('-date', '-created_at')
+        all_accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
+
+        return render(request, 'savings/savings_goal_detail.html', {
+            'goal': goal,
+            'pct': pct,
+            'remaining': remaining,
+            'days_left': days_left,
+            'is_overdue': is_overdue,
+            'contributions': contributions,
+            'accounts': all_accounts,
+            'errors': errors,
+            'contribution_form': {
+                'amount': amount_raw,
+                'source_account': account_id,
+                'note': note,
+                'date': today.strftime('%Y-%m-%d'),
+            },
+        })
+
+    SavingsContribution.objects.create(
+        goal=goal,
+        amount=amount_val,
+        source_account=account_obj,
+        date=date.today(),
+        note=note,
+    )
+
+    goal.refresh_from_db()
+    if goal.current_amount >= goal.target_amount and not goal.is_achieved:
+        goal.is_achieved = True
+        goal.save()
+        messages.success(request, f'Congratulations! You\'ve reached your goal "{goal.name}"!')
+    else:
+        messages.success(request, f'Contribution of ${amount_val:,.2f} added successfully.')
+
+    return redirect('savings:savings_goal_detail', goal_id=goal.pk)
