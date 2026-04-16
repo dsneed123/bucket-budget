@@ -2,10 +2,13 @@ import datetime
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
+from django.db import IntegrityError
 from django.test import TestCase, Client
 from django.urls import reverse
 
 from banking.models import BankAccount
+from budget.models import BudgetSummary
 from buckets.models import Bucket
 from transactions.models import Transaction
 
@@ -294,3 +297,167 @@ class SaveAllocationsTest(TestCase):
         })
         other_bucket.refresh_from_db()
         self.assertEqual(other_bucket.monthly_allocation, Decimal('500.00'))
+
+
+class BudgetSummaryModelTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='summary@example.com',
+            password='testpass',
+            first_name='Sum',
+            last_name='Mary',
+            monthly_income=Decimal('4000.00'),
+        )
+
+    def test_create_budget_summary(self):
+        summary = BudgetSummary.objects.create(
+            user=self.user,
+            month=3,
+            year=2025,
+            income=Decimal('4000.00'),
+            total_allocated=Decimal('3000.00'),
+            total_spent=Decimal('2500.00'),
+            total_saved=Decimal('1500.00'),
+            surplus_deficit=Decimal('1500.00'),
+        )
+        self.assertEqual(summary.month, 3)
+        self.assertEqual(summary.year, 2025)
+        self.assertEqual(summary.income, Decimal('4000.00'))
+
+    def test_unique_together_constraint(self):
+        BudgetSummary.objects.create(
+            user=self.user,
+            month=1,
+            year=2025,
+            income=Decimal('4000.00'),
+            total_allocated=Decimal('3000.00'),
+            total_spent=Decimal('2000.00'),
+            total_saved=Decimal('2000.00'),
+            surplus_deficit=Decimal('2000.00'),
+        )
+        with self.assertRaises(IntegrityError):
+            BudgetSummary.objects.create(
+                user=self.user,
+                month=1,
+                year=2025,
+                income=Decimal('4000.00'),
+                total_allocated=Decimal('3000.00'),
+                total_spent=Decimal('2000.00'),
+                total_saved=Decimal('2000.00'),
+                surplus_deficit=Decimal('2000.00'),
+            )
+
+    def test_necessity_avg_nullable(self):
+        summary = BudgetSummary.objects.create(
+            user=self.user,
+            month=2,
+            year=2025,
+            income=Decimal('4000.00'),
+            total_allocated=Decimal('3000.00'),
+            total_spent=Decimal('1000.00'),
+            total_saved=Decimal('3000.00'),
+            necessity_avg=None,
+            surplus_deficit=Decimal('3000.00'),
+        )
+        self.assertIsNone(summary.necessity_avg)
+
+    def test_str_representation(self):
+        summary = BudgetSummary.objects.create(
+            user=self.user,
+            month=4,
+            year=2025,
+            income=Decimal('4000.00'),
+            total_allocated=Decimal('3000.00'),
+            total_spent=Decimal('2000.00'),
+            total_saved=Decimal('2000.00'),
+            surplus_deficit=Decimal('2000.00'),
+        )
+        self.assertIn('2025-04', str(summary))
+
+    def test_ordering(self):
+        BudgetSummary.objects.create(
+            user=self.user, month=1, year=2025,
+            income=Decimal('4000'), total_allocated=Decimal('3000'),
+            total_spent=Decimal('2000'), total_saved=Decimal('2000'),
+            surplus_deficit=Decimal('2000'),
+        )
+        BudgetSummary.objects.create(
+            user=self.user, month=3, year=2025,
+            income=Decimal('4000'), total_allocated=Decimal('3000'),
+            total_spent=Decimal('2000'), total_saved=Decimal('2000'),
+            surplus_deficit=Decimal('2000'),
+        )
+        summaries = list(BudgetSummary.objects.filter(user=self.user))
+        self.assertEqual(summaries[0].month, 3)
+        self.assertEqual(summaries[1].month, 1)
+
+
+class GenerateBudgetSummariesCommandTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='cmd@example.com',
+            password='testpass',
+            first_name='Cmd',
+            last_name='User',
+            monthly_income=Decimal('5000.00'),
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('0.00'),
+        )
+        self.bucket = Bucket.objects.create(
+            user=self.user,
+            name='Food',
+            monthly_allocation=Decimal('600.00'),
+            color='#00d4aa',
+            icon='🍔',
+        )
+
+    def test_command_creates_summary_for_specific_month(self):
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            bucket=self.bucket,
+            amount=Decimal('400.00'),
+            transaction_type='expense',
+            description='Groceries',
+            date=datetime.date(2025, 1, 15),
+        )
+        call_command('generate_budget_summaries', user=self.user.pk, month=1, year=2025)
+        summary = BudgetSummary.objects.get(user=self.user, month=1, year=2025)
+        self.assertEqual(summary.total_spent, Decimal('400.00'))
+
+    def test_command_updates_existing_summary(self):
+        BudgetSummary.objects.create(
+            user=self.user, month=2, year=2025,
+            income=Decimal('5000'), total_allocated=Decimal('600'),
+            total_spent=Decimal('0'), total_saved=Decimal('5000'),
+            surplus_deficit=Decimal('5000'),
+        )
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('300.00'),
+            transaction_type='expense',
+            description='Bill',
+            date=datetime.date(2025, 2, 10),
+        )
+        call_command('generate_budget_summaries', user=self.user.pk, month=2, year=2025)
+        summary = BudgetSummary.objects.get(user=self.user, month=2, year=2025)
+        self.assertEqual(summary.total_spent, Decimal('300.00'))
+
+    def test_surplus_deficit_calculated_correctly(self):
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('1000.00'),
+            transaction_type='expense',
+            description='Rent',
+            date=datetime.date(2025, 3, 1),
+        )
+        call_command('generate_budget_summaries', user=self.user.pk, month=3, year=2025)
+        summary = BudgetSummary.objects.get(user=self.user, month=3, year=2025)
+        # income=5000, spent=1000, surplus=4000
+        self.assertEqual(summary.surplus_deficit, Decimal('4000.00'))
