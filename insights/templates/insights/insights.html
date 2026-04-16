@@ -255,6 +255,84 @@
     </div>
     {% endif %}
 
+    <!-- Expense Ratio Analysis -->
+    {% if expense_ratio %}
+    <div class="card ratio-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Expense Ratio Analysis — {{ current_month }}</span>
+            {% if expense_ratio.flagged_count %}
+            <span class="ratio-flag-badge">{{ expense_ratio.flagged_count }} categor{{ expense_ratio.flagged_count|pluralize:"y,ies" }} above recommended</span>
+            {% else %}
+            <span class="text-secondary" style="font-size:0.82rem;">All categories within recommended ranges</span>
+            {% endif %}
+        </div>
+        <div class="ratio-income-note text-secondary">
+            Based on {{ expense_ratio.income|currency }} income this month
+        </div>
+        <div class="ratio-list">
+            {% for row in expense_ratio.rows %}
+            <div class="ratio-row">
+                <div class="ratio-label-col">
+                    <div class="ratio-label">{{ row.label }}</div>
+                    <div class="ratio-desc text-secondary">{{ row.description }}</div>
+                </div>
+                <div class="ratio-bar-col">
+                    <div class="ratio-bar-track">
+                        <div class="ratio-rec-band" style="left: {{ row.rec_min_bar }}%; width: {{ row.rec_band_width }}%;"></div>
+                        <div class="ratio-bar ratio-bar-{{ row.status_color }}" style="width: {{ row.bar_pct }}%;"></div>
+                    </div>
+                    <div class="ratio-bar-scale">
+                        <span class="text-secondary">0%</span>
+                        <span class="text-secondary">{{ row.min_pct }}–{{ row.max_pct }}% recommended</span>
+                        <span class="text-secondary">50%</span>
+                    </div>
+                </div>
+                <div class="ratio-pct-col">
+                    <span class="ratio-pct text-{{ row.status_color }}">{{ row.pct }}%</span>
+                </div>
+                <div class="ratio-status-col">
+                    <span class="ratio-status-label text-{{ row.status_color }}">
+                        {% if row.status == 'high' %}&#9650; {{ row.status_label }}
+                        {% elif row.status == 'over' %}&#8593; {{ row.status_label }}
+                        {% elif row.status == 'ok' %}&#10003; {{ row.status_label }}
+                        {% else %}&mdash; {{ row.status_label }}{% endif %}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- Savings row -->
+            <div class="ratio-row ratio-row-savings">
+                <div class="ratio-label-col">
+                    <div class="ratio-label">{{ expense_ratio.savings_row.label }}</div>
+                    <div class="ratio-desc text-secondary">{{ expense_ratio.savings_row.description }}</div>
+                </div>
+                <div class="ratio-bar-col">
+                    <div class="ratio-bar-track">
+                        <div class="ratio-rec-target" style="left: {{ expense_ratio.savings_row.rec_target_bar }}%;"></div>
+                        <div class="ratio-bar ratio-bar-{{ expense_ratio.savings_row.status_color }}" style="width: {{ expense_ratio.savings_row.bar_pct }}%;"></div>
+                    </div>
+                    <div class="ratio-bar-scale">
+                        <span class="text-secondary">0%</span>
+                        <span class="text-secondary">{{ expense_ratio.savings_row.target_pct }}%+ recommended</span>
+                        <span class="text-secondary">50%</span>
+                    </div>
+                </div>
+                <div class="ratio-pct-col">
+                    <span class="ratio-pct text-{{ expense_ratio.savings_row.status_color }}">{{ expense_ratio.savings_row.pct }}%</span>
+                </div>
+                <div class="ratio-status-col">
+                    <span class="ratio-status-label text-{{ expense_ratio.savings_row.status_color }}">
+                        {% if expense_ratio.savings_row.status == 'ok' %}&#10003; {{ expense_ratio.savings_row.status_label }}
+                        {% elif expense_ratio.savings_row.status == 'low' %}&#9660; {{ expense_ratio.savings_row.status_label }}
+                        {% else %}&#8595; {{ expense_ratio.savings_row.status_label }}{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Income vs Expenses — Last 6 Months -->
     <div class="card income-expense-section">
         <div class="trend-header">
@@ -1373,6 +1451,156 @@
 .forecast-no-budget {
     font-size: 0.85rem;
     margin-top: 0.25rem;
+}
+
+/* Expense Ratio Analysis */
+.ratio-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.ratio-flag-badge {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent-red);
+    background: rgba(255, 71, 87, 0.1);
+    border: 1px solid rgba(255, 71, 87, 0.3);
+    border-radius: 4px;
+    padding: 0.2rem 0.5rem;
+}
+
+.ratio-income-note {
+    font-size: 0.82rem;
+    margin-bottom: 1.25rem;
+}
+
+.ratio-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.ratio-row {
+    display: grid;
+    grid-template-columns: 160px 1fr 56px 160px;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.ratio-row-savings {
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+}
+
+.ratio-label-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    text-align: right;
+}
+
+.ratio-label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.ratio-desc {
+    font-size: 0.72rem;
+}
+
+.ratio-bar-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.ratio-bar-track {
+    position: relative;
+    height: 16px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.ratio-rec-band {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: rgba(0, 212, 170, 0.18);
+    border-left: 1px solid rgba(0, 212, 170, 0.5);
+    border-right: 1px solid rgba(0, 212, 170, 0.5);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.ratio-rec-target {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 2px;
+    background: rgba(0, 212, 170, 0.7);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.ratio-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    border-radius: 4px;
+    min-width: 2px;
+    z-index: 2;
+    transition: width 0.3s ease;
+}
+
+.ratio-bar-green  { background-color: var(--accent-green); opacity: 0.8; }
+.ratio-bar-gold   { background-color: var(--accent-gold, #f39c12); opacity: 0.8; }
+.ratio-bar-red    { background-color: var(--accent-red); opacity: 0.85; }
+.ratio-bar-secondary { background-color: var(--text-secondary); opacity: 0.5; }
+
+.ratio-bar-scale {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+}
+
+.ratio-pct-col {
+    text-align: right;
+}
+
+.ratio-pct {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.ratio-status-col {
+    text-align: left;
+}
+
+.ratio-status-label {
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+@media (max-width: 700px) {
+    .ratio-row {
+        grid-template-columns: 120px 1fr 50px;
+        grid-template-rows: auto auto;
+    }
+    .ratio-status-col {
+        grid-column: 1 / -1;
+        text-align: right;
+        margin-top: -0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .ratio-row {
+        grid-template-columns: 100px 1fr 50px;
+    }
 }
 </style>
 {% endblock %}

@@ -182,6 +182,131 @@ def _yoy_comparison(user, today):
     }
 
 
+_RATIO_BAR_SCALE = 50  # 50% of income = 100% bar width
+_RATIO_SIGNIFICANT_OVER_PP = 5  # flag if >5pp above recommended max
+
+_EXPENSE_RATIO_CATEGORIES = [
+    {
+        'key': 'Housing',
+        'description': 'Rent, mortgage, utilities',
+        'keywords': ['rent', 'mortgage', 'home', 'housing', 'utilities', 'utility', 'electric', 'electricity', 'internet', 'cable', 'hoa'],
+        'min_pct': 25, 'max_pct': 30,
+    },
+    {
+        'key': 'Food',
+        'description': 'Groceries, dining, coffee',
+        'keywords': ['food', 'groceries', 'grocery', 'dining', 'restaurant', 'coffee', 'eat', 'lunch', 'dinner', 'breakfast', 'takeout', 'meals', 'cafe'],
+        'min_pct': 10, 'max_pct': 15,
+    },
+    {
+        'key': 'Transportation',
+        'description': 'Car, fuel, transit, rideshare',
+        'keywords': ['transport', 'car', 'auto', 'vehicle', 'fuel', 'transit', 'uber', 'lyft', 'parking', 'commute', 'bus', 'train', 'subway', 'toll'],
+        'min_pct': 10, 'max_pct': 15,
+    },
+]
+
+
+def _expense_ratio_analysis(user, year, month):
+    income = _month_income(user, year, month)
+    if income <= 0:
+        return None
+
+    qs = (
+        Transaction.objects.filter(
+            user=user, transaction_type='expense',
+            date__year=year, date__month=month,
+        )
+        .values('bucket_id')
+        .annotate(total=Sum('amount'))
+    )
+    bucket_map = {b.pk: b for b in Bucket.objects.filter(user=user)}
+
+    bucket_spending = {}
+    for entry in qs:
+        bid = entry['bucket_id']
+        amount = entry['total'] or Decimal('0')
+        name = 'Uncategorized' if bid is None else (bucket_map[bid].name if bid in bucket_map else None)
+        if name is not None:
+            bucket_spending[name] = bucket_spending.get(name, Decimal('0')) + amount
+
+    category_spending = {cat['key']: Decimal('0') for cat in _EXPENSE_RATIO_CATEGORIES}
+    for bucket_name, amount in bucket_spending.items():
+        lower = bucket_name.lower()
+        for cat in _EXPENSE_RATIO_CATEGORIES:
+            if any(kw in lower for kw in cat['keywords']):
+                category_spending[cat['key']] += amount
+                break
+
+    rows = []
+    for cat in _EXPENSE_RATIO_CATEGORIES:
+        spent = category_spending[cat['key']]
+        pct = round(float(spent / income * 100), 1)
+        min_pct, max_pct = cat['min_pct'], cat['max_pct']
+
+        if pct > max_pct + _RATIO_SIGNIFICANT_OVER_PP:
+            status, status_color, status_label = 'high', 'red', 'Significantly over'
+        elif pct > max_pct:
+            status, status_color, status_label = 'over', 'gold', 'Above recommended'
+        elif pct >= min_pct:
+            status, status_color, status_label = 'ok', 'green', 'On track'
+        else:
+            status, status_color, status_label = 'under', 'secondary', 'Below range'
+
+        bar_pct = min(int(pct / _RATIO_BAR_SCALE * 100), 100)
+        rec_min_bar = int(min_pct / _RATIO_BAR_SCALE * 100)
+        rec_max_bar = int(max_pct / _RATIO_BAR_SCALE * 100)
+        rec_band_width = rec_max_bar - rec_min_bar
+        rows.append({
+            'label': cat['key'],
+            'description': cat['description'],
+            'spent': spent,
+            'pct': pct,
+            'min_pct': min_pct,
+            'max_pct': max_pct,
+            'status': status,
+            'status_color': status_color,
+            'status_label': status_label,
+            'bar_pct': bar_pct,
+            'rec_min_bar': rec_min_bar,
+            'rec_band_width': rec_band_width,
+        })
+
+    contributions = _month_contributions(user, year, month)
+    savings_pct = round(float(contributions / income * 100), 1)
+    savings_target = 20
+    if savings_pct >= savings_target:
+        savings_status, savings_color, savings_status_label = 'ok', 'green', 'On track'
+    elif savings_pct >= savings_target * 0.75:
+        savings_status, savings_color, savings_status_label = 'under', 'gold', 'Below target'
+    else:
+        savings_status, savings_color, savings_status_label = 'low', 'red', 'Significantly under'
+
+    savings_bar_pct = min(int(savings_pct / _RATIO_BAR_SCALE * 100), 100)
+    savings_rec_bar = int(savings_target / _RATIO_BAR_SCALE * 100)
+
+    savings_row = {
+        'label': 'Savings',
+        'description': 'Contributions to savings goals',
+        'contributed': contributions,
+        'pct': savings_pct,
+        'target_pct': savings_target,
+        'status': savings_status,
+        'status_color': savings_color,
+        'status_label': savings_status_label,
+        'bar_pct': savings_bar_pct,
+        'rec_target_bar': savings_rec_bar,
+    }
+
+    flagged = sum(1 for r in rows if r['status'] in ('over', 'high'))
+    return {
+        'income': income,
+        'rows': rows,
+        'savings_row': savings_row,
+        'flagged_count': flagged,
+    }
+
+
 _TREND_CHART_H = 140  # px height for tallest bar
 _BUCKET_BAR_MAX_W = 100  # % width for largest bucket bar
 _MERCHANT_BAR_MAX_W = 100
@@ -584,6 +709,9 @@ def insights(request):
     # Year-over-year comparison (only if user has 12+ months of data)
     yoy_data = _yoy_comparison(request.user, today) if _has_12_months_data(request.user, today) else None
 
+    # Expense ratio analysis
+    expense_ratio = _expense_ratio_analysis(request.user, this_year, this_month)
+
     # Personalized recommendations
     refresh_recommendations(request.user)
     _priority_order = {Recommendation.PRIORITY_HIGH: 0, Recommendation.PRIORITY_MEDIUM: 1, Recommendation.PRIORITY_LOW: 2}
@@ -622,6 +750,7 @@ def insights(request):
         'recommendations': recommendations,
         'forecast': forecast,
         'yoy_data': yoy_data,
+        'expense_ratio': expense_ratio,
     })
 
 
