@@ -8,6 +8,7 @@ from django.db.models import Case, IntegerField, Sum, Value, When
 from django.http import HttpResponse
 from django.shortcuts import render
 
+from accounts.models import UserPreferences
 from accounts.utils import get_current_fiscal_month, get_fiscal_month_range, get_user_fiscal_start
 from banking.models import BankAccount
 from buckets.models import Bucket
@@ -244,6 +245,20 @@ def dashboard(request):
 
     activity_feed = _build_activity_feed(request.user)
 
+    prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+    widgets = prefs.get_widget_visibility()
+    widget_labels = [
+        ('stats', 'Summary Stats'),
+        ('daily_spending', 'Daily Spending Chart'),
+        ('budget_overview', 'Budget Overview'),
+        ('recent_transactions', 'Recent Transactions'),
+        ('calendar', 'Calendar'),
+        ('savings_goals', 'Savings Goals'),
+        ('upcoming_recurring', 'Upcoming Recurring'),
+        ('recommendations', 'Recommendations'),
+        ('activity_feed', 'Activity Feed'),
+    ]
+
     return render(request, 'core/dashboard.html', {
         'accounts': accounts,
         'buckets': buckets,
@@ -268,4 +283,6 @@ def dashboard(request):
         'calendar_weeks': calendar_weeks,
         'calendar_txns_by_day': calendar_txns_by_day,
         'activity_feed': activity_feed,
+        'widgets': widgets,
+        'widget_labels': widget_labels,
     })

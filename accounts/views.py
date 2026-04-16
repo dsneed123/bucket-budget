@@ -524,3 +524,16 @@ class ChangePasswordView(PasswordChangeView):
         response = super().form_valid(form)
         messages.success(self.request, 'Password changed successfully.')
         return response
+
+
+@login_required
+def save_widget_preferences(request):
+    if request.method != 'POST':
+        return redirect('/dashboard/')
+
+    prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+    widget_keys = list(UserPreferences.WIDGET_DEFAULTS.keys())
+    visibility = {key: request.POST.get(key) == 'on' for key in widget_keys}
+    prefs.widget_visibility = visibility
+    prefs.save()
+    return redirect('/dashboard/')
