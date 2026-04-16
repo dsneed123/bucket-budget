@@ -1,3 +1,4 @@
+import calendar as _cal_module
 import datetime
 from collections import defaultdict
 from decimal import Decimal
@@ -129,6 +130,48 @@ def dashboard(request):
     for d in daily_spending:
         d['is_recent'] = (today - d['date']).days < 7
 
+    # Calendar widget
+    cal_year, cal_month = today.year, today.month
+    _cal_obj = _cal_module.Calendar(firstweekday=6)  # Sunday-first
+    _month_weeks_raw = _cal_obj.monthdayscalendar(cal_year, cal_month)
+
+    _cal_txns_qs = Transaction.objects.filter(
+        user=request.user,
+        date__year=cal_year,
+        date__month=cal_month,
+    ).values('date', 'transaction_type', 'description', 'amount').order_by('date')
+
+    _cal_day_data: dict = defaultdict(lambda: {'has_income': False, 'has_expense': False, 'transactions': []})
+    for _t in _cal_txns_qs:
+        _d = _t['date'].day
+        if _t['transaction_type'] == 'income':
+            _cal_day_data[_d]['has_income'] = True
+        elif _t['transaction_type'] == 'expense':
+            _cal_day_data[_d]['has_expense'] = True
+        _cal_day_data[_d]['transactions'].append({
+            'desc': _t['description'],
+            'amount': str(_t['amount']),
+            'type': _t['transaction_type'],
+        })
+
+    calendar_weeks = []
+    for _week in _month_weeks_raw:
+        _row = []
+        for _day_num in _week:
+            if _day_num == 0:
+                _row.append(None)
+            else:
+                _dd = _cal_day_data.get(_day_num, {})
+                _row.append({
+                    'day': _day_num,
+                    'is_today': _day_num == today.day,
+                    'has_income': _dd.get('has_income', False),
+                    'has_expense': _dd.get('has_expense', False),
+                })
+        calendar_weeks.append(_row)
+
+    calendar_txns_by_day = {str(d): data['transactions'] for d, data in _cal_day_data.items()}
+
     refresh_recommendations(request.user)
     _priority_order = {Recommendation.PRIORITY_HIGH: 0, Recommendation.PRIORITY_MEDIUM: 1, Recommendation.PRIORITY_LOW: 2}
     recommendations = sorted(
@@ -169,4 +212,6 @@ def dashboard(request):
         'upcoming_recurring': upcoming_recurring,
         'recommendations': recommendations,
         'daily_spending': daily_spending,
+        'calendar_weeks': calendar_weeks,
+        'calendar_txns_by_day': calendar_txns_by_day,
     })
