@@ -2,6 +2,28 @@ from django.conf import settings
 from django.db import models
 
 
+class MonthlyBudgetAllocation(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='monthly_budget_allocations',
+    )
+    bucket = models.ForeignKey(
+        'buckets.Bucket',
+        on_delete=models.CASCADE,
+        related_name='monthly_budget_allocations',
+    )
+    year = models.IntegerField()
+    month = models.IntegerField()
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        unique_together = ('user', 'bucket', 'year', 'month')
+
+    def __str__(self):
+        return f'MonthlyBudgetAllocation({self.user_id}, bucket={self.bucket_id}, {self.year}-{self.month:02d}, {self.amount})'
+
+
 class BudgetSummary(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

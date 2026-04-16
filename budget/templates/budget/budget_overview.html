@@ -151,6 +151,14 @@
         <div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
             <div id="view-actions" style="display: flex; gap: 8px;">
                 <a href="{% url 'bucket_list' %}" class="btn btn-secondary btn-sm">Manage Buckets</a>
+                {% if prev_month_has_snapshot %}
+                <form method="post" action="{% url 'budget_copy_last_month' %}" style="display: inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="year" value="{{ year }}">
+                    <input type="hidden" name="month" value="{{ month }}">
+                    <button type="submit" class="btn btn-secondary btn-sm">Copy Last Month's Budget</button>
+                </form>
+                {% endif %}
                 <button type="button" id="edit-allocations-btn" class="btn btn-primary btn-sm">Edit Allocations</button>
             </div>
             <div id="edit-actions" style="display: none; gap: 8px;">
@@ -163,6 +171,11 @@
     {% if alloc_saved %}
     <div style="margin-bottom: 12px; padding: 10px 14px; background: rgba(0, 200, 83, 0.1); border: 1px solid var(--accent-green); border-radius: 6px; font-size: 13px; color: var(--accent-green);">
         Allocations saved successfully.
+    </div>
+    {% endif %}
+    {% if alloc_copied %}
+    <div style="margin-bottom: 12px; padding: 10px 14px; background: rgba(0, 200, 83, 0.1); border: 1px solid var(--accent-green); border-radius: 6px; font-size: 13px; color: var(--accent-green);">
+        Last month's budget copied successfully.
     </div>
     {% endif %}
 
@@ -179,6 +192,8 @@
 
     <form id="allocations-form" method="post" action="{% url 'budget_save_allocations' %}">
         {% csrf_token %}
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="month" value="{{ month }}">
         <div class="table-wrapper">
             <table>
                 <thead>
