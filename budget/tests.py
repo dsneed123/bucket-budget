@@ -8,7 +8,7 @@ from django.test import TestCase, Client
 from django.urls import reverse
 
 from banking.models import BankAccount
-from budget.models import BudgetSummary
+from budget.models import BudgetSummary, MonthlyBudgetAllocation
 from buckets.models import Bucket
 from transactions.models import Transaction
 
@@ -860,3 +860,136 @@ class ZeroBasedBudgetingTest(TestCase):
         self.user.save()
         ctx = self._get_context()
         self.assertFalse(ctx['every_dollar_assigned'])
+
+
+class CopyLastMonthAllocationsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='copy@example.com',
+            password='testpass',
+            first_name='Copy',
+            last_name='Tester',
+            monthly_income=Decimal('5000.00'),
+        )
+        self.client.login(email='copy@example.com', password='testpass')
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('1000.00'),
+        )
+        self.bucket = Bucket.objects.create(
+            user=self.user,
+            name='Rent',
+            monthly_allocation=Decimal('1000.00'),
+            color='#0984e3',
+            icon='🏠',
+        )
+
+    def _save_snapshot(self, year, month, amount):
+        MonthlyBudgetAllocation.objects.update_or_create(
+            user=self.user,
+            bucket=self.bucket,
+            year=year,
+            month=month,
+            defaults={'amount': amount},
+        )
+
+    def test_copy_applies_prev_month_snapshot_to_bucket(self):
+        self._save_snapshot(2026, 3, Decimal('1200.00'))
+        self.client.post(reverse('budget_copy_last_month'), {'year': 2026, 'month': 4})
+        self.bucket.refresh_from_db()
+        self.assertEqual(self.bucket.monthly_allocation, Decimal('1200.00'))
+
+    def test_copy_saves_snapshot_for_target_month(self):
+        self._save_snapshot(2026, 3, Decimal('900.00'))
+        self.client.post(reverse('budget_copy_last_month'), {'year': 2026, 'month': 4})
+        snapshot = MonthlyBudgetAllocation.objects.get(
+            user=self.user, bucket=self.bucket, year=2026, month=4
+        )
+        self.assertEqual(snapshot.amount, Decimal('900.00'))
+
+    def test_copy_redirects_with_copied_flag(self):
+        today = datetime.date.today()
+        if today.month == 1:
+            prev_year, prev_month = today.year - 1, 12
+        else:
+            prev_year, prev_month = today.year, today.month - 1
+        self._save_snapshot(prev_year, prev_month, Decimal('800.00'))
+        response = self.client.post(
+            reverse('budget_copy_last_month'),
+            {'year': today.year, 'month': today.month},
+        )
+        self.assertIn('copied=1', response['Location'])
+
+    def test_copy_does_nothing_when_no_prev_snapshot(self):
+        original = self.bucket.monthly_allocation
+        self.client.post(reverse('budget_copy_last_month'), {'year': 2026, 'month': 4})
+        self.bucket.refresh_from_db()
+        self.assertEqual(self.bucket.monthly_allocation, original)
+
+    def test_get_request_redirects(self):
+        response = self.client.get(reverse('budget_copy_last_month'))
+        self.assertRedirects(response, reverse('budget_overview'), fetch_redirect_response=False)
+
+    def test_redirects_when_not_logged_in(self):
+        self.client.logout()
+        response = self.client.post(reverse('budget_copy_last_month'), {'year': 2026, 'month': 4})
+        self.assertEqual(response.status_code, 302)
+
+    def test_other_users_snapshot_not_applied(self):
+        other_user = User.objects.create_user(
+            email='other_copy@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        other_bucket = Bucket.objects.create(
+            user=other_user,
+            name='Other',
+            monthly_allocation=Decimal('500.00'),
+            color='#ff0000',
+        )
+        MonthlyBudgetAllocation.objects.create(
+            user=other_user, bucket=other_bucket, year=2026, month=3, amount=Decimal('9999.00')
+        )
+        self.client.post(reverse('budget_copy_last_month'), {'year': 2026, 'month': 4})
+        other_bucket.refresh_from_db()
+        self.assertEqual(other_bucket.monthly_allocation, Decimal('500.00'))
+
+    def test_prev_month_has_snapshot_in_context_when_snapshot_exists(self):
+        self._save_snapshot(2026, 3, Decimal('500.00'))
+        url = reverse('budget_overview_month', kwargs={'year': 2026, 'month': 4})
+        response = self.client.get(url)
+        self.assertTrue(response.context['prev_month_has_snapshot'])
+
+    def test_prev_month_has_snapshot_false_when_no_snapshot(self):
+        url = reverse('budget_overview_month', kwargs={'year': 2026, 'month': 4})
+        response = self.client.get(url)
+        self.assertFalse(response.context['prev_month_has_snapshot'])
+
+    def test_save_allocations_creates_snapshot(self):
+        today = datetime.date.today()
+        self.client.post(reverse('budget_save_allocations'), {
+            f'allocation_{self.bucket.pk}': '1500.00',
+            'year': today.year,
+            'month': today.month,
+        })
+        snapshot = MonthlyBudgetAllocation.objects.get(
+            user=self.user, bucket=self.bucket, year=today.year, month=today.month
+        )
+        self.assertEqual(snapshot.amount, Decimal('1500.00'))
+
+    def test_save_allocations_updates_existing_snapshot(self):
+        today = datetime.date.today()
+        self._save_snapshot(today.year, today.month, Decimal('800.00'))
+        self.client.post(reverse('budget_save_allocations'), {
+            f'allocation_{self.bucket.pk}': '1100.00',
+            'year': today.year,
+            'month': today.month,
+        })
+        snapshot = MonthlyBudgetAllocation.objects.get(
+            user=self.user, bucket=self.bucket, year=today.year, month=today.month
+        )
+        self.assertEqual(snapshot.amount, Decimal('1100.00'))

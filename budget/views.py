@@ -8,7 +8,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 
 from buckets.models import Bucket
-from budget.models import BudgetSummary
+from budget.models import BudgetSummary, MonthlyBudgetAllocation
 from transactions.models import Transaction
 
 
@@ -144,8 +144,14 @@ def budget_overview(request, year=None, month=None):
 
     selected_date = datetime.date(year, month, 1)
 
+    prev_month_has_snapshot = MonthlyBudgetAllocation.objects.filter(
+        user=request.user, year=prev_year, month=prev_month
+    ).exists()
+
     return render(request, 'budget/budget_overview.html', {
         'current_month': selected_date.strftime('%B %Y'),
+        'year': year,
+        'month': month,
         'is_current_month': is_current_month,
         'prev_url': prev_url,
         'next_url': next_url,
@@ -164,9 +170,11 @@ def budget_overview(request, year=None, month=None):
         'actual_daily_avg': actual_daily_avg,
         'ideal_daily_spend': ideal_daily_spend,
         'alloc_saved': request.GET.get('saved') == '1',
+        'alloc_copied': request.GET.get('copied') == '1',
         'alerts': alerts,
         'zero_based': zero_based,
         'every_dollar_assigned': every_dollar_assigned,
+        'prev_month_has_snapshot': prev_month_has_snapshot,
     })
 
 
@@ -201,7 +209,75 @@ def save_allocations(request):
                 bucket.monthly_allocation = allocations[bucket.pk]
         Bucket.objects.bulk_update(buckets, ['monthly_allocation'])
 
+        today = datetime.date.today()
+        try:
+            snap_year = int(request.POST.get('year', today.year))
+            snap_month = int(request.POST.get('month', today.month))
+            if not (1 <= snap_month <= 12 and snap_year >= 2000):
+                snap_year, snap_month = today.year, today.month
+        except (ValueError, TypeError):
+            snap_year, snap_month = today.year, today.month
+
+        for bucket in buckets:
+            if bucket.pk in allocations:
+                MonthlyBudgetAllocation.objects.update_or_create(
+                    user=request.user,
+                    bucket=bucket,
+                    year=snap_year,
+                    month=snap_month,
+                    defaults={'amount': allocations[bucket.pk]},
+                )
+
     return redirect(reverse('budget_overview') + '?saved=1')
+
+
+@login_required
+def copy_last_month_allocations(request):
+    if request.method != 'POST':
+        return redirect('budget_overview')
+
+    today = datetime.date.today()
+    try:
+        year = int(request.POST.get('year', today.year))
+        month = int(request.POST.get('month', today.month))
+        if not (1 <= month <= 12 and year >= 2000):
+            year, month = today.year, today.month
+    except (ValueError, TypeError):
+        year, month = today.year, today.month
+
+    if month == 1:
+        prev_year, prev_month = year - 1, 12
+    else:
+        prev_year, prev_month = year, month - 1
+
+    snapshots = MonthlyBudgetAllocation.objects.filter(
+        user=request.user, year=prev_year, month=prev_month
+    ).select_related('bucket')
+
+    buckets_to_update = []
+    for snap in snapshots:
+        if snap.bucket.is_active and not snap.bucket.is_uncategorized:
+            snap.bucket.monthly_allocation = snap.amount
+            buckets_to_update.append(snap.bucket)
+
+    if buckets_to_update:
+        Bucket.objects.bulk_update(buckets_to_update, ['monthly_allocation'])
+
+        for snap in snapshots:
+            if snap.bucket in buckets_to_update:
+                MonthlyBudgetAllocation.objects.update_or_create(
+                    user=request.user,
+                    bucket=snap.bucket,
+                    year=year,
+                    month=month,
+                    defaults={'amount': snap.amount},
+                )
+
+    if year == today.year and month == today.month:
+        redirect_url = reverse('budget_overview') + '?copied=1'
+    else:
+        redirect_url = reverse('budget_overview_month', kwargs={'year': year, 'month': month}) + '?copied=1'
+    return redirect(redirect_url)
 
 
 @login_required
