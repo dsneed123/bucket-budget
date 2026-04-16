@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Delete Savings Goal — Bucket Budget{% endblock %}
+{% block page_title %}Delete Savings Goal{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px;">
+    <div class="card" style="border-top: 4px solid var(--accent-red);">
+        <div class="card-header">
+            <h2 class="card-title">{{ goal.icon }} {{ goal.name }}</h2>
+            <p class="card-subtitle">This action is permanent and cannot be undone.</p>
+        </div>
+
+        <div style="background-color: rgba(255, 71, 87, 0.1); border: 1px solid var(--accent-red); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 24px; font-size: 14px; color: var(--accent-red);">
+            <strong>Warning:</strong> Deleting this goal will permanently remove it and all its contribution history.
+            Saved money will <strong>not</strong> be returned to your bank account — only the goal record is removed.
+        </div>
+
+        <div style="margin-bottom: 24px; font-size: 14px; color: var(--text-secondary);">
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Goal</span>
+                <span style="color: var(--text-primary); font-weight: 500;">{{ goal.icon }} {{ goal.name }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Target amount</span>
+                <span style="color: var(--text-primary); font-weight: 500;">${{ goal.target_amount|floatformat:2 }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Amount saved</span>
+                <span style="color: var(--text-primary); font-weight: 500;">${{ goal.current_amount|floatformat:2 }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                <span>Contributions</span>
+                <span style="color: var(--text-primary); font-weight: 500;">{{ contribution_count }}</span>
+            </div>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <button type="submit" class="btn" style="background-color: var(--accent-red); color: #fff; border: none;">Delete goal</button>
+                <a href="{% url 'savings:savings_goal_detail' goal.pk %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

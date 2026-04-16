@@ -10,4 +10,5 @@ urlpatterns = [
     path('savings/<int:goal_id>/', views.savings_goal_detail, name='savings_goal_detail'),
     path('savings/<int:goal_id>/edit/', views.savings_goal_edit, name='savings_goal_edit'),
     path('savings/<int:goal_id>/contribute/', views.savings_goal_contribute, name='savings_goal_contribute'),
+    path('savings/<int:goal_id>/delete/', views.savings_goal_delete, name='savings_goal_delete'),
 ]
