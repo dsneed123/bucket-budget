@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Buckets — Bucket Budget{% endblock %}
+{% block page_title %}Buckets{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex items-center justify-between">
+    <div class="flex" style="gap: 12px;">
+        <div class="card card-sm" style="display:inline-block; min-width:160px;">
+            <div class="stat-label">Total Allocated</div>
+            <div class="stat-value text-green">${{ total_allocated|floatformat:2 }}</div>
+        </div>
+        <div class="card card-sm" style="display:inline-block; min-width:160px;">
+            <div class="stat-label">Total Spent</div>
+            <div class="stat-value">${{ total_spent|floatformat:2 }}</div>
+        </div>
+        <div class="card card-sm" style="display:inline-block; min-width:160px;">
+            <div class="stat-label">Remaining</div>
+            <div class="stat-value {% if total_remaining >= 0 %}text-green{% else %}text-red{% endif %}">
+                ${{ total_remaining|floatformat:2 }}
+            </div>
+        </div>
+    </div>
+    <a href="{% url 'bucket_add' %}" class="btn btn-primary">+ Add Bucket</a>
+</div>
+
+{% if bucket_data %}
+<div class="grid grid-3">
+    {% for item in bucket_data %}
+    <div class="card" style="border-top: 4px solid {{ item.bucket.color }};">
+        <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div style="font-size: 1.5rem; margin-bottom: 4px;">{{ item.bucket.icon }}</div>
+                    <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary);">
+                        {{ item.bucket.name }}
+                    </h3>
+                    {% if item.bucket.description %}
+                    <p style="margin: 2px 0 0; font-size: 0.8rem; color: var(--text-secondary);">{{ item.bucket.description }}</p>
+                    {% endif %}
+                </div>
+                <span style="font-size: 0.75rem; color: var(--text-secondary);">{{ item.pct }}%</span>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+            <div class="progress">
+                <div class="progress-bar {{ item.bar_class }}" style="width: {{ item.pct }}%;"></div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center;">
+            <div>
+                <div class="stat-label">Allocated</div>
+                <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">${{ item.bucket.monthly_allocation|floatformat:2 }}</div>
+            </div>
+            <div>
+                <div class="stat-label">Spent</div>
+                <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">${{ item.spent|floatformat:2 }}</div>
+            </div>
+            <div>
+                <div class="stat-label">Remaining</div>
+                <div style="font-size: 0.9rem; font-weight: 600; {% if item.remaining >= 0 %}color: var(--accent-green);{% else %}color: var(--accent-red);{% endif %}">${{ item.remaining|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 48px 24px;">
+    <div style="font-size: 3rem; margin-bottom: 16px;">🪣</div>
+    <h3 style="color: var(--text-primary); margin-bottom: 8px;">No buckets yet</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 24px;">Create your first bucket to start organizing your spending.</p>
+    <a href="{% url 'bucket_add' %}" class="btn btn-primary">+ Add Bucket</a>
+</div>
+{% endif %}
+{% endblock %}
