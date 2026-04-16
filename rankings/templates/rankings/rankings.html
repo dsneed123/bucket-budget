@@ -188,6 +188,45 @@
     </div>
     {% endif %}
 
+    <!-- Vendors by Quality -->
+    {% if vendor_rows %}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Vendors by Quality</h2>
+            <span class="card-subtitle">{{ this_month_label }} — lowest scored first</span>
+        </div>
+        <table class="rankings-table">
+            <thead>
+                <tr>
+                    <th>Vendor</th>
+                    <th>Avg Score</th>
+                    <th>Transactions</th>
+                    <th>Total Spent</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in vendor_rows %}
+                <tr>
+                    <td>{{ row.vendor }}</td>
+                    <td>
+                        <span class="rankings-bucket-score text-{{ row.score_color }}">{{ row.score }}/10</span>
+                    </td>
+                    <td class="text-secondary">{{ row.tx_count }}</td>
+                    <td>{{ row.total_spent|currency:user.currency }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Vendors by Quality</h2>
+        </div>
+        <p class="text-secondary" style="padding: 16px 0;">No vendor spending data with necessity scores this month.</p>
+    </div>
+    {% endif %}
+
     <!-- Essential Purchases list -->
     {% if essential_purchases %}
     <div class="card">
