@@ -53,6 +53,43 @@ def _get_regret_stats(user, year, month):
     return overall_rate, bucket_rows
 
 
+def _get_score_histogram(user, year, month):
+    """Return transaction count per necessity score (1-10) for the given month."""
+    qs = (
+        Transaction.objects.filter(
+            user=user,
+            transaction_type='expense',
+            date__year=year,
+            date__month=month,
+            necessity_score__isnull=False,
+        )
+        .values('necessity_score')
+        .annotate(count=Count('id'))
+    )
+    counts = {row['necessity_score']: row['count'] for row in qs}
+    max_count = max(counts.values(), default=0)
+    if max_count == 0:
+        return []
+
+    bins = []
+    for score in range(1, 11):
+        count = counts.get(score, 0)
+        bar_height = round(count / max_count * 100)
+        if score >= 7:
+            color = 'green'
+        elif score >= 4:
+            color = 'gold'
+        else:
+            color = 'red'
+        bins.append({
+            'score': score,
+            'count': count,
+            'bar_height': bar_height,
+            'color': color,
+        })
+    return bins
+
+
 def _get_necessity_breakdown(user, year, month):
     """Return spending breakdown by necessity category for the given month."""
     base_qs = Transaction.objects.filter(
@@ -378,6 +415,7 @@ def rankings(request):
             'total_spent': row['total_spent'],
         })
 
+    score_histogram = _get_score_histogram(request.user, this_year, this_month)
     vendor_rows = _get_vendor_averages(request.user, this_year, this_month)
     daily_quality, worst_day = _get_daily_spending_quality(request.user)
 
@@ -429,6 +467,7 @@ def rankings(request):
         'regret_rate': regret_rate,
         'regret_bucket_rows': regret_bucket_rows,
         'regret_to_review': regret_to_review,
+        'score_histogram': score_histogram,
     })
 
 

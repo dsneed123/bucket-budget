@@ -202,6 +202,29 @@
     </div>
     {% endif %}
 
+    <!-- Score distribution histogram -->
+    {% if score_histogram %}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Score Distribution</h2>
+            <span class="card-subtitle">{{ this_month_label }} — transactions per score</span>
+        </div>
+        <div class="score-histogram">
+            {% for bin in score_histogram %}
+            <div class="score-hist-col">
+                <div class="score-hist-count">{% if bin.count %}{{ bin.count }}{% endif %}</div>
+                <div class="score-hist-track">
+                    {% if bin.count %}
+                    <div class="score-hist-bar score-hist-bar-{{ bin.color }}" style="height: {{ bin.bar_height }}%;" title="Score {{ bin.score }}: {{ bin.count }} transaction{{ bin.count|pluralize }}"></div>
+                    {% endif %}
+                </div>
+                <div class="score-hist-label">{{ bin.score }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Per-bucket breakdown -->
     {% if bucket_rows %}
     <div class="card">
@@ -849,6 +872,56 @@
 .streak-praise {
     font-size: 0.9rem;
     margin: 4px 0 0;
+}
+
+/* Score distribution histogram */
+.score-histogram {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    padding: 8px 0 4px;
+}
+
+.score-hist-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.score-hist-count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    height: 16px;
+    line-height: 16px;
+    color: var(--text-secondary);
+}
+
+.score-hist-track {
+    width: 100%;
+    height: 100px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+}
+
+.score-hist-bar {
+    width: 100%;
+    border-radius: 4px 4px 0 0;
+    transition: height 0.4s ease;
+}
+
+.score-hist-bar-green  { background: var(--accent-green); }
+.score-hist-bar-gold   { background: var(--accent-gold); }
+.score-hist-bar-red    { background: var(--accent-red); }
+
+.score-hist-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 600;
 }
 </style>
 {% endblock %}
