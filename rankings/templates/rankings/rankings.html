@@ -90,6 +90,34 @@
         </div>
     </div>
 
+    <!-- Daily spending quality bar chart -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Spending Quality by Day</h2>
+            <span class="card-subtitle">All-time averages</span>
+        </div>
+        {% if worst_day %}
+        <p class="daily-insight">
+            <span class="daily-insight-day text-{{ worst_day.score_color }}">{{ worst_day.day }}</span>
+            spending averages <span class="daily-insight-score text-{{ worst_day.score_color }}">{{ worst_day.score }}/10</span>
+            <span class="text-secondary">— {{ worst_day.insight }}</span>
+        </p>
+        {% endif %}
+        <div class="trend-chart daily-chart">
+            {% for day in daily_quality %}
+            <div class="trend-bar-col">
+                <div class="trend-bar-score">{% if day.score %}{{ day.score }}{% endif %}</div>
+                <div class="trend-bar-track">
+                    {% if day.score %}
+                    <div class="trend-bar trend-bar-{{ day.score_color }}" style="height: {{ day.bar_height }}%;" title="{{ day.day }}: {{ day.score }}/10 ({{ day.tx_count }} tx)"></div>
+                    {% endif %}
+                </div>
+                <div class="trend-bar-label">{{ day.day }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
     <!-- Necessity score breakdown donut chart -->
     {% if breakdown %}
     <div class="card">
@@ -612,6 +640,24 @@
     font-size: 0.75rem;
     color: var(--text-secondary);
     text-align: center;
+}
+
+.daily-chart {
+    margin-top: 12px;
+}
+
+.daily-insight {
+    font-size: 0.95rem;
+    margin: 8px 0 0;
+    line-height: 1.5;
+}
+
+.daily-insight-day {
+    font-weight: 700;
+}
+
+.daily-insight-score {
+    font-weight: 700;
 }
 </style>
 {% endblock %}
