@@ -38,6 +38,76 @@
     </div>
 </div>
 
+<!-- Budget Snapshot Widget -->
+{% if total_allocated > 0 %}
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+            <h2 class="card-title">Budget Snapshot</h2>
+            <p class="card-subtitle">{{ current_month }}</p>
+        </div>
+        <a href="{% url 'budget_overview' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">Full budget</a>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+
+        <!-- Overall progress -->
+        <div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+                <span style="font-size: 14px; font-weight: 500; color: var(--text-primary);">Overall spending</span>
+                <span style="font-size: 13px; color: {% if budget_pct >= 100 %}var(--accent-red){% elif budget_pct >= 80 %}var(--accent-yellow, #f9ca24){% else %}var(--text-secondary){% endif %}; font-weight: 600;">
+                    {{ total_expenses|currency:user.currency }} / {{ total_allocated|currency:user.currency }} ({{ budget_pct }}%)
+                </span>
+            </div>
+            <div class="progress" style="height: 10px;">
+                <div class="progress-bar" style="width: {{ budget_pct }}%; background: {% if budget_pct >= 100 %}var(--accent-red){% elif budget_pct >= 80 %}#f9ca24{% else %}var(--accent-blue){% endif %};"></div>
+            </div>
+        </div>
+
+        <!-- Days left + daily pace -->
+        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 120px; background: var(--bg-primary); border-radius: var(--radius); padding: 12px 16px;">
+                <p style="margin: 0 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Days left</p>
+                <p style="margin: 0; font-size: 22px; font-weight: 700; color: var(--text-primary);">{{ days_left }}</p>
+            </div>
+            <div style="flex: 1; min-width: 120px; background: var(--bg-primary); border-radius: var(--radius); padding: 12px 16px;">
+                <p style="margin: 0 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Actual daily avg</p>
+                <p style="margin: 0; font-size: 22px; font-weight: 700; color: var(--text-primary);">{{ actual_daily_avg|currency:user.currency }}</p>
+            </div>
+            {% if ideal_daily_spend > 0 %}
+            <div style="flex: 1; min-width: 120px; background: var(--bg-primary); border-radius: var(--radius); padding: 12px 16px;">
+                <p style="margin: 0 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Ideal daily spend</p>
+                <p style="margin: 0; font-size: 22px; font-weight: 700; color: var(--accent-green);">{{ ideal_daily_spend|currency:user.currency }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Top 3 most-used buckets -->
+        {% if top_buckets %}
+        <div>
+            <p style="margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Top buckets</p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                {% for item in top_buckets %}
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="font-size: 13px; color: var(--text-primary);">{{ item.bucket.icon }} {{ item.bucket.name }}</span>
+                        <span style="font-size: 12px; font-weight: 600; color: {% if item.over %}var(--accent-red){% else %}var(--text-secondary){% endif %};">
+                            {{ item.spent|currency:user.currency }} / {{ item.bucket.monthly_allocation|currency:user.currency }} ({{ item.pct }}%)
+                        </span>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar" style="width: {{ item.pct }}%; background: {% if item.over %}var(--accent-red){% else %}{{ item.bucket.color }}{% endif %};"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endif %}
+
 <div class="grid grid-2" style="align-items: start;">
 
     <!-- Quick Add Card -->

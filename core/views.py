@@ -1,3 +1,4 @@
+import calendar
 import datetime
 from decimal import Decimal
 
@@ -66,6 +67,37 @@ def dashboard(request):
         pct = min(int((goal.current_amount / goal.target_amount) * 100), 100) if goal.target_amount > 0 else 0
         savings_widget_data.append({'goal': goal, 'pct': pct})
 
+    # Budget snapshot widget
+    budget_buckets = Bucket.objects.filter(
+        user=request.user, is_active=True, is_uncategorized=False
+    )
+    total_allocated = budget_buckets.aggregate(s=Sum('monthly_allocation'))['s'] or Decimal('0')
+    if total_allocated > 0:
+        budget_pct = min(int((total_expenses / total_allocated) * 100), 100)
+    else:
+        budget_pct = 0
+
+    days_in_month = calendar.monthrange(today.year, today.month)[1]
+    days_elapsed = today.day
+    days_left = days_in_month - today.day + 1
+    actual_daily_avg = (total_expenses / Decimal(days_elapsed)).quantize(Decimal('0.01')) if days_elapsed > 0 else Decimal('0')
+    monthly_income = request.user.monthly_income or Decimal('0')
+    remaining_budget = monthly_income - total_expenses
+    ideal_daily_spend = (remaining_budget / Decimal(days_left)).quantize(Decimal('0.01')) if days_left > 0 and remaining_budget > 0 else Decimal('0')
+
+    month_expenses_qs = Transaction.objects.filter(
+        user=request.user, transaction_type='expense',
+        date__year=today.year, date__month=today.month,
+    )
+    top_bucket_data = []
+    for bucket in budget_buckets:
+        spent = month_expenses_qs.filter(bucket=bucket).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+        effective_alloc = bucket.monthly_allocation
+        pct = min(int((spent / effective_alloc) * 100), 100) if effective_alloc > 0 else 0
+        top_bucket_data.append({'bucket': bucket, 'spent': spent, 'pct': pct, 'over': spent > effective_alloc})
+    top_bucket_data.sort(key=lambda x: x['pct'], reverse=True)
+    top_buckets = top_bucket_data[:3]
+
     return render(request, 'core/dashboard.html', {
         'accounts': accounts,
         'buckets': buckets,
@@ -78,4 +110,10 @@ def dashboard(request):
         'quick_add_form_data': quick_add_form_data,
         'savings_widget_data': savings_widget_data,
         'total_saved': total_saved,
+        'total_allocated': total_allocated,
+        'budget_pct': budget_pct,
+        'days_left': days_left,
+        'actual_daily_avg': actual_daily_avg,
+        'ideal_daily_spend': ideal_daily_spend,
+        'top_buckets': top_buckets,
     })
