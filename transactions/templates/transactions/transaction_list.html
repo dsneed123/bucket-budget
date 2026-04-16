@@ -48,19 +48,48 @@ mark.search-highlight {
     <a href="{% url 'transaction_add' %}" class="btn btn-primary">+ Add Transaction</a>
 </div>
 
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;">
-    <div class="card" style="padding: 16px 20px;">
-        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">{{ current_month }} Income</div>
-        <div style="font-size: 1.4rem; font-weight: 700; color: var(--accent-green);">+{{ total_income|currency:request.user.currency }}</div>
+{# Monthly summary header #}
+<div class="card" style="padding: 16px 20px; margin-bottom: 24px;">
+    {# Month navigation #}
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+        <a href="?{{ prev_month_qs }}" style="display: inline-flex; align-items: center; padding: 4px 10px; background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; font-size: 0.85rem; text-decoration: none; transition: border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent-green)'" onmouseout="this.style.borderColor='var(--border)'">&larr;</a>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1rem; font-weight: 700; color: var(--text-primary);">{{ current_month }}</span>
+            {% if not is_current_month %}
+                <a href="?{{ today_qs }}" style="font-size: 0.75rem; color: var(--text-secondary); text-decoration: none; border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; transition: border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent-green)'" onmouseout="this.style.borderColor='var(--border)'">Today</a>
+            {% endif %}
+        </div>
+        <a href="?{{ next_month_qs }}" style="display: inline-flex; align-items: center; padding: 4px 10px; background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; font-size: 0.85rem; text-decoration: none; transition: border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent-green)'" onmouseout="this.style.borderColor='var(--border)'">&rarr;</a>
     </div>
-    <div class="card" style="padding: 16px 20px;">
-        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">{{ current_month }} Expenses</div>
-        <div style="font-size: 1.4rem; font-weight: 700; color: var(--accent-red);">-{{ total_expenses|currency:request.user.currency }}</div>
-    </div>
-    <div class="card" style="padding: 16px 20px;">
-        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">{{ current_month }} Net</div>
-        <div style="font-size: 1.4rem; font-weight: 700; color: {% if net >= 0 %}var(--accent-green){% else %}var(--accent-red){% endif %};">
-            {% if net >= 0 %}+{% endif %}{{ net|currency:request.user.currency }}
+    {# Summary stats grid — two rows of three #}
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+        <div style="padding: 14px 16px; background: var(--bg-secondary); border-radius: 8px;">
+            <div style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Income</div>
+            <div style="font-size: 1.3rem; font-weight: 700; color: var(--accent-green);">+{{ total_income|currency:request.user.currency }}</div>
+        </div>
+        <div style="padding: 14px 16px; background: var(--bg-secondary); border-radius: 8px;">
+            <div style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Expenses</div>
+            <div style="font-size: 1.3rem; font-weight: 700; color: var(--accent-red);">-{{ total_expenses|currency:request.user.currency }}</div>
+        </div>
+        <div style="padding: 14px 16px; background: var(--bg-secondary); border-radius: 8px;">
+            <div style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Net</div>
+            <div style="font-size: 1.3rem; font-weight: 700; color: {% if net >= 0 %}var(--accent-green){% else %}var(--accent-red){% endif %};">
+                {% if net >= 0 %}+{% endif %}{{ net|currency:request.user.currency }}
+            </div>
+        </div>
+        <div style="padding: 14px 16px; background: var(--bg-secondary); border-radius: 8px;">
+            <div style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Transactions</div>
+            <div style="font-size: 1.3rem; font-weight: 700; color: var(--text-primary);">{{ txn_count }}</div>
+        </div>
+        <div style="padding: 14px 16px; background: var(--bg-secondary); border-radius: 8px;">
+            <div style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Avg Transaction</div>
+            <div style="font-size: 1.3rem; font-weight: 700; color: var(--text-primary);">{{ avg_txn_amount|currency:request.user.currency }}</div>
+        </div>
+        <div style="padding: 14px 16px; background: var(--bg-secondary); border-radius: 8px;">
+            <div style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Largest Expense</div>
+            <div style="font-size: 1.3rem; font-weight: 700; color: {% if largest_expense > 0 %}var(--accent-red){% else %}var(--text-secondary){% endif %};">
+                {% if largest_expense > 0 %}-{{ largest_expense|currency:request.user.currency }}{% else %}—{% endif %}
+            </div>
         </div>
     </div>
 </div>

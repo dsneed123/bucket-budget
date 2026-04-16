@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Q, Sum
+from django.db.models import Max, Q, Sum
 from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -139,13 +139,42 @@ def transaction_list(request):
     page_obj = paginator.get_page(page_number)
 
     today = datetime.date.today()
-    # Stats always reflect current month across all user transactions (unaffected by filters)
+
+    # Parse selected summary month/year from GET params (default to current month)
+    try:
+        summary_year = int(request.GET.get('summary_year', today.year))
+        summary_month = int(request.GET.get('summary_month', today.month))
+        if not (1 <= summary_month <= 12 and summary_year >= 2000):
+            summary_year, summary_month = today.year, today.month
+    except (ValueError, TypeError):
+        summary_year, summary_month = today.year, today.month
+
+    selected_month_date = datetime.date(summary_year, summary_month, 1)
+
+    # Stats reflect the selected month across all user transactions (unaffected by filters)
     month_qs = Transaction.objects.filter(
-        user=request.user, date__year=today.year, date__month=today.month
+        user=request.user, date__year=summary_year, date__month=summary_month
     )
     total_income = month_qs.filter(transaction_type='income').aggregate(s=Sum('amount'))['s'] or Decimal('0')
     total_expenses = month_qs.filter(transaction_type='expense').aggregate(s=Sum('amount'))['s'] or Decimal('0')
     net = total_income - total_expenses
+
+    # Additional summary stats for selected month
+    non_transfer_qs = month_qs.exclude(transaction_type='transfer')
+    txn_count = non_transfer_qs.count()
+    total_all = non_transfer_qs.aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    avg_txn_amount = (total_all / txn_count).quantize(Decimal('0.01')) if txn_count > 0 else Decimal('0')
+    largest_expense = month_qs.filter(transaction_type='expense').aggregate(m=Max('amount'))['m'] or Decimal('0')
+
+    # Build prev/next month links
+    if summary_month == 1:
+        prev_year, prev_month = summary_year - 1, 12
+    else:
+        prev_year, prev_month = summary_year, summary_month - 1
+    if summary_month == 12:
+        next_year, next_month = summary_year + 1, 1
+    else:
+        next_year, next_month = summary_year, summary_month + 1
 
     # Build query string for pagination links (preserves active filters)
     filter_params = {}
@@ -165,8 +194,28 @@ def transaction_list(request):
         filter_params['tag'] = tag_id
     if page_size != 25:
         filter_params['page_size'] = page_size
+    # Preserve summary month selection in pagination and filter links
+    if summary_year != today.year or summary_month != today.month:
+        filter_params['summary_year'] = summary_year
+        filter_params['summary_month'] = summary_month
     filter_qs = urlencode(filter_params)
     filter_qs_no_search = urlencode({k: v for k, v in filter_params.items() if k != 'search'})
+
+    # Build prev/next month query strings (preserve current filters, strip summary month params)
+    base_month_params = {k: v for k, v in filter_params.items() if k not in ('summary_year', 'summary_month', 'page')}
+
+    prev_month_params = dict(base_month_params)
+    prev_month_params['summary_year'] = prev_year
+    prev_month_params['summary_month'] = prev_month
+    prev_month_qs = urlencode(prev_month_params)
+
+    next_month_params = dict(base_month_params)
+    next_month_params['summary_year'] = next_year
+    next_month_params['summary_month'] = next_month
+    next_month_qs = urlencode(next_month_params)
+
+    # Query string for "Today" link — same filters but no summary month override
+    today_qs = urlencode(base_month_params)
 
     # Build a condensed page range for the template: always show first/last,
     # current ±2, with None as ellipsis sentinel.
@@ -190,7 +239,7 @@ def transaction_list(request):
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
     tags = Tag.objects.filter(user=request.user).order_by('name')
 
-    # Income by source for current month
+    # Income by source for selected month
     income_by_source = []
     if total_income > 0:
         source_rows = (
@@ -213,7 +262,14 @@ def transaction_list(request):
         'total_income': total_income,
         'total_expenses': total_expenses,
         'net': net,
-        'current_month': today.strftime('%B %Y'),
+        'txn_count': txn_count,
+        'avg_txn_amount': avg_txn_amount,
+        'largest_expense': largest_expense,
+        'current_month': selected_month_date.strftime('%B %Y'),
+        'is_current_month': (summary_year == today.year and summary_month == today.month),
+        'prev_month_qs': prev_month_qs,
+        'next_month_qs': next_month_qs,
+        'today_qs': today_qs,
         'buckets': buckets,
         'accounts': accounts,
         'tags': tags,
