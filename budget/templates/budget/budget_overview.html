@@ -75,6 +75,58 @@
     {% endif %}
 </div>
 
+<!-- Daily spending pace -->
+<div class="card" style="padding: 20px; margin-bottom: 28px;">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 20px;">
+        <div style="flex: 1; min-width: 200px;">
+            <p class="stat-label">Daily Spending Pace</p>
+            {% if is_current_month %}
+                {% if remaining_budget > 0 and days_left > 0 %}
+                <p class="stat-value stat-positive" style="font-size: 1.6rem; margin-top: 4px;">
+                    {{ ideal_daily_spend|currency:user.currency }}<span style="font-size: 1rem; font-weight: 400; color: var(--text-secondary);">/day</span>
+                </p>
+                <p class="stat-label" style="margin-top: 4px;">
+                    You can spend {{ ideal_daily_spend|currency:user.currency }}/day to stay on budget ({{ days_left }} day{{ days_left|pluralize }} left)
+                </p>
+                {% elif remaining_budget <= 0 %}
+                <p class="stat-value stat-negative" style="font-size: 1.6rem; margin-top: 4px;">Over budget</p>
+                <p class="stat-label" style="margin-top: 4px;">No daily allowance remaining this month</p>
+                {% else %}
+                <p class="stat-value" style="font-size: 1.6rem; margin-top: 4px;">Last day</p>
+                <p class="stat-label" style="margin-top: 4px;">Today is the last day of the month</p>
+                {% endif %}
+            {% else %}
+                <p class="stat-value" style="font-size: 1.6rem; margin-top: 4px;">
+                    {{ actual_daily_avg|currency:user.currency }}<span style="font-size: 1rem; font-weight: 400; color: var(--text-secondary);">/day avg</span>
+                </p>
+                <p class="stat-label" style="margin-top: 4px;">Average daily spend for this month</p>
+            {% endif %}
+        </div>
+        <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+            <div style="text-align: right;">
+                <p class="stat-label">Actual Daily Avg</p>
+                <p style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">
+                    {{ actual_daily_avg|currency:user.currency }}<span style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);">/day</span>
+                </p>
+                <p class="stat-label" style="margin-top: 2px;">{{ days_elapsed }} day{{ days_elapsed|pluralize }} elapsed</p>
+            </div>
+            {% if is_current_month and ideal_daily_spend > 0 %}
+            <div style="text-align: right;">
+                <p class="stat-label">Ideal Daily Spend</p>
+                <p style="font-size: 1.1rem; font-weight: 700;
+                    {% if actual_daily_avg <= ideal_daily_spend %}color: var(--accent-green);{% else %}color: var(--accent-red);{% endif %}
+                    margin-top: 4px;">
+                    {{ ideal_daily_spend|currency:user.currency }}<span style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);">/day</span>
+                </p>
+                <p class="stat-label" style="margin-top: 2px;">
+                    {% if actual_daily_avg <= ideal_daily_spend %}On pace{% else %}Overspending{% endif %}
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
 <!-- Budget allocation table -->
 {% if bucket_data %}
 <div class="card">
