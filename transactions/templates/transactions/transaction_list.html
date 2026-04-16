@@ -91,10 +91,76 @@
 </div>
 
 {% if page_obj.object_list %}
+
+{# Bulk action form — checkboxes in the table use form="bulk-form" to associate with this form #}
+<form id="bulk-form" method="post" action="{% url 'transaction_bulk_action' %}">
+    {% csrf_token %}
+    {# Preserve active filters so the view can redirect back with them #}
+    {% if filters.date_from %}<input type="hidden" name="date_from" value="{{ filters.date_from }}">{% endif %}
+    {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
+    {% if filters.bucket %}<input type="hidden" name="bucket" value="{{ filters.bucket }}">{% endif %}
+    {% if filters.type %}<input type="hidden" name="type" value="{{ filters.type }}">{% endif %}
+    {% if filters.account %}<input type="hidden" name="account" value="{{ filters.account }}">{% endif %}
+    {% if filters.search %}<input type="hidden" name="search" value="{{ filters.search }}">{% endif %}
+    {% if filters.tag %}<input type="hidden" name="tag" value="{{ filters.tag }}">{% endif %}
+</form>
+
+{# Bulk actions bar — shown when at least one checkbox is checked #}
+<div id="bulk-bar" style="display: none; margin-bottom: 12px;">
+    <div class="card" style="padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border: 1px solid var(--accent-green);">
+        <span id="bulk-count" style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); white-space: nowrap;">0 selected</span>
+        <select id="bulk-action-select" name="bulk_action" form="bulk-form" class="form-control" style="padding: 6px 10px; font-size: 0.85rem; min-width: 170px;" onchange="onBulkActionChange(this.value)">
+            <option value="">— Bulk action —</option>
+            <option value="categorize">Assign bucket</option>
+            <option value="tag">Add tags</option>
+            <option value="score">Set necessity score</option>
+            <option value="delete">Delete selected</option>
+        </select>
+
+        {# Bucket picker — visible when action = categorize #}
+        <div id="bulk-bucket-wrap" style="display: none;">
+            <select name="bulk_bucket" form="bulk-form" class="form-control" style="padding: 6px 10px; font-size: 0.85rem; min-width: 160px;">
+                <option value="__none__">— Remove bucket —</option>
+                {% for b in buckets %}
+                    <option value="{{ b.pk }}">{{ b.icon }} {{ b.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {# Tag input — visible when action = tag #}
+        <div id="bulk-tag-wrap" style="display: none;">
+            <input type="text" name="bulk_tags" form="bulk-form" placeholder="tag1, tag2, …" class="form-control" style="padding: 6px 10px; font-size: 0.85rem; min-width: 200px;">
+        </div>
+
+        {# Score picker — visible when action = score #}
+        <div id="bulk-score-wrap" style="display: none;">
+            <select name="bulk_score" form="bulk-form" class="form-control" style="padding: 6px 10px; font-size: 0.85rem; min-width: 100px;">
+                <option value="">Score…</option>
+                {% for n in "1234567890" %}{% endfor %}
+                <option value="1">1 — Low</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10 — High</option>
+            </select>
+        </div>
+
+        <button type="submit" form="bulk-form" class="btn btn-primary" style="padding: 6px 14px; font-size: 0.85rem; white-space: nowrap;" onclick="return confirmBulkAction()">Apply</button>
+    </div>
+</div>
+
 <div class="card">
     <table style="width: 100%; border-collapse: collapse;">
         <thead>
             <tr style="border-bottom: 1px solid var(--border);">
+                <th style="padding: 10px 12px; width: 36px;">
+                    <input type="checkbox" id="select-all" form="bulk-form" title="Select all on page" style="cursor: pointer; width: 15px; height: 15px;" onchange="onSelectAll(this.checked)">
+                </th>
                 <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Date</th>
                 <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
                 <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Vendor</th>
@@ -109,6 +175,9 @@
         <tbody>
             {% for txn in page_obj %}
             <tr style="border-bottom: 1px solid var(--border);">
+                <td style="padding: 10px 12px; width: 36px;">
+                    <input type="checkbox" name="transaction_ids" value="{{ txn.pk }}" form="bulk-form" class="txn-checkbox" style="cursor: pointer; width: 15px; height: 15px;" onchange="onCheckboxChange()">
+                </td>
                 <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap;">{{ txn.date }}</td>
                 <td style="padding: 12px; font-size: 0.9rem; font-weight: 500; color: var(--text-primary);">
                     <a href="{% url 'transaction_detail' txn.pk %}" style="color: inherit; text-decoration: none;">{{ txn.description }}</a>
@@ -169,6 +238,56 @@
     {% endif %}
 </div>
 {% endif %}
+
+<script>
+function onCheckboxChange() {
+    var boxes = document.querySelectorAll('.txn-checkbox');
+    var checked = document.querySelectorAll('.txn-checkbox:checked');
+    var bar = document.getElementById('bulk-bar');
+    var countEl = document.getElementById('bulk-count');
+    var selectAll = document.getElementById('select-all');
+
+    bar.style.display = checked.length > 0 ? 'block' : 'none';
+    countEl.textContent = checked.length + ' selected';
+
+    // Update select-all indeterminate state
+    if (checked.length === 0) {
+        selectAll.indeterminate = false;
+        selectAll.checked = false;
+    } else if (checked.length === boxes.length) {
+        selectAll.indeterminate = false;
+        selectAll.checked = true;
+    } else {
+        selectAll.indeterminate = true;
+    }
+}
+
+function onSelectAll(checked) {
+    document.querySelectorAll('.txn-checkbox').forEach(function(cb) {
+        cb.checked = checked;
+    });
+    onCheckboxChange();
+}
+
+function onBulkActionChange(action) {
+    document.getElementById('bulk-bucket-wrap').style.display = action === 'categorize' ? '' : 'none';
+    document.getElementById('bulk-tag-wrap').style.display = action === 'tag' ? '' : 'none';
+    document.getElementById('bulk-score-wrap').style.display = action === 'score' ? '' : 'none';
+}
+
+function confirmBulkAction() {
+    var action = document.getElementById('bulk-action-select').value;
+    if (!action) {
+        alert('Please choose an action from the dropdown.');
+        return false;
+    }
+    var count = document.querySelectorAll('.txn-checkbox:checked').length;
+    if (action === 'delete') {
+        return confirm('Delete ' + count + ' transaction' + (count !== 1 ? 's' : '') + '? This cannot be undone.');
+    }
+    return true;
+}
+</script>
 
 {% else %}
 <div class="card" style="text-align: center; padding: 48px 24px;">

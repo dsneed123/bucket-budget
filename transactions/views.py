@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 
 from banking.models import BankAccount
 from buckets.models import Bucket
@@ -731,3 +732,61 @@ def transaction_delete(request, transaction_id):
     return render(request, 'transactions/transaction_delete.html', {
         'transaction': transaction,
     })
+
+
+@login_required
+def transaction_bulk_action(request):
+    if request.method != 'POST':
+        return redirect('transaction_list')
+
+    action = request.POST.get('bulk_action', '').strip()
+    ids_raw = request.POST.getlist('transaction_ids')
+
+    ids = [int(i) for i in ids_raw if i.strip().isdigit()]
+
+    if not ids or action not in ('categorize', 'delete', 'tag', 'score'):
+        return redirect('transaction_list')
+
+    # Only operate on this user's transactions
+    transactions = Transaction.objects.filter(user=request.user, pk__in=ids)
+
+    if action == 'delete':
+        # Call .delete() per transaction so post_delete signal fires (balance updates)
+        for txn in list(transactions):
+            txn.delete()
+
+    elif action == 'categorize':
+        bucket_id = request.POST.get('bulk_bucket', '').strip()
+        if bucket_id == '__none__':
+            transactions.update(bucket=None)
+        elif bucket_id:
+            try:
+                bucket = Bucket.objects.get(pk=bucket_id, user=request.user)
+                transactions.update(bucket=bucket)
+            except Bucket.DoesNotExist:
+                pass
+
+    elif action == 'tag':
+        tags_raw = request.POST.get('bulk_tags', '').strip()
+        if tags_raw:
+            tags = _resolve_tags(request.user, tags_raw)
+            for txn in transactions:
+                txn.tags.add(*tags)
+
+    elif action == 'score':
+        score_str = request.POST.get('bulk_score', '').strip()
+        if score_str:
+            try:
+                score = int(score_str)
+                if 1 <= score <= 10:
+                    transactions.update(necessity_score=score)
+            except ValueError:
+                pass
+
+    # Preserve active filters in the redirect
+    filter_keys = ['date_from', 'date_to', 'bucket', 'type', 'account', 'search', 'tag', 'page']
+    filter_params = {k: request.POST.get(k, '') for k in filter_keys if request.POST.get(k, '')}
+    redirect_url = reverse('transaction_list')
+    if filter_params:
+        redirect_url += '?' + urlencode(filter_params)
+    return redirect(redirect_url)
