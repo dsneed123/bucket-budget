@@ -8,8 +8,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from banking.models import BankAccount
+from transactions.models import Transaction
 
 from .models import AutoSaveRule, SavingsContribution, SavingsGoal, SavingsMilestone
+
+_VALID_GOAL_TYPES = {c[0] for c in SavingsGoal.GOAL_TYPE_CHOICES}
 
 _MILESTONE_META = {
     25:  {'icon': '🌱', 'label': '25%'},
@@ -90,6 +93,27 @@ def _calculate_projected_completion(goal, today):
     }
 
 
+def _get_monthly_avg_expenses(user, today):
+    """Return average monthly expenses over the last 3 months, or None if no data."""
+    three_months_ago = today - timedelta(days=91)
+    result = Transaction.objects.filter(
+        user=user,
+        transaction_type='expense',
+        date__gte=three_months_ago,
+    ).aggregate(total=Sum('amount'))
+    total = result['total'] or Decimal('0')
+    if total <= 0:
+        return None
+    return total / Decimal('3')
+
+
+def _get_emergency_fund_coverage(current_amount, monthly_avg_expenses):
+    """Return months of expenses covered as a float, or None if no expense data."""
+    if not monthly_avg_expenses or monthly_avg_expenses <= 0:
+        return None
+    return float(current_amount / monthly_avg_expenses)
+
+
 @login_required
 def savings_list(request):
     goals = SavingsGoal.objects.filter(user=request.user).order_by('is_achieved', '-priority', 'deadline', 'name')
@@ -98,6 +122,10 @@ def savings_list(request):
     goal_data = []
     total_saved = Decimal('0')
     total_target = Decimal('0')
+
+    monthly_avg_expenses = None
+    if any(g.goal_type == 'emergency_fund' for g in goals):
+        monthly_avg_expenses = _get_monthly_avg_expenses(request.user, today)
 
     for goal in goals:
         if goal.target_amount > 0:
@@ -121,6 +149,10 @@ def savings_list(request):
 
         projected = _calculate_projected_completion(goal, today)
 
+        emergency_coverage = None
+        if goal.goal_type == 'emergency_fund':
+            emergency_coverage = _get_emergency_fund_coverage(goal.current_amount, monthly_avg_expenses)
+
         goal_data.append({
             'goal': goal,
             'pct': pct,
@@ -128,6 +160,7 @@ def savings_list(request):
             'days_left': days_left,
             'is_overdue': is_overdue,
             'projected': projected,
+            'emergency_coverage': emergency_coverage,
         })
 
     overall_pct = int((total_saved / total_target) * 100) if total_target > 0 else 0
@@ -150,6 +183,7 @@ def savings_goal_add(request):
         'color': '#00d4aa',
         'icon': '🎯',
         'priority': 'medium',
+        'goal_type': 'general',
     }
 
     if request.method == 'POST':
@@ -158,6 +192,7 @@ def savings_goal_add(request):
         target_amount = request.POST.get('target_amount', '').strip()
         deadline = request.POST.get('deadline', '').strip()
         priority = request.POST.get('priority', 'medium').strip()
+        goal_type = request.POST.get('goal_type', 'general').strip()
         color = request.POST.get('color', '#00d4aa').strip()
         icon = request.POST.get('icon', '🎯').strip()
 
@@ -167,6 +202,7 @@ def savings_goal_add(request):
             'target_amount': target_amount,
             'deadline': deadline,
             'priority': priority,
+            'goal_type': goal_type,
             'color': color,
             'icon': icon,
         }
@@ -195,6 +231,9 @@ def savings_goal_add(request):
         if priority not in ('low', 'medium', 'high', 'critical'):
             priority = 'medium'
 
+        if goal_type not in _VALID_GOAL_TYPES:
+            goal_type = 'general'
+
         if not errors:
             SavingsGoal.objects.create(
                 user=request.user,
@@ -203,6 +242,7 @@ def savings_goal_add(request):
                 target_amount=target_amount_val,
                 deadline=deadline_val,
                 priority=priority,
+                goal_type=goal_type,
                 color=color or '#00d4aa',
                 icon=icon or '🎯',
             )
@@ -211,6 +251,7 @@ def savings_goal_add(request):
     return render(request, 'savings/savings_goal_add.html', {
         'errors': errors,
         'form_data': form_data,
+        'goal_type_choices': SavingsGoal.GOAL_TYPE_CHOICES,
     })
 
 
@@ -296,6 +337,11 @@ def savings_goal_detail(request, goal_id):
     projected = _calculate_projected_completion(goal, today)
     monthly_contributions = _get_monthly_contributions(goal, today)
 
+    emergency_coverage = None
+    if goal.goal_type == 'emergency_fund':
+        monthly_avg = _get_monthly_avg_expenses(request.user, today)
+        emergency_coverage = _get_emergency_fund_coverage(goal.current_amount, monthly_avg)
+
     return render(request, 'savings/savings_goal_detail.html', {
         'goal': goal,
         'pct': pct,
@@ -310,6 +356,7 @@ def savings_goal_detail(request, goal_id):
         'projected': projected,
         'monthly_contributions': monthly_contributions,
         'milestones': _get_milestone_data(goal),
+        'emergency_coverage': emergency_coverage,
     })
 
 
@@ -325,6 +372,7 @@ def savings_goal_edit(request, goal_id):
         target_amount = request.POST.get('target_amount', '').strip()
         deadline = request.POST.get('deadline', '').strip()
         priority = request.POST.get('priority', 'medium').strip()
+        goal_type = request.POST.get('goal_type', 'general').strip()
         color = request.POST.get('color', '#00d4aa').strip()
         icon = request.POST.get('icon', '🎯').strip()
         is_private = request.POST.get('is_private') != 'false'
@@ -355,12 +403,16 @@ def savings_goal_edit(request, goal_id):
         if priority not in ('low', 'medium', 'high', 'critical'):
             priority = 'medium'
 
+        if goal_type not in _VALID_GOAL_TYPES:
+            goal_type = 'general'
+
         if not errors:
             goal.name = name
             goal.description = description
             goal.target_amount = target_amount_val
             goal.deadline = deadline_val
             goal.priority = priority
+            goal.goal_type = goal_type
             goal.color = color or '#00d4aa'
             goal.icon = icon or '🎯'
             goal.is_private = is_private
@@ -371,12 +423,14 @@ def savings_goal_edit(request, goal_id):
             'goal': goal,
             'errors': errors,
             'success': success,
+            'goal_type_choices': SavingsGoal.GOAL_TYPE_CHOICES,
             'form_data': {
                 'name': name,
                 'description': description,
                 'target_amount': target_amount,
                 'deadline': deadline,
                 'priority': priority,
+                'goal_type': goal_type,
                 'color': color,
                 'icon': icon,
                 'is_private': is_private,
@@ -387,12 +441,14 @@ def savings_goal_edit(request, goal_id):
         'goal': goal,
         'errors': errors,
         'success': success,
+        'goal_type_choices': SavingsGoal.GOAL_TYPE_CHOICES,
         'form_data': {
             'name': goal.name,
             'description': goal.description,
             'target_amount': goal.target_amount,
             'deadline': goal.deadline.strftime('%Y-%m-%d') if goal.deadline else '',
             'priority': goal.priority,
+            'goal_type': goal.goal_type,
             'color': goal.color,
             'icon': goal.icon,
             'is_private': goal.is_private,
@@ -468,6 +524,11 @@ def savings_goal_contribute(request, goal_id):
         projected = _calculate_projected_completion(goal, today)
         monthly_contributions = _get_monthly_contributions(goal, today)
 
+        emergency_coverage = None
+        if goal.goal_type == 'emergency_fund':
+            monthly_avg = _get_monthly_avg_expenses(request.user, today)
+            emergency_coverage = _get_emergency_fund_coverage(goal.current_amount, monthly_avg)
+
         return render(request, 'savings/savings_goal_detail.html', {
             'goal': goal,
             'pct': pct,
@@ -487,6 +548,7 @@ def savings_goal_contribute(request, goal_id):
             'projected': projected,
             'monthly_contributions': monthly_contributions,
             'milestones': _get_milestone_data(goal),
+            'emergency_coverage': emergency_coverage,
         })
 
     SavingsContribution.objects.create(
@@ -562,6 +624,11 @@ def savings_goal_withdraw(request, goal_id):
         projected = _calculate_projected_completion(goal, today)
         monthly_contributions = _get_monthly_contributions(goal, today)
 
+        emergency_coverage = None
+        if goal.goal_type == 'emergency_fund':
+            monthly_avg = _get_monthly_avg_expenses(request.user, today)
+            emergency_coverage = _get_emergency_fund_coverage(goal.current_amount, monthly_avg)
+
         return render(request, 'savings/savings_goal_detail.html', {
             'goal': goal,
             'pct': pct,
@@ -576,6 +643,7 @@ def savings_goal_withdraw(request, goal_id):
             'projected': projected,
             'monthly_contributions': monthly_contributions,
             'milestones': _get_milestone_data(goal),
+            'emergency_coverage': emergency_coverage,
         })
 
     SavingsContribution.objects.create(
@@ -723,6 +791,11 @@ def savings_goal_shared(request, share_uuid):
     projected = _calculate_projected_completion(goal, today)
     monthly_contributions = _get_monthly_contributions(goal, today)
 
+    emergency_coverage = None
+    if goal.goal_type == 'emergency_fund':
+        monthly_avg = _get_monthly_avg_expenses(goal.user, today)
+        emergency_coverage = _get_emergency_fund_coverage(goal.current_amount, monthly_avg)
+
     return render(request, 'savings/savings_goal_shared.html', {
         'goal': goal,
         'pct': pct,
@@ -732,4 +805,5 @@ def savings_goal_shared(request, share_uuid):
         'projected': projected,
         'monthly_contributions': monthly_contributions,
         'milestones': _get_milestone_data(goal),
+        'emergency_coverage': emergency_coverage,
     })

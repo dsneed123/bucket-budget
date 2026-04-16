@@ -75,6 +75,18 @@
             </div>
         </div>
 
+        {% if goal.goal_type == 'emergency_fund' %}
+        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 0.8rem; color: var(--text-secondary);">🛡️ Emergency coverage</span>
+            {% if emergency_coverage is not None %}
+            <span style="font-size: 0.875rem; font-weight: 600; color: {% if emergency_coverage >= 3 %}var(--accent-green){% elif emergency_coverage >= 1 %}var(--accent-gold){% else %}var(--accent-red){% endif %};">
+                {{ emergency_coverage|floatformat:1 }} months of expenses
+            </span>
+            {% else %}
+            <span style="font-size: 0.8rem; color: var(--text-secondary);">No expense data yet</span>
+            {% endif %}
+        </div>
+        {% endif %}
         {% if goal.deadline %}
         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
             <span style="font-size: 0.8rem; color: var(--text-secondary);">Deadline</span>
