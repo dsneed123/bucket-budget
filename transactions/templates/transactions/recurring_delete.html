@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Delete Recurring Transaction — Bucket Budget{% endblock %}
+{% block page_title %}Delete Recurring Transaction{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px;">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Delete Recurring Transaction</h2>
+        </div>
+        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+            Are you sure you want to delete <strong style="color: var(--text-primary);">{{ rt.description }}</strong>?
+            This action cannot be undone.
+        </p>
+        <form method="post" style="display: flex; align-items: center; gap: 12px;">
+            {% csrf_token %}
+            <button type="submit" class="btn" style="background-color: #ff4757; color: #fff; border-color: #ff4757;">Delete</button>
+            <a href="{% url 'recurring_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -12,7 +12,7 @@ from django.urls import reverse
 from banking.models import BankAccount
 from buckets.models import Bucket
 
-from .models import CsvColumnMapping, Tag, Transaction, VendorMapping
+from .models import CsvColumnMapping, RecurringTransaction, Tag, Transaction, VendorMapping
 from .views import _csv_source_key, _resolve_tags
 
 User = get_user_model()
@@ -1801,3 +1801,200 @@ class VendorMappingAutoCategorizeTest(TestCase):
         row = response.context['preview_rows'][0]
         self.assertEqual(row['bucket_id'], self.other_bucket.pk)
         self.assertEqual(row['match_source'], 'vendor')
+
+
+class RecurringListViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='recurring@example.com',
+            password='testpass',
+            first_name='Test',
+            last_name='User',
+        )
+        self.other_user = User.objects.create_user(
+            email='other@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('1000.00'),
+        )
+        self.other_account = BankAccount.objects.create(
+            user=self.other_user,
+            name='Other Checking',
+            account_type='checking',
+            balance=Decimal('500.00'),
+        )
+        self.bucket = Bucket.objects.create(
+            user=self.user,
+            name='Entertainment',
+            monthly_allocation=Decimal('100.00'),
+        )
+        self.rt = RecurringTransaction.objects.create(
+            user=self.user,
+            account=self.account,
+            bucket=self.bucket,
+            amount=Decimal('15.99'),
+            transaction_type='expense',
+            description='Netflix',
+            vendor='Netflix',
+            frequency='monthly',
+            start_date=datetime.date(2026, 1, 1),
+            next_due=datetime.date(2026, 5, 1),
+            is_active=True,
+        )
+        self.client.login(email='recurring@example.com', password='testpass')
+        self.url = reverse('recurring_list')
+
+    def test_redirect_if_not_logged_in(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response['Location'])
+
+    def test_list_renders(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Netflix')
+
+    def test_only_shows_current_user_data(self):
+        RecurringTransaction.objects.create(
+            user=self.other_user,
+            account=self.other_account,
+            amount=Decimal('9.99'),
+            transaction_type='expense',
+            description='Other User Subscription',
+            frequency='monthly',
+            start_date=datetime.date(2026, 1, 1),
+            next_due=datetime.date(2026, 5, 1),
+        )
+        response = self.client.get(self.url)
+        self.assertContains(response, 'Netflix')
+        self.assertNotContains(response, 'Other User Subscription')
+
+    def test_total_monthly_cost_in_context(self):
+        response = self.client.get(self.url)
+        self.assertIn('total_monthly', response.context)
+        self.assertAlmostEqual(float(response.context['total_monthly']), 15.99, places=1)
+
+    def test_filter_by_frequency(self):
+        RecurringTransaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('5.00'),
+            transaction_type='expense',
+            description='Weekly Coffee',
+            frequency='weekly',
+            start_date=datetime.date(2026, 1, 1),
+            next_due=datetime.date(2026, 4, 20),
+        )
+        response = self.client.get(self.url, {'frequency': 'monthly'})
+        self.assertContains(response, 'Netflix')
+        self.assertNotContains(response, 'Weekly Coffee')
+
+    def test_filter_by_status_active(self):
+        inactive_rt = RecurringTransaction.objects.create(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('8.00'),
+            transaction_type='expense',
+            description='Old Gym',
+            frequency='monthly',
+            start_date=datetime.date(2026, 1, 1),
+            next_due=datetime.date(2026, 5, 1),
+            is_active=False,
+        )
+        response = self.client.get(self.url, {'status': 'active'})
+        self.assertContains(response, 'Netflix')
+        self.assertNotContains(response, 'Old Gym')
+
+        response = self.client.get(self.url, {'status': 'inactive'})
+        self.assertNotContains(response, 'Netflix')
+        self.assertContains(response, 'Old Gym')
+
+    def test_toggle_active(self):
+        toggle_url = reverse('recurring_toggle', args=[self.rt.pk])
+        response = self.client.post(toggle_url)
+        self.assertEqual(response.status_code, 302)
+        self.rt.refresh_from_db()
+        self.assertFalse(self.rt.is_active)
+
+        self.client.post(toggle_url)
+        self.rt.refresh_from_db()
+        self.assertTrue(self.rt.is_active)
+
+    def test_toggle_other_user_forbidden(self):
+        self.client.logout()
+        self.client.login(email='other@example.com', password='testpass')
+        toggle_url = reverse('recurring_toggle', args=[self.rt.pk])
+        response = self.client.post(toggle_url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_delete(self):
+        delete_url = reverse('recurring_delete', args=[self.rt.pk])
+        response = self.client.post(delete_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(RecurringTransaction.objects.filter(pk=self.rt.pk).exists())
+
+    def test_delete_other_user_forbidden(self):
+        self.client.logout()
+        self.client.login(email='other@example.com', password='testpass')
+        delete_url = reverse('recurring_delete', args=[self.rt.pk])
+        response = self.client.post(delete_url)
+        self.assertEqual(response.status_code, 404)
+
+
+class RecurringAddViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='recadd@example.com',
+            password='testpass',
+            first_name='Test',
+            last_name='User',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('1000.00'),
+        )
+        self.client.login(email='recadd@example.com', password='testpass')
+        self.url = reverse('recurring_add')
+
+    def test_get_renders_form(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Add recurring transaction')
+
+    def test_post_creates_recurring(self):
+        response = self.client.post(self.url, {
+            'description': 'Spotify',
+            'vendor': 'Spotify',
+            'amount': '9.99',
+            'transaction_type': 'expense',
+            'frequency': 'monthly',
+            'account': self.account.pk,
+            'start_date': '2026-01-01',
+            'next_due': '2026-05-01',
+            'is_active': '1',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(RecurringTransaction.objects.filter(user=self.user, description='Spotify').exists())
+
+    def test_post_missing_required_fields(self):
+        response = self.client.post(self.url, {})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'required')
+        self.assertEqual(RecurringTransaction.objects.count(), 0)
+
+    def test_redirect_if_not_logged_in(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response['Location'])
