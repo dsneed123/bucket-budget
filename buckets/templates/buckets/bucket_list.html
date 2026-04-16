@@ -38,7 +38,10 @@
                     <p style="margin: 2px 0 0; font-size: 0.8rem; color: var(--text-secondary);">{{ item.bucket.description }}</p>
                     {% endif %}
                 </div>
-                <span style="font-size: 0.75rem; color: var(--text-secondary);">{{ item.pct }}%</span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 0.75rem; color: var(--text-secondary);">{{ item.pct }}%</span>
+                    <a href="{% url 'bucket_edit' item.bucket.pk %}" style="font-size: 0.75rem; color: var(--text-secondary); text-decoration: none;">Edit</a>
+                </div>
             </div>
         </div>
 

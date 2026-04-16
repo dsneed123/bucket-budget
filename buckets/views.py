@@ -98,3 +98,46 @@ def bucket_add(request):
         'errors': errors,
         'form_data': form_data,
     })
+
+
+@login_required
+def bucket_edit(request, bucket_id):
+    bucket = get_object_or_404(Bucket, pk=bucket_id, user=request.user, is_active=True)
+    errors = {}
+    success = False
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        icon = request.POST.get('icon', '💰').strip()
+        color = request.POST.get('color', '#0984e3').strip()
+        monthly_allocation = request.POST.get('monthly_allocation', '').strip()
+        description = request.POST.get('description', '').strip()
+
+        if not name:
+            errors['name'] = 'Bucket name is required.'
+
+        allocation_val = bucket.monthly_allocation
+        if not monthly_allocation:
+            errors['monthly_allocation'] = 'Monthly allocation is required.'
+        else:
+            try:
+                allocation_val = Decimal(monthly_allocation)
+                if allocation_val < 0:
+                    errors['monthly_allocation'] = 'Allocation must be a positive number.'
+            except Exception:
+                errors['monthly_allocation'] = 'Please enter a valid number.'
+
+        if not errors:
+            bucket.name = name
+            bucket.icon = icon or '💰'
+            bucket.color = color or '#0984e3'
+            bucket.monthly_allocation = allocation_val
+            bucket.description = description
+            bucket.save()
+            success = True
+
+    return render(request, 'buckets/bucket_edit.html', {
+        'bucket': bucket,
+        'errors': errors,
+        'success': success,
+    })
