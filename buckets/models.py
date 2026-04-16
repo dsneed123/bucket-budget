@@ -1,3 +1,4 @@
+import datetime
 from decimal import Decimal
 
 from django.conf import settings
@@ -23,9 +24,35 @@ class Bucket(models.Model):
         # Will aggregate expenses for this bucket once the Expense model exists
         return Decimal('0')
 
-    def rollover_amount(self):
-        # Will return last month's unspent balance once the Expense model exists
-        return Decimal('0')
+    def rollover_amount(self, year=None, month=None):
+        if not self.rollover:
+            return Decimal('0')
+
+        from django.db.models import Sum
+        from transactions.models import Transaction
+
+        today = datetime.date.today()
+        if year is None:
+            year = today.year
+        if month is None:
+            month = today.month
+
+        if month == 1:
+            prev_year, prev_month = year - 1, 12
+        else:
+            prev_year, prev_month = year, month - 1
+
+        prev_spent = (
+            Transaction.objects.filter(
+                user=self.user,
+                bucket=self,
+                transaction_type='expense',
+                date__year=prev_year,
+                date__month=prev_month,
+            ).aggregate(s=Sum('amount'))['s']
+            or Decimal('0')
+        )
+        return max(self.monthly_allocation - prev_spent, Decimal('0'))
 
     def remaining_this_month(self):
         return self.monthly_allocation - self.spent_this_month()
