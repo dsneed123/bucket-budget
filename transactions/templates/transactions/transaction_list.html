@@ -8,44 +8,81 @@
     <a href="{% url 'transaction_add' %}" class="btn btn-primary">+ Add Transaction</a>
 </div>
 
-{% if transactions %}
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;">
+    <div class="card" style="padding: 16px 20px;">
+        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">{{ current_month }} Income</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: var(--accent-green);">+{{ total_income|currency:request.user.currency }}</div>
+    </div>
+    <div class="card" style="padding: 16px 20px;">
+        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">{{ current_month }} Expenses</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: var(--accent-red);">-{{ total_expenses|currency:request.user.currency }}</div>
+    </div>
+    <div class="card" style="padding: 16px 20px;">
+        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">{{ current_month }} Net</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: {% if net >= 0 %}var(--accent-green){% else %}var(--accent-red){% endif %};">
+            {% if net >= 0 %}+{% endif %}{{ net|currency:request.user.currency }}
+        </div>
+    </div>
+</div>
+
+{% if page_obj.object_list %}
 <div class="card">
     <table style="width: 100%; border-collapse: collapse;">
         <thead>
             <tr style="border-bottom: 1px solid var(--border);">
                 <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Date</th>
                 <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
-                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Account</th>
+                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Vendor</th>
                 <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Bucket</th>
                 <th style="padding: 10px 12px; text-align: right; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Amount</th>
+                <th style="padding: 10px 12px; text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Score</th>
             </tr>
         </thead>
         <tbody>
-            {% for txn in transactions %}
+            {% for txn in page_obj %}
             <tr style="border-bottom: 1px solid var(--border);">
                 <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap;">{{ txn.date }}</td>
-                <td style="padding: 12px;">
-                    <div style="font-size: 0.9rem; font-weight: 500; color: var(--text-primary);">{{ txn.description }}</div>
-                    {% if txn.vendor %}
-                        <div style="font-size: 0.75rem; color: var(--text-secondary);">{{ txn.vendor }}</div>
-                    {% endif %}
-                </td>
-                <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary);">{{ txn.account.name }}</td>
+                <td style="padding: 12px; font-size: 0.9rem; font-weight: 500; color: var(--text-primary);">{{ txn.description }}</td>
+                <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary);">{{ txn.vendor|default:"—" }}</td>
                 <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary);">
                     {% if txn.bucket %}{{ txn.bucket.icon }} {{ txn.bucket.name }}{% else %}—{% endif %}
                 </td>
                 <td style="padding: 12px; text-align: right; font-weight: 600; white-space: nowrap;">
                     {% if txn.transaction_type == 'income' %}
-                        <span style="color: var(--accent-green, #00b894);">+{{ txn.amount|currency:request.user.currency }}</span>
+                        <span style="color: var(--accent-green);">+{{ txn.amount|currency:request.user.currency }}</span>
                     {% else %}
-                        <span style="color: var(--accent-red, #d63031);">-{{ txn.amount|currency:request.user.currency }}</span>
+                        <span style="color: var(--accent-red);">-{{ txn.amount|currency:request.user.currency }}</span>
                     {% endif %}
+                </td>
+                <td style="padding: 12px; text-align: center; font-size: 0.85rem; color: var(--text-secondary);">
+                    {% if txn.necessity_score %}{{ txn.necessity_score }}{% else %}—{% endif %}
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+{% if page_obj.has_other_pages %}
+<div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 20px;">
+    {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="btn" style="padding: 6px 14px; font-size: 0.85rem;">&larr; Prev</a>
+    {% else %}
+        <span class="btn" style="padding: 6px 14px; font-size: 0.85rem; opacity: 0.4; cursor: default;">&larr; Prev</span>
+    {% endif %}
+
+    <span style="font-size: 0.85rem; color: var(--text-secondary);">
+        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+
+    {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="btn" style="padding: 6px 14px; font-size: 0.85rem;">Next &rarr;</a>
+    {% else %}
+        <span class="btn" style="padding: 6px 14px; font-size: 0.85rem; opacity: 0.4; cursor: default;">Next &rarr;</span>
+    {% endif %}
+</div>
+{% endif %}
+
 {% else %}
 <div class="card" style="text-align: center; padding: 48px 24px;">
     <div style="font-size: 3rem; margin-bottom: 16px;">💳</div>

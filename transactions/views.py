@@ -2,6 +2,8 @@ import datetime
 from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
+from django.db.models import Sum
 from django.shortcuts import render, redirect
 
 from banking.models import BankAccount
@@ -14,9 +16,24 @@ VALID_TRANSACTION_TYPES = [c[0] for c in Transaction.TRANSACTION_TYPE_CHOICES]
 
 @login_required
 def transaction_list(request):
-    transactions = Transaction.objects.filter(user=request.user).select_related('account', 'bucket')
+    qs = Transaction.objects.filter(user=request.user).select_related('account', 'bucket')
+
+    paginator = Paginator(qs, 25)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    today = datetime.date.today()
+    month_qs = qs.filter(date__year=today.year, date__month=today.month)
+    total_income = month_qs.filter(transaction_type='income').aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    total_expenses = month_qs.filter(transaction_type='expense').aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    net = total_income - total_expenses
+
     return render(request, 'transactions/transaction_list.html', {
-        'transactions': transactions,
+        'page_obj': page_obj,
+        'total_income': total_income,
+        'total_expenses': total_expenses,
+        'net': net,
+        'current_month': today.strftime('%B %Y'),
     })
 
 
