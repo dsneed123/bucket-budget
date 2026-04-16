@@ -6,7 +6,10 @@
 {% block content %}
 <div style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
     <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">Monthly summaries — click a row to view details.</p>
-    <a href="{% url 'budget_overview' %}" class="btn btn-secondary btn-sm">Current Month</a>
+    <div style="display: flex; gap: 8px;">
+        <a href="{% url 'budget_history_export_csv' %}" class="btn btn-secondary btn-sm">Export CSV</a>
+        <a href="{% url 'budget_overview' %}" class="btn btn-secondary btn-sm">Current Month</a>
+    </div>
 </div>
 
 {% if history %}
