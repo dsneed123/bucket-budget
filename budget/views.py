@@ -64,12 +64,14 @@ def budget_overview(request, year=None, month=None):
             pct = min(int((spent / bucket.monthly_allocation) * 100), 100)
         else:
             pct = 0
+        bar_max = max(bucket.monthly_allocation, spent, Decimal('1'))
         bucket_data.append({
             'bucket': bucket,
             'spent': spent,
             'remaining': remaining,
             'pct': pct,
             'over': spent > bucket.monthly_allocation,
+            'bar_max': bar_max,
         })
 
     bucket_data.sort(key=lambda x: x['pct'], reverse=True)
