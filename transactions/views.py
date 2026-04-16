@@ -1748,6 +1748,135 @@ def recurring_add(request):
 
 
 @login_required
+def recurring_edit(request, recurring_id):
+    rt = get_object_or_404(RecurringTransaction, pk=recurring_id, user=request.user)
+    errors = {}
+    accounts = BankAccount.objects.filter(user=request.user).order_by('name')
+    buckets = Bucket.objects.filter(user=request.user).order_by('name')
+
+    if request.method == 'POST':
+        description = request.POST.get('description', '').strip()
+        vendor = request.POST.get('vendor', '').strip()
+        amount_str = request.POST.get('amount', '').strip()
+        transaction_type = request.POST.get('transaction_type', '').strip()
+        frequency = request.POST.get('frequency', '').strip()
+        start_date_str = request.POST.get('start_date', '').strip()
+        next_due_str = request.POST.get('next_due', '').strip()
+        end_date_str = request.POST.get('end_date', '').strip()
+        account_id = request.POST.get('account', '').strip()
+        bucket_id = request.POST.get('bucket', '').strip()
+        is_active = request.POST.get('is_active', '') == '1'
+
+        form_data = {
+            'description': description, 'vendor': vendor, 'amount': amount_str,
+            'transaction_type': transaction_type, 'frequency': frequency,
+            'start_date': start_date_str, 'next_due': next_due_str,
+            'end_date': end_date_str, 'account': account_id, 'bucket': bucket_id,
+            'is_active': is_active,
+        }
+
+        if not description:
+            errors['description'] = 'Description is required.'
+
+        amount = None
+        if not amount_str:
+            errors['amount'] = 'Amount is required.'
+        else:
+            try:
+                amount = Decimal(amount_str)
+                if amount <= 0:
+                    errors['amount'] = 'Amount must be greater than zero.'
+            except InvalidOperation:
+                errors['amount'] = 'Enter a valid amount.'
+
+        if not transaction_type or transaction_type not in [c[0] for c in RecurringTransaction.TRANSACTION_TYPE_CHOICES]:
+            errors['transaction_type'] = 'Please select a valid type.'
+
+        if not frequency or frequency not in [c[0] for c in RecurringTransaction.FREQUENCY_CHOICES]:
+            errors['frequency'] = 'Please select a valid frequency.'
+
+        account = None
+        if not account_id:
+            errors['account'] = 'Account is required.'
+        else:
+            try:
+                account = accounts.get(pk=account_id)
+            except BankAccount.DoesNotExist:
+                errors['account'] = 'Please select a valid account.'
+
+        start_date = None
+        if not start_date_str:
+            errors['start_date'] = 'Start date is required.'
+        else:
+            try:
+                start_date = datetime.date.fromisoformat(start_date_str)
+            except ValueError:
+                errors['start_date'] = 'Enter a valid date.'
+
+        next_due = None
+        if not next_due_str:
+            errors['next_due'] = 'Next due date is required.'
+        else:
+            try:
+                next_due = datetime.date.fromisoformat(next_due_str)
+            except ValueError:
+                errors['next_due'] = 'Enter a valid date.'
+
+        end_date = None
+        if end_date_str:
+            try:
+                end_date = datetime.date.fromisoformat(end_date_str)
+            except ValueError:
+                errors['end_date'] = 'Enter a valid date.'
+
+        bucket = None
+        if bucket_id:
+            try:
+                bucket = buckets.get(pk=bucket_id)
+            except Bucket.DoesNotExist:
+                errors['bucket'] = 'Please select a valid bucket.'
+
+        if not errors:
+            rt.description = description
+            rt.vendor = vendor
+            rt.amount = amount
+            rt.transaction_type = transaction_type
+            rt.frequency = frequency
+            rt.account = account
+            rt.bucket = bucket
+            rt.start_date = start_date
+            rt.next_due = next_due
+            rt.end_date = end_date
+            rt.is_active = is_active
+            rt.save()
+            return redirect('recurring_list')
+    else:
+        form_data = {
+            'description': rt.description,
+            'vendor': rt.vendor,
+            'amount': rt.amount,
+            'transaction_type': rt.transaction_type,
+            'frequency': rt.frequency,
+            'start_date': rt.start_date.isoformat() if rt.start_date else '',
+            'next_due': rt.next_due.isoformat() if rt.next_due else '',
+            'end_date': rt.end_date.isoformat() if rt.end_date else '',
+            'account': str(rt.account_id) if rt.account_id else '',
+            'bucket': str(rt.bucket_id) if rt.bucket_id else '',
+            'is_active': rt.is_active,
+        }
+
+    return render(request, 'transactions/recurring_edit.html', {
+        'rt': rt,
+        'errors': errors,
+        'form_data': form_data,
+        'accounts': accounts,
+        'buckets': buckets,
+        'frequency_choices': RecurringTransaction.FREQUENCY_CHOICES,
+        'type_choices': RecurringTransaction.TRANSACTION_TYPE_CHOICES,
+    })
+
+
+@login_required
 def recurring_toggle(request, recurring_id):
     rt = get_object_or_404(RecurringTransaction, pk=recurring_id, user=request.user)
     if request.method == 'POST':
@@ -1760,6 +1889,12 @@ def recurring_toggle(request, recurring_id):
 def recurring_delete(request, recurring_id):
     rt = get_object_or_404(RecurringTransaction, pk=recurring_id, user=request.user)
     if request.method == 'POST':
-        rt.delete()
+        action = request.POST.get('action', 'delete')
+        if action == 'stop':
+            rt.is_active = False
+            rt.end_date = datetime.date.today()
+            rt.save(update_fields=['is_active', 'end_date'])
+        else:
+            rt.delete()
         return redirect('recurring_list')
     return render(request, 'transactions/recurring_delete.html', {'rt': rt})
