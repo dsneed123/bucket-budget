@@ -115,6 +115,45 @@
         {% endif %}
     </div>
 
+    <!-- Top Merchants -->
+    <div class="card merchant-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Top Merchants — {{ current_month }}</span>
+        </div>
+        {% if top_merchants %}
+        <div class="merchant-list">
+            <div class="merchant-header-row">
+                <div class="merchant-col-name"></div>
+                <div class="merchant-col-bar"></div>
+                <div class="merchant-col-amount text-secondary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;">Total</div>
+                <div class="merchant-col-count text-secondary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;">Txns</div>
+                <div class="merchant-col-necessity text-secondary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;">Avg Need</div>
+            </div>
+            {% for row in top_merchants %}
+            <div class="merchant-row">
+                <div class="merchant-col-name text-secondary">{{ row.vendor }}</div>
+                <div class="merchant-col-bar">
+                    <div class="merchant-bar-wrap">
+                        <div class="merchant-bar" style="width: {{ row.bar_width_pct }}%;"></div>
+                    </div>
+                </div>
+                <div class="merchant-col-amount">{{ row.total|currency }}</div>
+                <div class="merchant-col-count text-secondary">{{ row.count }}</div>
+                <div class="merchant-col-necessity">
+                    {% if row.avg_necessity is not None %}
+                        <span class="text-{{ row.necessity_color }}">{{ row.avg_necessity }}/10</span>
+                    {% else %}
+                        <span class="text-secondary">—</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-secondary" style="margin:0;font-size:0.9rem;">No expense transactions with vendor names this month.</p>
+        {% endif %}
+    </div>
+
     <!-- Monthly Spending Trend -->
     <div class="card trend-section">
         <div class="trend-header">
@@ -324,6 +363,83 @@
 @media (max-width: 540px) {
     .bucket-breakdown-row {
         grid-template-columns: 100px 1fr 70px;
+    }
+}
+
+.merchant-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.merchant-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.merchant-header-row,
+.merchant-row {
+    display: grid;
+    grid-template-columns: 160px 1fr 90px 50px 80px;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.merchant-header-row {
+    margin-bottom: 0.25rem;
+}
+
+.merchant-col-name {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: right;
+}
+
+.merchant-bar-wrap {
+    height: 16px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.merchant-bar {
+    height: 100%;
+    background-color: var(--accent-blue);
+    border-radius: 3px;
+    min-width: 2px;
+    transition: width 0.3s ease;
+}
+
+.merchant-col-amount {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: right;
+}
+
+.merchant-col-count {
+    font-size: 0.82rem;
+    text-align: center;
+}
+
+.merchant-col-necessity {
+    font-size: 0.82rem;
+    text-align: right;
+}
+
+@media (max-width: 700px) {
+    .merchant-header-row,
+    .merchant-row {
+        grid-template-columns: 110px 1fr 80px 40px 70px;
+    }
+}
+
+@media (max-width: 480px) {
+    .merchant-header-row,
+    .merchant-row {
+        grid-template-columns: 90px 1fr 70px 36px 60px;
     }
 }
 </style>
