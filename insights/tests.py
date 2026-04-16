@@ -18,6 +18,7 @@ from .recommendations import (
     _spending_quality_recs,
     _vendor_recs,
 )
+from .views import _daily_heatmap
 
 User = get_user_model()
 
@@ -354,6 +355,86 @@ class SavingsRateRuleTests(TestCase):
         self._make_contribution(Decimal('300'), self._prev_month_date(1))   # 10%
         recs = _savings_rate_recs(self.user, self.today)
         self.assertEqual(len(recs), 0)
+
+
+class DailyHeatmapTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='heatmap@example.com',
+            password='testpass123',
+        )
+        self.today = datetime.date.today()
+        self.account = BankAccount.objects.create(
+            user=self.user, name='Checking', account_type='checking',
+        )
+
+    def _make_expense(self, amount, date):
+        Transaction.objects.create(
+            user=self.user, transaction_type='expense', amount=amount,
+            description='Test', date=date, account=self.account,
+        )
+
+    def test_returns_weeks_covering_full_month(self):
+        weeks = _daily_heatmap(self.user, self.today.year, self.today.month)
+        import calendar
+        expected_weeks = len(calendar.monthcalendar(self.today.year, self.today.month))
+        self.assertEqual(len(weeks), expected_weeks)
+
+    def test_empty_month_all_cells_none_color(self):
+        weeks = _daily_heatmap(self.user, self.today.year, self.today.month)
+        for week in weeks:
+            for cell in week:
+                if cell.get('is_current_month') and not cell.get('is_future'):
+                    self.assertEqual(cell['color'], 'none')
+
+    def test_color_tiers_green_yellow_red(self):
+        first = datetime.date(self.today.year, self.today.month, 1)
+        self._make_expense(Decimal('10'), first)
+        self._make_expense(Decimal('50'), first.replace(day=min(2, 28)))
+        self._make_expense(Decimal('200'), first.replace(day=min(3, 28)))
+        weeks = _daily_heatmap(self.user, self.today.year, self.today.month)
+        colors = {}
+        for week in weeks:
+            for cell in week:
+                if cell.get('is_current_month') and cell.get('color') != 'none':
+                    colors[cell['day']] = cell['color']
+        self.assertIn(colors.get(1), ('green', 'yellow', 'red'))
+        all_colors = set(colors.values())
+        self.assertTrue(all_colors.issubset({'green', 'yellow', 'red'}))
+
+    def test_future_days_have_none_color(self):
+        tomorrow = self.today + datetime.timedelta(days=1)
+        if tomorrow.month == self.today.month:
+            self._make_expense(Decimal('100'), tomorrow)
+        weeks = _daily_heatmap(self.user, self.today.year, self.today.month)
+        for week in weeks:
+            for cell in week:
+                if cell.get('is_future'):
+                    self.assertEqual(cell['color'], 'none')
+
+    def test_today_cell_is_marked(self):
+        weeks = _daily_heatmap(self.user, self.today.year, self.today.month)
+        today_cells = [
+            cell for week in weeks for cell in week
+            if cell.get('is_today')
+        ]
+        self.assertEqual(len(today_cells), 1)
+        self.assertEqual(today_cells[0]['day'], self.today.day)
+
+    def test_date_str_format(self):
+        weeks = _daily_heatmap(self.user, self.today.year, self.today.month)
+        for week in weeks:
+            for cell in week:
+                if cell.get('is_current_month'):
+                    self.assertRegex(cell['date_str'], r'^\d{4}-\d{2}-\d{2}$')
+
+    def test_heatmap_in_view_context(self):
+        client = Client()
+        client.login(email='heatmap@example.com', password='testpass123')
+        response = client.get(reverse('insights'))
+        self.assertIn('heatmap_weeks', response.context)
+        self.assertIn('heatmap_dow_labels', response.context)
+        self.assertIsInstance(response.context['heatmap_weeks'], list)
 
 
 class VendorRuleTests(TestCase):

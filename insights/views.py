@@ -1,3 +1,4 @@
+import calendar
 import datetime
 from decimal import Decimal
 
@@ -246,6 +247,60 @@ def _savings_rate_trend(user, today):
     return months, avg_line_px
 
 
+_HEATMAP_DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+
+def _daily_heatmap(user, year, month):
+    qs = (
+        Transaction.objects.filter(
+            user=user, transaction_type='expense',
+            date__year=year, date__month=month,
+        )
+        .values('date')
+        .annotate(total=Sum('amount'))
+    )
+    daily_totals = {row['date']: row['total'] or Decimal('0') for row in qs}
+
+    amounts = [v for v in daily_totals.values() if v > 0]
+    if amounts:
+        max_amount = max(amounts)
+        low_threshold = max_amount / Decimal('3')
+        high_threshold = max_amount * Decimal('2') / Decimal('3')
+    else:
+        max_amount = low_threshold = high_threshold = Decimal('0')
+
+    today = datetime.date.today()
+    weeks = []
+    for week in calendar.monthcalendar(year, month):
+        week_days = []
+        for day_num in week:
+            if day_num == 0:
+                week_days.append({'day': 0, 'is_current_month': False})
+            else:
+                d = datetime.date(year, month, day_num)
+                amount = daily_totals.get(d, Decimal('0'))
+                is_future = d > today
+                if is_future or amount <= 0:
+                    color = 'none'
+                elif amount <= low_threshold:
+                    color = 'green'
+                elif amount <= high_threshold:
+                    color = 'yellow'
+                else:
+                    color = 'red'
+                week_days.append({
+                    'day': day_num,
+                    'date_str': d.strftime('%Y-%m-%d'),
+                    'amount': amount,
+                    'color': color,
+                    'is_today': d == today,
+                    'is_future': is_future,
+                    'is_current_month': True,
+                })
+        weeks.append(week_days)
+    return weeks
+
+
 def _monthly_trend(user, today):
     months = []
     for i in range(11, -1, -1):
@@ -359,6 +414,9 @@ def insights(request):
     # Savings rate trend — last 12 months
     sr_trend_months, sr_avg_line_px = _savings_rate_trend(request.user, today)
 
+    # Daily spending heatmap (current month)
+    heatmap_weeks = _daily_heatmap(request.user, this_year, this_month)
+
     # Personalized recommendations
     refresh_recommendations(request.user)
     _priority_order = {Recommendation.PRIORITY_HIGH: 0, Recommendation.PRIORITY_MEDIUM: 1, Recommendation.PRIORITY_LOW: 2}
@@ -392,6 +450,8 @@ def insights(request):
         'income_expense_trend': income_expense_trend,
         'sr_trend_months': sr_trend_months,
         'sr_avg_line_px': sr_avg_line_px,
+        'heatmap_weeks': heatmap_weeks,
+        'heatmap_dow_labels': _HEATMAP_DOW_LABELS,
         'recommendations': recommendations,
     })
 
