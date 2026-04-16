@@ -68,19 +68,12 @@
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 <div class="form-group">
                     <label for="start_date" class="form-label">Start Date</label>
                     <input type="date" id="start_date" name="start_date" class="form-control"
                         value="{{ form_data.start_date|default:'' }}">
                     {% if errors.start_date %}<p class="form-error">{{ errors.start_date }}</p>{% endif %}
-                </div>
-
-                <div class="form-group">
-                    <label for="next_due" class="form-label">Next Due</label>
-                    <input type="date" id="next_due" name="next_due" class="form-control"
-                        value="{{ form_data.next_due|default:'' }}">
-                    {% if errors.next_due %}<p class="form-error">{{ errors.next_due }}</p>{% endif %}
                 </div>
 
                 <div class="form-group">
