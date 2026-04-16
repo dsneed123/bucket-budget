@@ -45,44 +45,114 @@
 
     <!-- Preferences -->
     <div id="tab-preferences" class="settings-panel" style="display: none;">
-        <div class="card">
-            <div class="card-header">
-                <div>
-                    <h2 class="card-title">Preferences</h2>
-                    <p class="card-subtitle">Your current budgeting preferences</p>
-                </div>
-            </div>
+        {% if request.GET.saved %}
+        <div style="background: rgba(0,184,148,0.1); border: 1px solid var(--accent-green); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: var(--accent-green);">
+            Preferences saved.
+        </div>
+        {% endif %}
+        {% if errors %}
+        <div style="background: rgba(255,71,87,0.1); border: 1px solid var(--accent-red); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: var(--accent-red);">
+            Please fix the errors below.
+        </div>
+        {% endif %}
 
-            <div class="settings-row">
-                <div class="settings-row-info">
-                    <div class="settings-row-label">Currency</div>
-                    <div class="settings-row-desc">{{ user.currency }}</div>
-                </div>
-                <a href="/profile/" class="btn btn-secondary">Edit</a>
-            </div>
+        <form method="post" action="/settings/#preferences">
+            {% csrf_token %}
+            <input type="hidden" name="tab" value="preferences">
 
-            <div class="settings-row">
-                <div class="settings-row-info">
-                    <div class="settings-row-label">Monthly income</div>
-                    <div class="settings-row-desc">{{ user.monthly_income }}</div>
-                </div>
-                <a href="/profile/" class="btn btn-secondary">Edit</a>
-            </div>
-
-            <div class="settings-row" style="border-bottom: none;">
-                <div class="settings-row-info">
-                    <div class="settings-row-label">Zero-based budgeting</div>
-                    <div class="settings-row-desc">
-                        {% if user.zero_based_budgeting %}
-                            <span style="color: var(--accent-green);">Enabled</span>
-                        {% else %}
-                            <span style="color: var(--text-secondary);">Disabled</span>
-                        {% endif %}
+            <div class="card" style="margin-bottom: 16px;">
+                <div class="card-header">
+                    <div>
+                        <h2 class="card-title">Notifications</h2>
+                        <p class="card-subtitle">Choose which emails you receive</p>
                     </div>
                 </div>
-                <a href="/profile/" class="btn btn-secondary">Edit</a>
+
+                <div class="settings-row">
+                    <div class="settings-row-info">
+                        <div class="settings-row-label">Weekly digest</div>
+                        <div class="settings-row-desc">Receive a weekly summary of your spending</div>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" name="email_weekly_digest" {% if prefs.email_weekly_digest %}checked{% endif %}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row">
+                    <div class="settings-row-info">
+                        <div class="settings-row-label">Budget alerts</div>
+                        <div class="settings-row-desc">Get notified when a bucket approaches its limit</div>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" name="email_budget_alerts" {% if prefs.email_budget_alerts %}checked{% endif %}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row" style="border-bottom: none;">
+                    <div class="settings-row-info">
+                        <div class="settings-row-label">Goal achieved</div>
+                        <div class="settings-row-desc">Get notified when a savings goal is completed</div>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" name="email_goal_achieved" {% if prefs.email_goal_achieved %}checked{% endif %}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
             </div>
-        </div>
+
+            <div class="card" style="margin-bottom: 16px;">
+                <div class="card-header">
+                    <div>
+                        <h2 class="card-title">Budget settings</h2>
+                        <p class="card-subtitle">Customize how your budget is calculated</p>
+                    </div>
+                </div>
+
+                <div class="settings-row">
+                    <div class="settings-row-info">
+                        <div class="settings-row-label">Default account</div>
+                        <div class="settings-row-desc">Account used by default for new transactions</div>
+                    </div>
+                    <select name="default_account" class="form-select" style="width: 180px;">
+                        <option value="">— None —</option>
+                        {% for acct in bank_accounts %}
+                        <option value="{{ acct.pk }}" {% if prefs.default_account_id == acct.pk %}selected{% endif %}>{{ acct.name }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if errors.default_account %}<div class="field-error">{{ errors.default_account }}</div>{% endif %}
+                </div>
+
+                <div class="settings-row">
+                    <div class="settings-row-info">
+                        <div class="settings-row-label">Start of week</div>
+                        <div class="settings-row-desc">First day of your budget week</div>
+                    </div>
+                    <select name="start_of_week" class="form-select" style="width: 140px;">
+                        {% for value, label in week_choices %}
+                        <option value="{{ value }}" {% if prefs.start_of_week == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if errors.start_of_week %}<div class="field-error">{{ errors.start_of_week }}</div>{% endif %}
+                </div>
+
+                <div class="settings-row" style="border-bottom: none;">
+                    <div class="settings-row-info">
+                        <div class="settings-row-label">Fiscal month start</div>
+                        <div class="settings-row-desc">Day of the month your budget period begins (1–28)</div>
+                    </div>
+                    <input type="number" name="fiscal_month_start" min="1" max="28"
+                           value="{{ prefs.fiscal_month_start }}"
+                           class="form-input" style="width: 80px; text-align: center;">
+                    {% if errors.fiscal_month_start %}<div class="field-error">{{ errors.fiscal_month_start }}</div>{% endif %}
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end;">
+                <button type="submit" class="btn btn-primary">Save preferences</button>
+            </div>
+        </form>
     </div>
 
     <!-- Data -->
@@ -175,6 +245,60 @@
     font-size: 13px;
     color: var(--text-secondary);
 }
+.toggle {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+.toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 22px;
+    transition: background 0.2s;
+}
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    left: 3px;
+    top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+.toggle input:checked + .toggle-slider {
+    background: var(--accent-green);
+}
+.toggle input:checked + .toggle-slider::before {
+    transform: translateX(18px);
+}
+.form-select, .form-input {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 13px;
+    padding: 6px 10px;
+}
+.form-select:focus, .form-input:focus {
+    outline: none;
+    border-color: var(--accent-green);
+}
+.field-error {
+    font-size: 12px;
+    color: var(--accent-red);
+    margin-top: 4px;
+}
 </style>
 {% endblock %}
 
@@ -185,7 +309,9 @@
 
     function getActiveTab() {
         var hash = window.location.hash.replace('#', '');
-        return tabs.indexOf(hash) !== -1 ? hash : 'account';
+        if (tabs.indexOf(hash) !== -1) return hash;
+        if (window.location.search.indexOf('saved=1') !== -1) return 'preferences';
+        return 'account';
     }
 
     function activateTab(name) {

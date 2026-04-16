@@ -6,6 +6,9 @@ from django.contrib.auth.views import PasswordChangeView
 from django.contrib import messages
 from django.urls import reverse_lazy
 
+from banking.models import BankAccount
+from .models import UserPreferences
+
 User = get_user_model()
 
 
@@ -144,7 +147,54 @@ def profile(request):
 
 @login_required
 def settings(request):
-    return render(request, 'accounts/settings.html')
+    prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+    errors = {}
+
+    if request.method == 'POST':
+        email_weekly_digest = request.POST.get('email_weekly_digest') == 'on'
+        email_budget_alerts = request.POST.get('email_budget_alerts') == 'on'
+        email_goal_achieved = request.POST.get('email_goal_achieved') == 'on'
+        start_of_week = request.POST.get('start_of_week', 'monday')
+        fiscal_month_start = request.POST.get('fiscal_month_start', '1')
+        default_account_id = request.POST.get('default_account', '')
+
+        valid_weeks = [c[0] for c in UserPreferences.START_OF_WEEK_CHOICES]
+        if start_of_week not in valid_weeks:
+            errors['start_of_week'] = 'Please select a valid day.'
+
+        try:
+            fiscal_month_start_val = int(fiscal_month_start)
+            if not (1 <= fiscal_month_start_val <= 28):
+                errors['fiscal_month_start'] = 'Day must be between 1 and 28.'
+        except (ValueError, TypeError):
+            errors['fiscal_month_start'] = 'Please enter a valid day number.'
+            fiscal_month_start_val = 1
+
+        default_account = None
+        if default_account_id:
+            try:
+                default_account = BankAccount.objects.get(pk=default_account_id, user=request.user)
+            except BankAccount.DoesNotExist:
+                errors['default_account'] = 'Invalid account selected.'
+
+        if not errors:
+            prefs.email_weekly_digest = email_weekly_digest
+            prefs.email_budget_alerts = email_budget_alerts
+            prefs.email_goal_achieved = email_goal_achieved
+            prefs.start_of_week = start_of_week
+            prefs.fiscal_month_start = fiscal_month_start_val
+            prefs.default_account = default_account
+            prefs.save()
+            return redirect('/settings/?saved=1#preferences')
+
+    bank_accounts = BankAccount.objects.filter(user=request.user, is_active=True)
+
+    return render(request, 'accounts/settings.html', {
+        'prefs': prefs,
+        'errors': errors,
+        'week_choices': UserPreferences.START_OF_WEEK_CHOICES,
+        'bank_accounts': bank_accounts,
+    })
 
 
 @login_required
