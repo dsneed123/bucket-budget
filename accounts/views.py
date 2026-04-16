@@ -202,6 +202,185 @@ def settings(request):
     })
 
 
+_IMPORT_TEMPLATES = {
+    'transactions': {
+        'filename': 'transactions_template.csv',
+        'headers': ['date', 'description', 'vendor', 'amount', 'type', 'bucket', 'account', 'necessity_score', 'tags'],
+        'example': ['2024-01-15', 'Grocery shopping', 'Whole Foods', '85.50', 'expense', 'Groceries', 'Checking', '3', 'food, weekly'],
+    },
+    'buckets': {
+        'filename': 'buckets_template.csv',
+        'headers': ['name', 'description', 'monthly_allocation', 'color', 'icon', 'sort_order', 'is_active', 'rollover', 'alert_threshold'],
+        'example': ['Groceries', 'Food and household items', '500.00', '#0984e3', '🛒', '1', 'True', 'False', '90'],
+    },
+    'savings_goals': {
+        'filename': 'savings_goals_template.csv',
+        'headers': ['name', 'description', 'target_amount', 'current_amount', 'deadline', 'priority', 'goal_type', 'color', 'icon'],
+        'example': ['Emergency Fund', '3 months of expenses', '10000.00', '2500.00', '2024-12-31', 'high', 'emergency_fund', '#00d4aa', '🎯'],
+    },
+    'bank_accounts': {
+        'filename': 'bank_accounts_template.csv',
+        'headers': ['name', 'account_type', 'balance', 'institution', 'color'],
+        'example': ['Main Checking', 'checking', '5000.00', 'Chase Bank', '#0984e3'],
+    },
+}
+
+
+@login_required
+def download_import_template(request, data_type):
+    if data_type not in _IMPORT_TEMPLATES:
+        return HttpResponse('Not found', status=404)
+    tmpl = _IMPORT_TEMPLATES[data_type]
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(tmpl['headers'])
+    w.writerow(tmpl['example'])
+    response = HttpResponse(out.getvalue(), content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{tmpl["filename"]}"'
+    return response
+
+
+def _parse_bool(val):
+    return str(val).strip().lower() in ('true', '1', 'yes')
+
+
+def _import_buckets(user, rows):
+    from buckets.models import Bucket
+    imported = 0
+    for i, row in enumerate(rows, start=2):
+        name = (row.get('name') or '').strip()
+        if not name:
+            continue
+        try:
+            monthly_allocation = row.get('monthly_allocation', '0').strip() or '0'
+            monthly_allocation = float(monthly_allocation)
+        except (ValueError, AttributeError):
+            continue
+        defaults = {
+            'monthly_allocation': monthly_allocation,
+            'description': (row.get('description') or '').strip(),
+            'color': (row.get('color') or '#0984e3').strip() or '#0984e3',
+            'icon': (row.get('icon') or '💰').strip() or '💰',
+            'rollover': _parse_bool(row.get('rollover', 'False')),
+            'is_active': _parse_bool(row.get('is_active', 'True')),
+        }
+        try:
+            defaults['sort_order'] = int((row.get('sort_order') or '0').strip())
+        except (ValueError, AttributeError):
+            defaults['sort_order'] = 0
+        try:
+            defaults['alert_threshold'] = int((row.get('alert_threshold') or '90').strip())
+        except (ValueError, AttributeError):
+            defaults['alert_threshold'] = 90
+        Bucket.objects.update_or_create(user=user, name=name, defaults=defaults)
+        imported += 1
+    return imported
+
+
+def _import_bank_accounts(user, rows):
+    valid_types = {'checking', 'savings', 'credit', 'cash'}
+    imported = 0
+    for row in rows:
+        name = (row.get('name') or '').strip()
+        account_type = (row.get('account_type') or '').strip().lower()
+        if not name or account_type not in valid_types:
+            continue
+        try:
+            balance = float((row.get('balance') or '0').strip())
+        except (ValueError, AttributeError):
+            balance = 0.0
+        defaults = {
+            'account_type': account_type,
+            'balance': balance,
+            'institution': (row.get('institution') or '').strip() or None,
+            'color': (row.get('color') or '#0984e3').strip() or '#0984e3',
+            'is_active': True,
+        }
+        BankAccount.objects.update_or_create(user=user, name=name, defaults=defaults)
+        imported += 1
+    return imported
+
+
+def _import_savings_goals(user, rows):
+    import datetime
+    from savings.models import SavingsGoal
+    valid_priorities = {'low', 'medium', 'high', 'critical'}
+    valid_goal_types = {'general', 'emergency_fund', 'vacation', 'purchase', 'debt_payoff', 'investment', 'education', 'other'}
+    imported = 0
+    for row in rows:
+        name = (row.get('name') or '').strip()
+        if not name:
+            continue
+        try:
+            target_amount = float((row.get('target_amount') or '0').strip())
+        except (ValueError, AttributeError):
+            continue
+        try:
+            current_amount = float((row.get('current_amount') or '0').strip())
+        except (ValueError, AttributeError):
+            current_amount = 0.0
+        priority = (row.get('priority') or 'medium').strip().lower()
+        if priority not in valid_priorities:
+            priority = 'medium'
+        goal_type = (row.get('goal_type') or 'general').strip().lower()
+        if goal_type not in valid_goal_types:
+            goal_type = 'general'
+        deadline = None
+        raw_deadline = (row.get('deadline') or '').strip()
+        if raw_deadline:
+            try:
+                deadline = datetime.date.fromisoformat(raw_deadline)
+            except ValueError:
+                pass
+        defaults = {
+            'target_amount': target_amount,
+            'current_amount': current_amount,
+            'description': (row.get('description') or '').strip(),
+            'priority': priority,
+            'goal_type': goal_type,
+            'deadline': deadline,
+            'color': (row.get('color') or '#00d4aa').strip() or '#00d4aa',
+            'icon': (row.get('icon') or '🎯').strip() or '🎯',
+        }
+        SavingsGoal.objects.update_or_create(user=user, name=name, defaults=defaults)
+        imported += 1
+    return imported
+
+
+@login_required
+def import_csv(request):
+    if request.method != 'POST':
+        return redirect('/settings/#data')
+
+    data_type = request.POST.get('data_type', '')
+    csv_file = request.FILES.get('csv_file')
+
+    if not csv_file:
+        return redirect('/settings/?import_error=no_file&data_type=' + data_type + '#data')
+
+    try:
+        raw = csv_file.read()
+        try:
+            text = raw.decode('utf-8-sig')
+        except UnicodeDecodeError:
+            text = raw.decode('latin-1')
+        reader = csv.DictReader(io.StringIO(text))
+        rows = [{k.strip().lower(): v for k, v in row.items()} for row in reader]
+    except Exception:
+        return redirect('/settings/?import_error=invalid_file&data_type=' + data_type + '#data')
+
+    if data_type == 'buckets':
+        imported = _import_buckets(request.user, rows)
+    elif data_type == 'bank_accounts':
+        imported = _import_bank_accounts(request.user, rows)
+    elif data_type == 'savings_goals':
+        imported = _import_savings_goals(request.user, rows)
+    else:
+        return redirect('/settings/?import_error=unknown_type#data')
+
+    return redirect(f'/settings/?imported={imported}&data_type={data_type}#data')
+
+
 @login_required
 def export_all_data(request):
     from transactions.models import Transaction, RecurringTransaction
