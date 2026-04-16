@@ -342,7 +342,12 @@
                                 <span style="margin-left: 4px;">({{ item.pct }}%)</span>
                             </p>
                         </div>
-                        <a href="{% url 'savings:savings_goal_detail' item.goal.pk %}" class="btn btn-primary btn-sm" style="flex-shrink: 0;">Contribute</a>
+                        <button
+                            type="button"
+                            class="btn btn-primary btn-sm"
+                            style="flex-shrink: 0;"
+                            onclick="openContributeModal('{{ item.goal.pk }}', '{{ item.goal.name|escapejs }}')"
+                        >Contribute</button>
                     </div>
                     {% endfor %}
                 </div>
@@ -350,6 +355,61 @@
                 <p style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 0;">No active savings goals. <a href="{% url 'savings:savings_goal_add' %}" style="color: var(--accent-green);">Create one</a> to get started.</p>
             {% endif %}
         </div>
+
+        <!-- Quick Contribute Modal -->
+        <div id="contribute-modal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
+            <div style="background: var(--bg-card); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 420px; margin: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                    <h3 id="contribute-modal-title" style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">Quick Contribute</h3>
+                    <button type="button" onclick="closeContributeModal()" style="background: none; border: none; color: var(--text-secondary); font-size: 20px; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+                </div>
+                <form id="contribute-modal-form" method="post" action="">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="/dashboard/">
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">Amount</label>
+                        <input type="number" name="amount" step="0.01" min="0.01" required placeholder="0.00"
+                            style="width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 15px; box-sizing: border-box;">
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">From Account</label>
+                        <select name="source_account" required
+                            style="width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 14px; box-sizing: border-box;">
+                            <option value="">Select account…</option>
+                            {% for account in accounts %}
+                            <option value="{{ account.pk }}">{{ account.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" onclick="closeContributeModal()" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">Add Contribution</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <script>
+        (function() {
+            function openContributeModal(goalId, goalName) {
+                var modal = document.getElementById('contribute-modal');
+                var form = document.getElementById('contribute-modal-form');
+                var title = document.getElementById('contribute-modal-title');
+                form.action = '/savings/' + goalId + '/contribute/';
+                title.textContent = 'Contribute to ' + goalName;
+                modal.style.display = 'flex';
+                var amountInput = form.querySelector('input[name="amount"]');
+                if (amountInput) amountInput.focus();
+            }
+            function closeContributeModal() {
+                document.getElementById('contribute-modal').style.display = 'none';
+            }
+            window.openContributeModal = openContributeModal;
+            window.closeContributeModal = closeContributeModal;
+            document.getElementById('contribute-modal').addEventListener('click', function(e) {
+                if (e.target === this) closeContributeModal();
+            });
+        })();
+        </script>
 
         <!-- Upcoming Recurring -->
         <div class="card">

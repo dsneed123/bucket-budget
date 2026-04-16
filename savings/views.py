@@ -641,6 +641,9 @@ def savings_goal_contribute(request, goal_id):
     else:
         messages.success(request, f'Contribution of ${amount_val:,.2f} added successfully.')
 
+    next_url = request.POST.get('next', '').strip()
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
     return redirect('savings:savings_goal_detail', goal_id=goal.pk)
 
 
