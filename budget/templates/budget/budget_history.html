@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load currency_tags %}
+{% block title %}Budget History — Bucket Budget{% endblock %}
+{% block page_title %}Budget History{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+    <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">Monthly summaries — click a row to view details.</p>
+    <a href="{% url 'budget_overview' %}" class="btn btn-secondary btn-sm">Current Month</a>
+</div>
+
+{% if history %}
+<div class="card">
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: left;">Month</th>
+                    <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: right;">Income</th>
+                    <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: right;">Spent</th>
+                    <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: right;">Saved</th>
+                    <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: right;">Surplus / Deficit</th>
+                    <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: right;">Necessity Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in history %}
+                {% with s=row.summary t=row.trends %}
+                <tr class="history-row" style="cursor: pointer;" onclick="location.href='{{ row.detail_url }}'">
+                    <td style="padding: 14px 16px; border-bottom: 1px solid var(--border);">
+                        <span style="font-size: 14px; font-weight: 600; color: var(--text-primary);">
+                            {{ s.year }}-{{ s.month|stringformat:"02d" }}
+                        </span>
+                    </td>
+                    <td style="padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; font-size: 14px; color: var(--text-primary);">
+                        {{ s.income|currency:user.currency }}
+                        {% if t.income == 'up' %}<span class="trend trend-up" title="Higher than previous month">&#8593;</span>{% elif t.income == 'down' %}<span class="trend trend-down" title="Lower than previous month">&#8595;</span>{% endif %}
+                    </td>
+                    <td style="padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; font-size: 14px; color: var(--text-primary);">
+                        {{ s.total_spent|currency:user.currency }}
+                        {% if t.spent == 'up' %}<span class="trend trend-bad" title="Spent more than previous month">&#8593;</span>{% elif t.spent == 'down' %}<span class="trend trend-good" title="Spent less than previous month">&#8595;</span>{% endif %}
+                    </td>
+                    <td style="padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; font-size: 14px; color: var(--text-primary);">
+                        {{ s.total_saved|currency:user.currency }}
+                        {% if t.saved == 'up' %}<span class="trend trend-good" title="Saved more than previous month">&#8593;</span>{% elif t.saved == 'down' %}<span class="trend trend-bad" title="Saved less than previous month">&#8595;</span>{% endif %}
+                    </td>
+                    <td style="padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; font-size: 14px; font-weight: 600; {% if s.surplus_deficit >= 0 %}color: var(--accent-green);{% else %}color: var(--accent-red);{% endif %}">
+                        {{ s.surplus_deficit|currency:user.currency }}
+                        {% if t.surplus == 'up' %}<span class="trend trend-good" title="Better than previous month">&#8593;</span>{% elif t.surplus == 'down' %}<span class="trend trend-bad" title="Worse than previous month">&#8595;</span>{% endif %}
+                    </td>
+                    <td style="padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; font-size: 14px; color: var(--text-secondary);">
+                        {% if s.necessity_avg is not None %}
+                            {{ s.necessity_avg|floatformat:1 }}
+                            {% if t.necessity == 'up' %}<span class="trend trend-neutral" title="Higher necessity score than previous month">&#8593;</span>{% elif t.necessity == 'down' %}<span class="trend trend-neutral" title="Lower necessity score than previous month">&#8595;</span>{% endif %}
+                        {% else %}
+                            <span style="color: var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endwith %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.history-row:hover td {
+    background: rgba(255, 255, 255, 0.03);
+}
+.trend {
+    font-size: 11px;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+.trend-up { color: var(--accent-green); }
+.trend-down { color: var(--accent-red); }
+.trend-good { color: var(--accent-green); }
+.trend-bad { color: var(--accent-red); }
+.trend-neutral { color: var(--text-secondary); }
+</style>
+
+{% else %}
+<div class="card" style="text-align: center; padding: 48px 24px;">
+    <div style="font-size: 3rem; margin-bottom: 16px;">📅</div>
+    <h3 style="color: var(--text-primary); margin-bottom: 8px;">No history yet</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 24px;">Monthly budget summaries will appear here once generated.</p>
+    <a href="{% url 'budget_overview' %}" class="btn btn-primary">View Current Month</a>
+</div>
+{% endif %}
+{% endblock %}

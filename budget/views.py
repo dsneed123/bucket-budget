@@ -7,6 +7,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 
 from buckets.models import Bucket
+from budget.models import BudgetSummary
 from transactions.models import Transaction
 
 
@@ -131,3 +132,39 @@ def save_allocations(request):
         Bucket.objects.bulk_update(buckets, ['monthly_allocation'])
 
     return redirect(reverse('budget_overview') + '?saved=1')
+
+
+@login_required
+def budget_history(request):
+    summaries = list(BudgetSummary.objects.filter(user=request.user))
+
+    def _trend(current, previous):
+        if current is None or previous is None:
+            return None
+        if current > previous:
+            return 'up'
+        if current < previous:
+            return 'down'
+        return 'flat'
+
+    history = []
+    for i, summary in enumerate(summaries):
+        prev = summaries[i + 1] if i + 1 < len(summaries) else None
+        history.append({
+            'summary': summary,
+            'detail_url': reverse(
+                'budget_overview_month',
+                kwargs={'year': summary.year, 'month': summary.month},
+            ),
+            'trends': {
+                'income': _trend(summary.income, prev.income) if prev else None,
+                'spent': _trend(summary.total_spent, prev.total_spent) if prev else None,
+                'saved': _trend(summary.total_saved, prev.total_saved) if prev else None,
+                'surplus': _trend(summary.surplus_deficit, prev.surplus_deficit) if prev else None,
+                'necessity': _trend(summary.necessity_avg, prev.necessity_avg) if prev else None,
+            },
+        })
+
+    return render(request, 'budget/budget_history.html', {
+        'history': history,
+    })

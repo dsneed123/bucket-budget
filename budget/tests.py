@@ -392,6 +392,121 @@ class BudgetSummaryModelTest(TestCase):
         self.assertEqual(summaries[1].month, 1)
 
 
+class BudgetHistoryTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='history@example.com',
+            password='testpass',
+            first_name='History',
+            last_name='Tester',
+            monthly_income=Decimal('5000.00'),
+        )
+        self.client.login(email='history@example.com', password='testpass')
+
+    def _make_summary(self, month, year, **kwargs):
+        defaults = dict(
+            income=Decimal('5000.00'),
+            total_allocated=Decimal('3000.00'),
+            total_spent=Decimal('2000.00'),
+            total_saved=Decimal('3000.00'),
+            surplus_deficit=Decimal('3000.00'),
+        )
+        defaults.update(kwargs)
+        return BudgetSummary.objects.create(user=self.user, month=month, year=year, **defaults)
+
+    def test_redirects_when_not_logged_in(self):
+        self.client.logout()
+        response = self.client.get(reverse('budget_history'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_renders_for_logged_in_user(self):
+        response = self.client.get(reverse('budget_history'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_empty_history(self):
+        response = self.client.get(reverse('budget_history'))
+        self.assertEqual(len(response.context['history']), 0)
+
+    def test_history_contains_user_summaries(self):
+        self._make_summary(1, 2025)
+        self._make_summary(2, 2025)
+        response = self.client.get(reverse('budget_history'))
+        self.assertEqual(len(response.context['history']), 2)
+
+    def test_history_ordered_newest_first(self):
+        self._make_summary(1, 2025)
+        self._make_summary(3, 2025)
+        self._make_summary(2, 2025)
+        response = self.client.get(reverse('budget_history'))
+        months = [row['summary'].month for row in response.context['history']]
+        self.assertEqual(months, [3, 2, 1])
+
+    def test_history_excludes_other_users(self):
+        other = User.objects.create_user(
+            email='other_hist@example.com',
+            password='testpass',
+            first_name='Other',
+            last_name='User',
+            monthly_income=Decimal('9000.00'),
+        )
+        BudgetSummary.objects.create(
+            user=other, month=1, year=2025,
+            income=Decimal('9000'), total_allocated=Decimal('8000'),
+            total_spent=Decimal('7000'), total_saved=Decimal('2000'),
+            surplus_deficit=Decimal('2000'),
+        )
+        self._make_summary(1, 2025)
+        response = self.client.get(reverse('budget_history'))
+        self.assertEqual(len(response.context['history']), 1)
+        self.assertEqual(response.context['history'][0]['summary'].user, self.user)
+
+    def test_detail_url_points_to_correct_month(self):
+        self._make_summary(4, 2025)
+        response = self.client.get(reverse('budget_history'))
+        row = response.context['history'][0]
+        expected = reverse('budget_overview_month', kwargs={'year': 2025, 'month': 4})
+        self.assertEqual(row['detail_url'], expected)
+
+    def test_first_row_has_no_trend(self):
+        self._make_summary(1, 2025)
+        response = self.client.get(reverse('budget_history'))
+        row = response.context['history'][0]
+        for key, val in row['trends'].items():
+            self.assertIsNone(val, f"trends['{key}'] should be None for first row")
+
+    def test_trend_up_when_spent_increases(self):
+        self._make_summary(1, 2025, total_spent=Decimal('1000.00'))
+        self._make_summary(2, 2025, total_spent=Decimal('2000.00'))
+        response = self.client.get(reverse('budget_history'))
+        # history[0] is Feb (newer), history[1] is Jan (older)
+        self.assertEqual(response.context['history'][0]['trends']['spent'], 'up')
+
+    def test_trend_down_when_saved_decreases(self):
+        self._make_summary(1, 2025, total_saved=Decimal('2000.00'))
+        self._make_summary(2, 2025, total_saved=Decimal('1000.00'))
+        response = self.client.get(reverse('budget_history'))
+        self.assertEqual(response.context['history'][0]['trends']['saved'], 'down')
+
+    def test_trend_up_when_surplus_increases(self):
+        self._make_summary(1, 2025, surplus_deficit=Decimal('500.00'))
+        self._make_summary(2, 2025, surplus_deficit=Decimal('1000.00'))
+        response = self.client.get(reverse('budget_history'))
+        self.assertEqual(response.context['history'][0]['trends']['surplus'], 'up')
+
+    def test_trend_flat_when_values_equal(self):
+        self._make_summary(1, 2025, total_spent=Decimal('1500.00'))
+        self._make_summary(2, 2025, total_spent=Decimal('1500.00'))
+        response = self.client.get(reverse('budget_history'))
+        self.assertEqual(response.context['history'][0]['trends']['spent'], 'flat')
+
+    def test_necessity_trend_none_when_either_missing(self):
+        self._make_summary(1, 2025, necessity_avg=None)
+        self._make_summary(2, 2025, necessity_avg=Decimal('3.5'))
+        response = self.client.get(reverse('budget_history'))
+        self.assertIsNone(response.context['history'][0]['trends']['necessity'])
+
+
 class GenerateBudgetSummariesCommandTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
