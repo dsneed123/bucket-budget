@@ -1,9 +1,10 @@
 from datetime import date
 from decimal import Decimal
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Sum
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from transactions.models import Transaction
 
@@ -188,4 +189,50 @@ def rankings(request):
         'essential_total': essential_total,
         'this_month_label': today.strftime('%B %Y'),
         'last_month_label': date(last_year, last_month, 1).strftime('%B %Y'),
+    })
+
+
+@login_required
+def rankings_review(request):
+    if request.method == 'POST':
+        tx_id = request.POST.get('transaction_id')
+        # Quick-score buttons submit name="score" which overrides the number input
+        # (button value is appended last in form data, so get() returns it)
+        score_values = request.POST.getlist('score')
+        # Use the last non-empty value (button wins over empty input; input wins if no button)
+        score_str = None
+        for s in reversed(score_values):
+            if s.strip():
+                score_str = s.strip()
+                break
+
+        if tx_id and score_str:
+            try:
+                score_int = int(score_str)
+                if 1 <= score_int <= 10:
+                    Transaction.objects.filter(
+                        id=tx_id,
+                        user=request.user,
+                        transaction_type='expense',
+                    ).update(necessity_score=score_int)
+                    messages.success(request, 'Score saved.')
+                else:
+                    messages.error(request, 'Score must be between 1 and 10.')
+            except (ValueError, TypeError):
+                messages.error(request, 'Invalid score value.')
+        return redirect('rankings_review')
+
+    unscored = (
+        Transaction.objects.filter(
+            user=request.user,
+            transaction_type='expense',
+            necessity_score__isnull=True,
+        )
+        .select_related('bucket')
+        .order_by('-date', '-id')
+    )
+
+    return render(request, 'rankings/review.html', {
+        'transactions': unscored,
+        'unscored_count': unscored.count(),
     })

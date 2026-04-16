@@ -34,8 +34,11 @@
                 <li><a href="/savings/" {% if request.path == '/savings/' %}class="active"{% endif %}>
                     <span class="nav-icon">🎯</span>Savings Goals
                 </a></li>
-                <li><a href="/rankings/" {% if request.path == '/rankings/' %}class="active"{% endif %}>
+                <li><a href="/rankings/" {% if request.path == '/rankings/' or request.path == '/rankings/review/' %}class="active"{% endif %}>
                     <span class="nav-icon">🏆</span>Rankings
+                </a></li>
+                <li><a href="/rankings/review/" {% if request.path == '/rankings/review/' %}class="active"{% endif %}>
+                    <span class="nav-icon">⭐</span>Score Review{% if unscored_count %} <span class="nav-badge">{{ unscored_count }}</span>{% endif %}
                 </a></li>
                 <li><a href="/insights/" {% if request.path == '/insights/' %}class="active"{% endif %}>
                     <span class="nav-icon">💡</span>Insights
