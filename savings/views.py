@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 
 from banking.models import BankAccount
 
-from .models import SavingsContribution, SavingsGoal
+from .models import AutoSaveRule, SavingsContribution, SavingsGoal
 
 
 def _get_monthly_contributions(goal, today):
@@ -476,3 +476,111 @@ def savings_goal_contribute(request, goal_id):
         messages.success(request, f'Contribution of ${amount_val:,.2f} added successfully.')
 
     return redirect('savings:savings_goal_detail', goal_id=goal.pk)
+
+
+@login_required
+def auto_save_rules(request):
+    rules = AutoSaveRule.objects.filter(user=request.user).select_related('goal', 'source_account').order_by('goal__name', 'frequency')
+    goals = SavingsGoal.objects.filter(user=request.user, is_achieved=False).order_by('name')
+    accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
+
+    errors = {}
+    form_data = {
+        'frequency': 'monthly',
+        'next_run': date.today().strftime('%Y-%m-%d'),
+    }
+
+    if request.method == 'POST':
+        amount_raw = request.POST.get('amount', '').strip()
+        goal_id = request.POST.get('goal', '').strip()
+        frequency = request.POST.get('frequency', '').strip()
+        account_id = request.POST.get('source_account', '').strip()
+        next_run_raw = request.POST.get('next_run', '').strip()
+
+        form_data = {
+            'amount': amount_raw,
+            'goal': goal_id,
+            'frequency': frequency,
+            'source_account': account_id,
+            'next_run': next_run_raw,
+        }
+
+        amount_val = None
+        if not amount_raw:
+            errors['amount'] = 'Amount is required.'
+        else:
+            try:
+                amount_val = Decimal(amount_raw)
+                if amount_val <= 0:
+                    errors['amount'] = 'Amount must be greater than zero.'
+            except InvalidOperation:
+                errors['amount'] = 'Please enter a valid number.'
+
+        goal_obj = None
+        if not goal_id:
+            errors['goal'] = 'Please select a goal.'
+        else:
+            try:
+                goal_obj = goals.get(pk=goal_id)
+            except SavingsGoal.DoesNotExist:
+                errors['goal'] = 'Invalid goal.'
+
+        if frequency not in ('weekly', 'biweekly', 'monthly'):
+            errors['frequency'] = 'Please select a valid frequency.'
+
+        account_obj = None
+        if not account_id:
+            errors['source_account'] = 'Please select an account.'
+        else:
+            try:
+                account_obj = accounts.get(pk=account_id)
+            except BankAccount.DoesNotExist:
+                errors['source_account'] = 'Invalid account.'
+
+        next_run_val = None
+        if not next_run_raw:
+            errors['next_run'] = 'First run date is required.'
+        else:
+            try:
+                next_run_val = datetime.strptime(next_run_raw, '%Y-%m-%d').date()
+            except ValueError:
+                errors['next_run'] = 'Please enter a valid date.'
+
+        if not errors:
+            AutoSaveRule.objects.create(
+                user=request.user,
+                goal=goal_obj,
+                amount=amount_val,
+                frequency=frequency,
+                source_account=account_obj,
+                next_run=next_run_val,
+            )
+            return redirect('savings:auto_save_rules')
+
+    return render(request, 'savings/auto_save_rules.html', {
+        'rules': rules,
+        'goals': goals,
+        'accounts': accounts,
+        'errors': errors,
+        'form_data': form_data,
+    })
+
+
+@login_required
+@require_POST
+def auto_save_rule_toggle(request, rule_id):
+    rule = get_object_or_404(AutoSaveRule, pk=rule_id, user=request.user)
+    rule.is_active = not rule.is_active
+    rule.save()
+    return redirect('savings:auto_save_rules')
+
+
+@login_required
+def auto_save_rule_delete(request, rule_id):
+    rule = get_object_or_404(AutoSaveRule, pk=rule_id, user=request.user)
+
+    if request.method == 'POST':
+        rule.delete()
+        return redirect('savings:auto_save_rules')
+
+    return render(request, 'savings/auto_save_rule_delete.html', {'rule': rule})

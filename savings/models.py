@@ -36,3 +36,22 @@ class SavingsContribution(models.Model):
 
     def __str__(self):
         return f'{self.goal.name} +{self.amount} on {self.date}'
+
+
+class AutoSaveRule(models.Model):
+    FREQUENCY_CHOICES = [
+        ('weekly', 'Weekly'),
+        ('biweekly', 'Biweekly'),
+        ('monthly', 'Monthly'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='auto_save_rules')
+    goal = models.ForeignKey(SavingsGoal, on_delete=models.CASCADE, related_name='auto_save_rules')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    frequency = models.CharField(max_length=8, choices=FREQUENCY_CHOICES)
+    source_account = models.ForeignKey('banking.BankAccount', on_delete=models.CASCADE, related_name='auto_save_rules')
+    is_active = models.BooleanField(default=True)
+    next_run = models.DateField()
+
+    def __str__(self):
+        return f'{self.user} — ${self.amount} to {self.goal.name} ({self.frequency})'
