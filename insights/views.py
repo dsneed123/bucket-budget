@@ -63,6 +63,30 @@ def _spending_quality_score(user, year, month):
     return round(Decimal(str(result['avg'])), 1), result['count']
 
 
+_TREND_CHART_H = 140  # px height for tallest bar
+
+
+def _monthly_trend(user, today):
+    months = []
+    for i in range(11, -1, -1):
+        month = today.month - i
+        year = today.year
+        while month <= 0:
+            month += 12
+            year -= 1
+        amount = _month_expenses(user, year, month)
+        months.append({'label': datetime.date(year, month, 1).strftime('%b'), 'amount': amount})
+    trend_max = max((m['amount'] for m in months), default=Decimal('0'))
+    trend_avg = sum(m['amount'] for m in months) / Decimal('12')
+    for m in months:
+        m['above_avg'] = trend_avg > 0 and m['amount'] > trend_avg
+        m['bar_height_px'] = (
+            max(2, int(float(m['amount'] / trend_max) * _TREND_CHART_H))
+            if trend_max > 0 else 2
+        )
+    return months, trend_avg
+
+
 @login_required
 def insights(request):
     today = datetime.date.today()
@@ -137,6 +161,9 @@ def insights(request):
     else:
         quality_arrow = None
 
+    # 12-month spending trend
+    trend_months, trend_avg = _monthly_trend(request.user, today)
+
     return render(request, 'insights/insights.html', {
         'current_month': today.strftime('%B %Y'),
         'last_month_label': last_month_date.strftime('%B %Y'),
@@ -154,4 +181,6 @@ def insights(request):
         'quality_color': quality_color,
         'quality_arrow': quality_arrow,
         'last_quality_score': last_quality_score,
+        'trend_months': trend_months,
+        'trend_avg': trend_avg,
     })

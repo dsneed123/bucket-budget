@@ -93,6 +93,22 @@
 
     </div>
 
+    <!-- Monthly Spending Trend -->
+    <div class="card trend-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Monthly Spending — Last 12 Months</span>
+            <span class="trend-avg-label text-secondary">Avg: {{ trend_avg|currency }}</span>
+        </div>
+        <div class="trend-bars-area">
+            {% for month in trend_months %}
+            <div class="trend-col">
+                <div class="trend-bar {% if month.above_avg %}trend-bar-above{% else %}trend-bar-below{% endif %}" style="height: {{ month.bar_height_px }}px"></div>
+                <div class="trend-col-label">{{ month.label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
 </div>
 {% endblock %}
 
@@ -180,6 +196,60 @@
     .grid-4.insights-summary-cards {
         grid-template-columns: 1fr;
     }
+}
+
+.trend-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.trend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.trend-avg-label {
+    font-size: 0.82rem;
+}
+
+.trend-bars-area {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 164px;
+}
+
+.trend-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    height: 100%;
+}
+
+.trend-bar {
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+    flex-shrink: 0;
+}
+
+.trend-bar-above { background-color: var(--accent-red); }
+.trend-bar-below { background-color: var(--accent-green); }
+
+.trend-col-label {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    line-height: 1;
+    height: 20px;
+    display: flex;
+    align-items: center;
 }
 </style>
 {% endblock %}
