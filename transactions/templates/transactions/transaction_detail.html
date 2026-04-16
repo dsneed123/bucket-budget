@@ -94,6 +94,15 @@
             </div>
             {% endif %}
 
+            {% if transaction.receipt %}
+            <div style="padding: 10px 0; border-bottom: 1px solid var(--border);">
+                <div style="margin-bottom: 8px;">Receipt</div>
+                <a href="{{ transaction.receipt.url }}" target="_blank" rel="noopener">
+                    <img src="{{ transaction.receipt.url }}" alt="Receipt" style="max-width: 160px; max-height: 160px; border-radius: 6px; border: 1px solid var(--border); object-fit: cover; display: block;">
+                </a>
+            </div>
+            {% endif %}
+
             <div style="display: flex; justify-content: space-between; padding: 10px 0;">
                 <span>Added</span>
                 <span style="color: var(--text-primary); font-weight: 500;">{{ transaction.created_at|date:"N j, Y" }}</span>

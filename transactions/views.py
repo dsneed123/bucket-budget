@@ -289,6 +289,7 @@ def transaction_add(request):
                     'duplicate_warning': duplicate_warning,
                 })
 
+            receipt = request.FILES.get('receipt') or None
             txn = Transaction.objects.create(
                 user=request.user,
                 account=account,
@@ -299,6 +300,7 @@ def transaction_add(request):
                 vendor=vendor,
                 date=date_val,
                 necessity_score=necessity_score_val,
+                receipt=receipt,
             )
             if tags_raw:
                 txn.tags.set(_resolve_tags(request.user, tags_raw))
@@ -420,6 +422,10 @@ def transaction_edit(request, transaction_id):
             transaction.vendor = vendor
             transaction.date = date_val
             transaction.necessity_score = necessity_score_val
+            if request.FILES.get('receipt'):
+                transaction.receipt = request.FILES['receipt']
+            elif request.POST.get('clear_receipt') == '1':
+                transaction.receipt = None
             transaction.save()
             transaction.tags.set(_resolve_tags(request.user, tags_raw) if tags_raw else [])
 

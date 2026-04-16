@@ -1,4 +1,6 @@
 """URL configuration for bucket_budget project."""
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 
@@ -9,4 +11,4 @@ urlpatterns = [
     path('', include('banking.urls')),
     path('', include('buckets.urls')),
     path('', include('transactions.urls')),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -87,6 +87,9 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 import sys
 TESTING = os.environ.get('DJANGO_TESTING', 'False') == 'True' or 'test' in sys.argv
 if TESTING:
