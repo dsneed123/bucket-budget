@@ -93,6 +93,31 @@
 
     </div>
 
+    <!-- Income vs Expenses — Last 6 Months -->
+    <div class="card income-expense-section">
+        <div class="trend-header">
+            <span class="insights-card-label">Income vs Expenses — Last 6 Months</span>
+            <div class="ie-legend">
+                <span class="ie-legend-dot ie-legend-income"></span><span class="text-secondary">Income</span>
+                <span class="ie-legend-dot ie-legend-expense"></span><span class="text-secondary">Expenses</span>
+            </div>
+        </div>
+        <div class="ie-chart-area">
+            {% for m in income_expense_trend %}
+            <div class="ie-month-group">
+                <div class="ie-bars">
+                    <div class="ie-bar ie-bar-income" style="height: {{ m.income_bar_h }}px" title="Income: {{ m.income|currency }}"></div>
+                    <div class="ie-bar ie-bar-expense" style="height: {{ m.expense_bar_h }}px" title="Expenses: {{ m.expenses|currency }}"></div>
+                </div>
+                <div class="ie-net {% if m.net_positive %}ie-net-positive{% else %}ie-net-negative{% endif %}">
+                    {% if m.net_positive %}+{% endif %}{{ m.net|currency }}
+                </div>
+                <div class="ie-month-label">{{ m.label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
     <!-- Spending by Bucket -->
     <div class="card bucket-breakdown-section">
         <div class="trend-header">
@@ -506,6 +531,83 @@
 .dow-label-peak {
     color: var(--accent-red);
     font-weight: 700;
+}
+
+.income-expense-section {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.ie-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+}
+
+.ie-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    display: inline-block;
+}
+
+.ie-legend-income { background-color: var(--accent-green); }
+.ie-legend-expense { background-color: var(--accent-red); }
+
+.ie-chart-area {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    height: 190px;
+}
+
+.ie-month-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    height: 100%;
+}
+
+.ie-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    width: 100%;
+}
+
+.ie-bar {
+    flex: 1;
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+    flex-shrink: 0;
+}
+
+.ie-bar-income  { background-color: var(--accent-green); }
+.ie-bar-expense { background-color: var(--accent-red); }
+
+.ie-net {
+    font-size: 0.65rem;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1;
+    text-align: center;
+}
+
+.ie-net-positive { color: var(--accent-green); }
+.ie-net-negative { color: var(--accent-red); }
+
+.ie-month-label {
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    line-height: 1;
+    height: 20px;
+    display: flex;
+    align-items: center;
 }
 </style>
 {% endblock %}

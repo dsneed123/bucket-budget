@@ -69,6 +69,8 @@ _TREND_CHART_H = 140  # px height for tallest bar
 _BUCKET_BAR_MAX_W = 100  # % width for largest bucket bar
 _MERCHANT_BAR_MAX_W = 100
 _DOW_CHART_H = 100
+_INCOME_EXPENSE_CHART_H = 140
+_INCOME_EXPENSE_MONTHS = 6
 
 
 def _top_merchants(user, year, month):
@@ -169,6 +171,39 @@ def _dow_pattern(user, year, month):
         )
         day['is_peak'] = max_amount > 0 and day['amount'] == peak_amount
     return days
+
+
+def _income_expense_trend(user, today):
+    months = []
+    for i in range(_INCOME_EXPENSE_MONTHS - 1, -1, -1):
+        month = today.month - i
+        year = today.year
+        while month <= 0:
+            month += 12
+            year -= 1
+        income = _month_income(user, year, month)
+        expenses = _month_expenses(user, year, month)
+        months.append({
+            'label': datetime.date(year, month, 1).strftime('%b'),
+            'income': income,
+            'expenses': expenses,
+            'net': income - expenses,
+        })
+    chart_max = max(
+        (max(m['income'], m['expenses']) for m in months),
+        default=Decimal('0'),
+    )
+    for m in months:
+        m['income_bar_h'] = (
+            max(2, int(float(m['income'] / chart_max) * _INCOME_EXPENSE_CHART_H))
+            if chart_max > 0 else 2
+        )
+        m['expense_bar_h'] = (
+            max(2, int(float(m['expenses'] / chart_max) * _INCOME_EXPENSE_CHART_H))
+            if chart_max > 0 else 2
+        )
+        m['net_positive'] = m['net'] >= 0
+    return months
 
 
 def _monthly_trend(user, today):
@@ -278,6 +313,9 @@ def insights(request):
     # Day-of-week spending pattern (current month)
     dow_pattern = _dow_pattern(request.user, this_year, this_month)
 
+    # Income vs expenses — last 6 months
+    income_expense_trend = _income_expense_trend(request.user, today)
+
     return render(request, 'insights/insights.html', {
         'current_month': today.strftime('%B %Y'),
         'last_month_label': last_month_date.strftime('%B %Y'),
@@ -300,4 +338,5 @@ def insights(request):
         'bucket_breakdown': bucket_breakdown,
         'top_merchants': top_merchants,
         'dow_pattern': dow_pattern,
+        'income_expense_trend': income_expense_trend,
     })
