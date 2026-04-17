@@ -151,6 +151,7 @@ mark.search-highlight {
                     <option value="" {% if not filters.type %}selected{% endif %}>All types</option>
                     <option value="expense" {% if filters.type == 'expense' %}selected{% endif %}>Expense</option>
                     <option value="income" {% if filters.type == 'income' %}selected{% endif %}>Income</option>
+                    <option value="transfer" {% if filters.type == 'transfer' %}selected{% endif %}>Transfer</option>
                 </select>
             </div>
             <div style="display: flex; flex-direction: column; gap: 4px; min-width: 140px;">

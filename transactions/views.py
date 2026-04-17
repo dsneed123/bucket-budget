@@ -106,7 +106,7 @@ def transaction_list(request):
         qs = qs.filter(bucket__isnull=True)
     elif bucket_id:
         qs = qs.filter(bucket_id=bucket_id)
-    if txn_type in ('expense', 'income'):
+    if txn_type in ('expense', 'income', 'transfer'):
         qs = qs.filter(transaction_type=txn_type)
     else:
         txn_type = ''
