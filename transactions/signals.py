@@ -1,7 +1,12 @@
+from django.core.cache import cache
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 
 from .models import Transaction
+
+
+def _invalidate_sidebar_cache(user_id):
+    cache.delete(f'sidebar_data_{user_id}')
 
 
 @receiver(pre_save, sender=Transaction)
@@ -21,6 +26,11 @@ def capture_old_transaction_state(sender, instance, **kwargs):
         instance._pre_save_account_id = None
         instance._pre_save_amount = None
         instance._pre_save_type = None
+
+
+@receiver(post_save, sender=Transaction)
+def invalidate_sidebar_cache_on_save(sender, instance, **kwargs):
+    _invalidate_sidebar_cache(instance.user_id)
 
 
 @receiver(post_save, sender=Transaction)
@@ -70,6 +80,11 @@ def update_balance_on_save(sender, instance, created, **kwargs):
             else:
                 new_account.balance += instance.amount
             new_account.save(change_reason='transaction', reference_id=str(instance.pk))
+
+
+@receiver(post_delete, sender=Transaction)
+def invalidate_sidebar_cache_on_delete(sender, instance, **kwargs):
+    _invalidate_sidebar_cache(instance.user_id)
 
 
 @receiver(post_delete, sender=Transaction)

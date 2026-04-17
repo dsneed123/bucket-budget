@@ -2,6 +2,7 @@ import datetime
 import math
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.db.models import Avg, Count, Sum
 
 from savings.models import SavingsContribution
@@ -26,6 +27,11 @@ def _score_color(score):
 def net_worth(request):
     if not request.user.is_authenticated:
         return {}
+
+    cache_key = f'sidebar_data_{request.user.pk}'
+    data = cache.get(cache_key)
+    if data is not None:
+        return data
 
     total = (
         BankAccount.objects.filter(user=request.user, is_active=True)
@@ -108,7 +114,7 @@ def net_worth(request):
     else:
         savings_rate_arrow = None
 
-    return {
+    data = {
         'net_worth': net_worth_value,
         'unscored_count': unscored_count,
         'sidebar_quality_score': avg,
@@ -120,3 +126,5 @@ def net_worth(request):
         'sidebar_savings_rate_arrow': savings_rate_arrow,
         'sidebar_savings_rate_prev': prev_savings_rate,
     }
+    cache.set(cache_key, data, 60)
+    return data
