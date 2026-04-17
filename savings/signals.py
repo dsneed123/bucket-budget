@@ -1,7 +1,12 @@
+from django.core.cache import cache
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 
 from .models import SavingsContribution, SavingsGoal
+
+
+def _invalidate_sidebar_cache(user_id):
+    cache.delete(f'sidebar_data_{user_id}')
 
 _MILESTONE_THRESHOLDS = (25, 50, 75, 100)
 
@@ -70,6 +75,11 @@ def _reverse_contribution(account, goal, amount, tx_type, change_reason, referen
 
 
 @receiver(post_save, sender=SavingsContribution)
+def invalidate_sidebar_cache_on_save(sender, instance, **kwargs):
+    _invalidate_sidebar_cache(instance.goal.user_id)
+
+
+@receiver(post_save, sender=SavingsContribution)
 def update_balances_on_save(sender, instance, created, **kwargs):
     """Update bank account balance and goal current_amount when a contribution is saved."""
     from banking.models import BankAccount
@@ -100,6 +110,11 @@ def update_balances_on_save(sender, instance, created, **kwargs):
         new_goal = SavingsGoal.objects.get(pk=instance.goal_id)
         _apply_contribution(new_account, new_goal, instance.amount, instance.transaction_type,
                             'savings_contribution', ref)
+
+
+@receiver(post_delete, sender=SavingsContribution)
+def invalidate_sidebar_cache_on_delete(sender, instance, **kwargs):
+    _invalidate_sidebar_cache(instance.goal.user_id)
 
 
 @receiver(post_delete, sender=SavingsContribution)
