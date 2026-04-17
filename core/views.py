@@ -4,8 +4,8 @@ from collections import defaultdict
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Case, IntegerField, Sum, Value, When
-from django.http import HttpResponse
+from django.db.models import Avg, Case, IntegerField, Sum, Value, When
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 
 from accounts.models import UserPreferences, UserStreak
@@ -352,4 +352,36 @@ def dashboard(request):
         'income_pct': income_pct,
         'widgets': widgets,
         'widget_labels': widget_labels,
+    })
+
+
+@login_required
+def stats_api(request):
+    today = datetime.date.today()
+    fiscal_start = get_user_fiscal_start(request.user)
+    fyear, fmonth = get_current_fiscal_month(today, fiscal_start)
+    fstart, fend = get_fiscal_month_range(fyear, fmonth, fiscal_start)
+
+    month_qs = Transaction.objects.filter(
+        user=request.user, date__gte=fstart, date__lte=fend
+    )
+    total_income = month_qs.filter(transaction_type='income').aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    total_expenses = month_qs.filter(transaction_type='expense').aggregate(s=Sum('amount'))['s'] or Decimal('0')
+
+    monthly_income = request.user.monthly_income or Decimal('0')
+    net_worth = BankAccount.objects.filter(user=request.user, is_active=True).aggregate(s=Sum('balance'))['s'] or Decimal('0')
+    budget_remaining = monthly_income - total_expenses
+    savings_rate = (((total_income - total_expenses) / total_income) * 100).quantize(Decimal('0.01')) if total_income > 0 else Decimal('0')
+    spending_quality = month_qs.filter(
+        transaction_type='expense', necessity_score__isnull=False
+    ).aggregate(avg=Avg('necessity_score'))['avg']
+    spending_quality = Decimal(str(spending_quality)).quantize(Decimal('0.01')) if spending_quality is not None else None
+
+    return JsonResponse({
+        'net_worth': str(net_worth),
+        'monthly_spend': str(total_expenses),
+        'savings_rate': str(savings_rate),
+        'spending_quality': str(spending_quality) if spending_quality is not None else None,
+        'budget_remaining': str(budget_remaining),
+        'fiscal_month': {'year': fyear, 'month': fmonth, 'start': fstart.isoformat(), 'end': fend.isoformat()},
     })
