@@ -275,8 +275,8 @@
         });
 
         // Auto-fill bucket when vendor matches a mapping
-        vendorInput.addEventListener('change', function () {
-            var val = this.value.trim().toLowerCase();
+        function applyVendorMapping() {
+            var val = vendorInput.value.trim().toLowerCase();
             if (!val) return;
             var match = VENDOR_MAPPINGS.find(function (m) {
                 return m.vendor_name.toLowerCase() === val;
@@ -284,7 +284,11 @@
             if (match && match.bucket_id) {
                 bucketSelect.value = String(match.bucket_id);
             }
-        });
+        }
+
+        // 'input' fires immediately on datalist selection; 'change' fires on blur
+        vendorInput.addEventListener('input', applyVendorMapping);
+        vendorInput.addEventListener('change', applyVendorMapping);
     }
 
     document.addEventListener('DOMContentLoaded', initVendorAutocomplete);
