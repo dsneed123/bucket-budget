@@ -179,7 +179,7 @@
                 <td style="padding: 14px 16px; text-align: center;">
                     <form method="post" action="{% url 'recurring_toggle' rt.pk %}" style="display: inline;">
                         {% csrf_token %}
-                        <button type="submit" style="background: none; border: none; cursor: pointer; padding: 0;">
+                        <button type="submit" style="background: none; border: none; cursor: pointer; padding: 0;" aria-label="{% if rt.is_active %}Deactivate {{ rt.description }}{% else %}Activate {{ rt.description }}{% endif %}">
                             {% if rt.is_active %}
                                 <span style="display: inline-block; background-color: rgba(0, 212, 170, 0.15); color: var(--accent-green); font-size: 0.75rem; font-weight: 600; padding: 2px 10px; border-radius: 20px; cursor: pointer;" title="Click to deactivate">Active</span>
                             {% else %}

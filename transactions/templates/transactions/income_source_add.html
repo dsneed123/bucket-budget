@@ -53,7 +53,7 @@
                     {% for c in color_palette %}
                         <button type="button" onclick="pickColor('{{ c }}')"
                             style="width: 24px; height: 24px; border-radius: 50%; background-color: {{ c }}; border: 2px solid transparent; cursor: pointer; padding: 0;"
-                            title="{{ c }}"></button>
+                            title="{{ c }}" aria-label="Select color {{ c }}"></button>
                     {% endfor %}
                 </div>
                 {% if errors.color %}
