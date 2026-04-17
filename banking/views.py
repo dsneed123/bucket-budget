@@ -8,6 +8,7 @@ from decimal import Decimal, InvalidOperation
 
 from .forms import AccountUpdateBalanceForm, BankAccountForm
 from .models import BankAccount
+from core.utils import make_breadcrumbs
 
 ACCOUNT_TYPE_CHOICES = BankAccount.ACCOUNT_TYPE_CHOICES
 VALID_ACCOUNT_TYPES = [c[0] for c in ACCOUNT_TYPE_CHOICES]
@@ -82,6 +83,7 @@ def account_list(request):
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
     total_balance = sum(a.balance for a in accounts)
     return render(request, 'banking/account_list.html', {
+        'breadcrumbs': make_breadcrumbs(('Dashboard', '/dashboard/'), ('Accounts', None)),
         'accounts': accounts,
         'total_balance': total_balance,
     })

@@ -10,6 +10,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 
 from accounts.models import UserPreferences, UserStreak
+from core.utils import make_breadcrumbs
 from accounts.utils import get_current_fiscal_month, get_fiscal_month_range, get_user_fiscal_start
 from banking.models import BankAccount
 from buckets.models import Bucket
@@ -334,6 +335,7 @@ def dashboard(request):
     ]
 
     return render(request, 'core/dashboard.html', {
+        'breadcrumbs': make_breadcrumbs(('Dashboard', None)),
         'accounts': accounts,
         'buckets': buckets,
         'total_income': total_income,

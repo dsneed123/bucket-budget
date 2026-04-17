@@ -15,6 +15,7 @@ from transactions.models import Transaction
 
 from .models import Recommendation
 from .recommendations import refresh_recommendations
+from core.utils import make_breadcrumbs
 
 
 def _score_color(score):
@@ -1258,6 +1259,7 @@ def insights(request):
     )
 
     return render(request, 'insights/insights.html', {
+        'breadcrumbs': make_breadcrumbs(('Dashboard', '/dashboard/'), ('Insights', None)),
         'period_label': period_label,
         'prev_period_label': prev_period_label,
         'preset': preset,

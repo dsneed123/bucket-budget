@@ -20,6 +20,7 @@ from buckets.models import Bucket
 from .forms import LoginForm, ProfileForm, RegisterForm
 from .models import UserPreferences
 from .currencies import CURRENCY_CHOICES
+from core.utils import make_breadcrumbs
 
 
 def _form_errors(form):
@@ -131,6 +132,7 @@ def profile(request):
             errors = _form_errors(form)
 
     return render(request, 'accounts/profile.html', {
+        'breadcrumbs': make_breadcrumbs(('Dashboard', '/dashboard/'), ('Profile', None)),
         'errors': errors,
         'success': success,
         'currency_choices': CURRENCY_CHOICES,
@@ -210,6 +212,7 @@ def settings(request):
     buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
 
     return render(request, 'accounts/settings.html', {
+        'breadcrumbs': make_breadcrumbs(('Dashboard', '/dashboard/'), ('Settings', None)),
         'prefs': prefs,
         'errors': errors,
         'week_choices': UserPreferences.START_OF_WEEK_CHOICES,

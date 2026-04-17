@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from banking.models import BankAccount
+from core.utils import make_breadcrumbs
 from transactions.models import Transaction
 
 from .forms import AutoSaveRuleForm, ContributionForm, SavingsGoalForm
@@ -199,6 +200,7 @@ def savings_list(request):
     achieved_count = sum(1 for g in goal_data if g['goal'].is_achieved)
 
     return render(request, 'savings/savings_list.html', {
+        'breadcrumbs': make_breadcrumbs(('Dashboard', '/dashboard/'), ('Savings', None)),
         'goal_data': goal_data,
         'total_saved': total_saved,
         'total_target': total_target,
