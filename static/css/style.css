@@ -1239,12 +1239,14 @@ table th.sortable:hover {
     background-color: var(--bg-card);
     color: var(--text-primary);
     font-size: 14px;
+    animation: fadeOut 0.5s ease forwards;
+    animation-delay: 5s;
 }
 
-.message-success { border-left-color: var(--accent-green); }
-.message-error   { border-left-color: var(--accent-red); }
-.message-warning { border-left-color: var(--accent-gold); }
-.message-info    { border-left-color: var(--accent-blue); }
+.message-success { border-left-color: var(--accent-green); background-color: rgba(0, 212, 170, 0.15); }
+.message-error   { border-left-color: var(--accent-red);   background-color: rgba(255, 71, 87, 0.15); }
+.message-warning { border-left-color: var(--accent-gold);  background-color: rgba(249, 202, 36, 0.15); }
+.message-info    { border-left-color: var(--accent-blue);  background-color: rgba(9, 132, 227, 0.15); }
 
 .message-text {
     flex: 1;
@@ -1265,7 +1267,7 @@ table th.sortable:hover {
     color: var(--text-primary);
 }
 
-@keyframes message-fade-out {
+@keyframes fadeOut {
     from { opacity: 1; transform: translateY(0); }
     to   { opacity: 0; transform: translateY(-8px); }
 }
