@@ -171,6 +171,39 @@
         </div>
     </div>
 
+    <div class="bottom-nav-more-overlay" id="bottom-nav-more-overlay" aria-hidden="true"></div>
+    <div class="bottom-nav-more-menu" id="bottom-nav-more-menu" role="menu" aria-label="More navigation">
+        <a href="/buckets/" class="{% active_link '/buckets' %}" role="menuitem" {% if request.path|startswith:'/buckets' %}aria-current="page"{% endif %}>
+            <span class="nav-icon" aria-hidden="true">🪣</span>Buckets
+        </a>
+        <a href="/savings/" class="{% active_link '/savings' %}" role="menuitem" {% if request.path|startswith:'/savings' %}aria-current="page"{% endif %}>
+            <span class="nav-icon" aria-hidden="true">🎯</span>Savings Goals
+        </a>
+        <a href="/rankings/" class="{% active_link '/rankings' %}" role="menuitem" {% if request.path|startswith:'/rankings' %}aria-current="page"{% endif %}>
+            <span class="nav-icon" aria-hidden="true">🏆</span>Rankings
+        </a>
+        <a href="/rankings/review/" class="{% active_link '/rankings/review' %}" role="menuitem" {% if request.path|startswith:'/rankings/review' %}aria-current="page"{% endif %}>
+            <span class="nav-icon" aria-hidden="true">⭐</span>Score Review{% if unscored_count %} <span class="nav-badge">{{ unscored_count }}</span>{% endif %}
+        </a>
+        <a href="/insights/" class="{% active_link '/insights' %}" role="menuitem" {% if request.path|startswith:'/insights' %}aria-current="page"{% endif %}>
+            <span class="nav-icon" aria-hidden="true">💡</span>Insights
+        </a>
+        <a href="/accounts/" class="{% active_link '/accounts' %}" role="menuitem" {% if request.path|startswith:'/accounts' %}aria-current="page"{% endif %}>
+            <span class="nav-icon" aria-hidden="true">🏦</span>Accounts
+        </a>
+        <a href="/recurring/" class="{% active_link '/recurring' %}" role="menuitem" {% if request.path|startswith:'/recurring' %}aria-current="page"{% endif %}>
+            <span class="nav-icon" aria-hidden="true">🔄</span>Recurring
+        </a>
+        <a href="/profile/" class="{% active_link '/profile' %}" role="menuitem" {% if request.path|startswith:'/profile' %}aria-current="page"{% endif %}>
+            <span class="nav-icon" aria-hidden="true">👤</span>Profile
+        </a>
+        <a href="/settings/" class="{% active_link '/settings' %}" role="menuitem" {% if request.path|startswith:'/settings' %}aria-current="page"{% endif %}>
+            <span class="nav-icon" aria-hidden="true">⚙️</span>Settings
+        </a>
+        <a href="/logout/" role="menuitem">
+            <span class="nav-icon" aria-hidden="true">🚪</span>Logout
+        </a>
+    </div>
     <nav class="bottom-nav" aria-label="Mobile navigation">
         <a href="/dashboard/" class="bottom-nav-item {% if request.path|startswith:'/dashboard' %}active{% endif %}" {% if request.path|startswith:'/dashboard' %}aria-current="page"{% endif %}>
             <span class="bottom-nav-icon" aria-hidden="true">📊</span>
@@ -184,10 +217,10 @@
             <span class="bottom-nav-icon" aria-hidden="true">💰</span>
             <span class="bottom-nav-label">Budget</span>
         </a>
-        <a href="/buckets/" class="bottom-nav-item {% if request.path|startswith:'/buckets' %}active{% endif %}" {% if request.path|startswith:'/buckets' %}aria-current="page"{% endif %}>
-            <span class="bottom-nav-icon" aria-hidden="true">🪣</span>
+        <button type="button" class="bottom-nav-item bottom-nav-more-btn" id="bottom-nav-more-btn" aria-expanded="false" aria-controls="bottom-nav-more-menu" aria-haspopup="menu">
+            <span class="bottom-nav-icon" aria-hidden="true">&#8943;</span>
             <span class="bottom-nav-label">More</span>
-        </a>
+        </button>
     </nav>
 
     {% block extra_js %}{% endblock %}
@@ -229,6 +262,46 @@
         </div>
     </div>
     <div class="kbd-hint">Press <kbd>?</kbd> for shortcuts</div>
+
+    <script>
+        (function () {
+            var btn = document.getElementById('bottom-nav-more-btn');
+            var menu = document.getElementById('bottom-nav-more-menu');
+            var overlay = document.getElementById('bottom-nav-more-overlay');
+            if (!btn || !menu || !overlay) return;
+
+            function openMenu() {
+                menu.classList.add('open');
+                overlay.classList.add('open');
+                btn.setAttribute('aria-expanded', 'true');
+                overlay.removeAttribute('aria-hidden');
+            }
+
+            function closeMenu() {
+                menu.classList.remove('open');
+                overlay.classList.remove('open');
+                btn.setAttribute('aria-expanded', 'false');
+                overlay.setAttribute('aria-hidden', 'true');
+            }
+
+            btn.addEventListener('click', function () {
+                if (menu.classList.contains('open')) {
+                    closeMenu();
+                } else {
+                    openMenu();
+                }
+            });
+
+            overlay.addEventListener('click', closeMenu);
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && menu.classList.contains('open')) {
+                    closeMenu();
+                    btn.focus();
+                }
+            });
+        })();
+    </script>
 
     <script>
         (function () {
