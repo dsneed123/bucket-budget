@@ -102,7 +102,9 @@ def transaction_list(request):
             qs = qs.filter(date__lte=datetime.date.fromisoformat(date_to))
         except ValueError:
             date_to = ''
-    if bucket_id:
+    if bucket_id == '__none__':
+        qs = qs.filter(bucket__isnull=True)
+    elif bucket_id:
         qs = qs.filter(bucket_id=bucket_id)
     if txn_type in ('expense', 'income'):
         qs = qs.filter(transaction_type=txn_type)
