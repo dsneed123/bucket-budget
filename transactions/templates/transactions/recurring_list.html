@@ -93,7 +93,7 @@
             </select>
         </div>
         {% if sort_col != 'next_due' or sort_order != 'asc' %}<input type="hidden" name="sort" value="{{ sort_col }}"><input type="hidden" name="order" value="{{ sort_order }}">{% endif %}
-        <button type="submit" class="btn" style="padding: 6px 14px; font-size: 0.85rem;">Filter</button>
+        <button type="submit" class="btn btn-primary btn-sm">Filter</button>
         {% if filter_bucket or filter_frequency or filter_type or filter_status or filter_subscription %}
             <a href="{% url 'recurring_list' %}" style="font-size: 0.85rem; color: var(--text-secondary); text-decoration: none; align-self: center;">Clear</a>
         {% endif %}
@@ -201,7 +201,7 @@
         <div style="font-size: 3rem; margin-bottom: 16px;">🔍</div>
         <h3 style="color: var(--text-primary); margin-bottom: 8px;">No recurring transactions match your filters</h3>
         <p style="color: var(--text-secondary); margin-bottom: 24px;">Try adjusting or clearing your filters.</p>
-        <a href="{% url 'recurring_list' %}" class="btn">Clear Filters</a>
+        <a href="{% url 'recurring_list' %}" class="btn btn-secondary">Clear Filters</a>
     {% else %}
         <div style="font-size: 3rem; margin-bottom: 16px;">🔄</div>
         <h3 style="color: var(--text-primary); margin-bottom: 8px;">No recurring transactions yet</h3>

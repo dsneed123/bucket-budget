@@ -24,13 +24,13 @@
         <form method="post">
             {% csrf_token %}
             <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button type="submit" name="action" value="stop" class="btn"
-                    style="background: rgba(255, 193, 7, 0.15); color: #ffc107; border-color: rgba(255, 193, 7, 0.4); text-align: left; padding: 12px 16px;">
+                <button type="submit" name="action" value="stop" class="btn btn-secondary"
+                    style="text-align: left; padding: 12px 16px;">
                     <strong style="display: block; margin-bottom: 2px;">Stop generating new transactions</strong>
                     <span style="font-size: 0.8rem; opacity: 0.85;">Marks as inactive and sets the end date to today. History is preserved.</span>
                 </button>
-                <button type="submit" name="action" value="delete" class="btn"
-                    style="background: rgba(255, 71, 87, 0.15); color: #ff4757; border-color: rgba(255, 71, 87, 0.4); text-align: left; padding: 12px 16px;">
+                <button type="submit" name="action" value="delete" class="btn btn-danger"
+                    style="text-align: left; padding: 12px 16px;">
                     <strong style="display: block; margin-bottom: 2px;">Delete recurring transaction</strong>
                     <span style="font-size: 0.8rem; opacity: 0.85;">Permanently removes this recurring rule. Previously generated transactions are not affected.</span>
                 </button>

@@ -23,7 +23,7 @@
     </div>
     <div style="display: flex; gap: 8px;">
         <a href="{% url 'transaction_list' %}" class="btn btn-primary">View Transactions</a>
-        <a href="{% url 'transaction_import_csv' %}" class="btn">Import Another File</a>
+        <a href="{% url 'transaction_import_csv' %}" class="btn btn-secondary">Import Another File</a>
     </div>
 </div>
 
@@ -92,7 +92,7 @@
 
         <div style="display: flex; gap: 8px;">
             <button type="submit" class="btn btn-primary">Preview Import</button>
-            <a href="{% url 'transaction_import_csv' %}" class="btn">Cancel</a>
+            <a href="{% url 'transaction_import_csv' %}" class="btn btn-secondary">Cancel</a>
         </div>
     </form>
 </div>
@@ -121,7 +121,7 @@
     {% if ok_count %}
     <div style="display: flex; gap: 8px; margin-bottom: 4px;">
         <button type="submit" class="btn btn-primary">Confirm Import ({{ ok_count }} row{{ ok_count|pluralize }})</button>
-        <a href="{% url 'transaction_import_csv' %}" class="btn">Cancel</a>
+        <a href="{% url 'transaction_import_csv' %}" class="btn btn-secondary">Cancel</a>
     </div>
     <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0 0 8px;">
         <span style="display: inline-block; padding: 1px 6px; border-radius: 9999px; background: var(--accent-blue, #0984e3); color: #fff; font-size: 0.7rem; font-weight: 600; vertical-align: middle;">Auto</span>
@@ -129,7 +129,7 @@
     </p>
     {% else %}
     <div style="margin-bottom: 16px;">
-        <a href="{% url 'transaction_import_csv' %}" class="btn">Upload a different file</a>
+        <a href="{% url 'transaction_import_csv' %}" class="btn btn-secondary">Upload a different file</a>
     </div>
     {% endif %}
 </div>
@@ -238,7 +238,7 @@
 
         <div style="display: flex; gap: 8px; margin-top: 8px;">
             <button type="submit" class="btn btn-primary">Next: Map Columns</button>
-            <a href="{% url 'transaction_list' %}" class="btn">Cancel</a>
+            <a href="{% url 'transaction_list' %}" class="btn btn-secondary">Cancel</a>
         </div>
     </form>
 </div>

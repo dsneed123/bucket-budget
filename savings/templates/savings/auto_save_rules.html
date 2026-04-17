@@ -33,11 +33,11 @@
                     <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
                         <form method="post" action="{% url 'savings:auto_save_rule_toggle' rule.pk %}">
                             {% csrf_token %}
-                            <button type="submit" class="btn" style="font-size: 0.8rem; padding: 6px 12px; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border);">
+                            <button type="submit" class="btn btn-secondary btn-sm">
                                 {% if rule.is_active %}Pause{% else %}Resume{% endif %}
                             </button>
                         </form>
-                        <a href="{% url 'savings:auto_save_rule_delete' rule.pk %}" class="btn" style="font-size: 0.8rem; padding: 6px 12px; background: rgba(255,71,87,0.1); color: var(--accent-red); border: 1px solid rgba(255,71,87,0.3); text-decoration: none;">
+                        <a href="{% url 'savings:auto_save_rule_delete' rule.pk %}" class="btn btn-danger btn-sm">
                             Delete
                         </a>
                     </div>
