@@ -2077,3 +2077,152 @@ kbd {
     border-color: rgba(13, 17, 23, 0.3);
     border-top-color: #0d1117;
 }
+
+/* ============================================================
+   Print stylesheet
+   ============================================================ */
+@media print {
+    /* Reset to print-safe base */
+    *, *::before, *::after {
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+
+    body {
+        background: #fff !important;
+        color: #000 !important;
+        font-size: 11pt;
+        line-height: 1.4;
+    }
+
+    /* Hide chrome elements that have no meaning on paper */
+    .sidebar,
+    .sidebar-overlay,
+    .topbar,
+    .hamburger-btn,
+    .bottom-nav,
+    .bottom-nav-more-menu,
+    .nav-loading-bar,
+    .modal-overlay,
+    .kbd-modal-overlay,
+    .btn,
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger,
+    .message,
+    .breadcrumb {
+        display: none !important;
+    }
+
+    /* Expand main content to fill full page width */
+    .main-content,
+    .content-area,
+    main {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Cards print with visible borders instead of shadows */
+    .card {
+        background: #fff !important;
+        border: 1px solid #ccc !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* Tables — visible borders for readability */
+    table {
+        border-collapse: collapse !important;
+        width: 100% !important;
+    }
+
+    th,
+    td {
+        border: 1px solid #999 !important;
+        padding: 4pt 6pt !important;
+        color: #000 !important;
+        background: #fff !important;
+    }
+
+    thead {
+        background: #f0f0f0 !important;
+    }
+
+    /* Progress bars — print-safe solid colors, keep visible */
+    .progress {
+        background: #e0e0e0 !important;
+        border: 1px solid #999 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .progress-bar {
+        background: #555 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .progress-bar--success {
+        background: #2a7a2a !important;
+    }
+
+    .progress-bar--warning {
+        background: #8a6000 !important;
+    }
+
+    .progress-bar--danger {
+        background: #8a0000 !important;
+    }
+
+    .progress-bar--info {
+        background: #005a8a !important;
+    }
+
+    /* Quality circle SVG — keep visible, print-safe stroke colors */
+    .quality-circle {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .quality-circle-progress.quality-circle-green {
+        stroke: #2a7a2a !important;
+    }
+
+    .quality-circle-progress.quality-circle-gold {
+        stroke: #8a6000 !important;
+    }
+
+    .quality-circle-progress.quality-circle-red {
+        stroke: #8a0000 !important;
+    }
+
+    /* Stat values — readable on white */
+    .stat-positive { color: #2a7a2a !important; }
+    .stat-negative { color: #8a0000 !important; }
+
+    /* Badges */
+    .badge {
+        border: 1px solid #999 !important;
+        background: #f0f0f0 !important;
+        color: #000 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Avoid breaking grids mid-section */
+    .grid,
+    .grid-2,
+    .grid-3,
+    .grid-4 {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* Page break helpers */
+    h1, h2, h3, h4 {
+        break-after: avoid;
+        page-break-after: avoid;
+    }
+}
