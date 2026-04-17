@@ -446,10 +446,10 @@ function confirmBulkAction() {
         <p style="color: var(--text-secondary); margin-bottom: 24px;">Try adjusting or clearing your filters.</p>
         <a href="{% url 'transaction_list' %}" class="btn btn-secondary">Clear Filters</a>
     {% else %}
-        <div style="font-size: 3rem; margin-bottom: 16px;" aria-hidden="true">💳</div>
+        <div style="width: 88px; height: 88px; border-radius: 50%; background: rgba(0, 200, 150, 0.1); border: 2px solid rgba(0, 200, 150, 0.2); display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 2.75rem;" aria-hidden="true">💳</div>
         <h3 style="color: var(--text-primary); margin-bottom: 8px;">No transactions yet</h3>
-        <p style="color: var(--text-secondary); margin-bottom: 24px;">Add your first transaction to start tracking your spending.</p>
-        <a href="{% url 'transaction_add' %}" class="btn btn-primary">+ Add Transaction</a>
+        <p style="color: var(--text-secondary); margin-bottom: 28px;">No transactions yet — add your first one to start tracking!</p>
+        <a href="{% url 'transaction_add' %}" class="btn btn-primary" style="padding: 12px 28px; font-size: 15px;">+ Add Transaction</a>
     {% endif %}
 </div>
 {% endif %}
