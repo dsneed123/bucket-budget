@@ -215,12 +215,17 @@ def dashboard(request):
 
     daily_spending = []
     cur = fstart
-    while cur <= min(fend, today):
+    while cur <= fend:
         spent = daily_totals.get(cur, Decimal('0'))
-        daily_spending.append({'date': cur, 'spent': spent, 'is_today': cur == today})
+        daily_spending.append({
+            'date': cur,
+            'spent': spent,
+            'is_today': cur == today,
+            'is_future': cur > today,
+        })
         cur += datetime.timedelta(days=1)
 
-    max_daily = max((d['spent'] for d in daily_spending), default=Decimal('0'))
+    max_daily = max((d['spent'] for d in daily_spending if not d['is_future']), default=Decimal('0'))
     if max_daily > 0:
         for d in daily_spending:
             d['bar_pct'] = int((d['spent'] / max_daily) * 100)

@@ -232,13 +232,13 @@
     </div>
     <div style="display: flex; align-items: flex-end; gap: 3px; height: 80px;">
         {% for day in daily_spending %}
-        <div class="{% if not day.is_recent %}daily-bar-hide-sm{% endif %}"
+        <div class="{% if not day.is_recent and not day.is_today %}daily-bar-hide-sm{% endif %}"
              style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0;"
-             title="{{ day.date|date:'M j' }}: {{ day.spent|currency:user.currency }}">
-            <div style="width: 100%; min-height: 2px; height: {% if day.bar_pct > 0 %}calc({% endif %}{{ day.bar_pct }}%{% if day.bar_pct > 0 %} + 2px){% endif %};
-                        background: {% if day.is_today %}var(--accent-green){% elif day.bar_pct == 0 %}var(--border){% else %}var(--accent-blue){% endif %};
-                        border-radius: 2px 2px 0 0; opacity: {% if day.bar_pct == 0 %}0.4{% else %}1{% endif %};"></div>
-            <div style="font-size: 0.55rem; color: var(--text-secondary); margin-top: 3px; line-height: 1;">{{ day.date.day }}</div>
+             title="{{ day.date|date:'M j' }}{% if not day.is_future %}: {{ day.spent|currency:user.currency }}{% endif %}">
+            <div style="width: 100%; min-height: 2px; height: {{ day.bar_pct }}%;
+                        background: {% if day.is_today %}var(--accent-green){% elif day.is_future or day.bar_pct == 0 %}var(--border){% else %}var(--accent-blue){% endif %};
+                        border-radius: 2px 2px 0 0; opacity: {% if day.is_today %}1{% elif day.is_future %}0.2{% elif day.bar_pct == 0 %}0.4{% else %}1{% endif %};"></div>
+            <div style="font-size: 0.55rem; color: var(--text-secondary); margin-top: 3px; line-height: 1; {% if day.is_today %}font-weight: 600; color: var(--accent-green);{% endif %}">{{ day.date.day }}</div>
         </div>
         {% endfor %}
     </div>
