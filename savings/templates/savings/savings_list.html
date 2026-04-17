@@ -124,10 +124,10 @@
 </div>
 {% else %}
 <div class="card" style="text-align: center; padding: 48px 24px;">
-    <div style="font-size: 3rem; margin-bottom: 16px;">🎯</div>
+    <div style="width: 88px; height: 88px; border-radius: 50%; background: rgba(0, 200, 150, 0.1); border: 2px solid rgba(0, 200, 150, 0.2); display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 2.75rem;" aria-hidden="true">🎯</div>
     <h3 style="color: var(--text-primary); margin-bottom: 8px;">No savings goals yet</h3>
-    <p style="color: var(--text-secondary); margin-bottom: 24px;">Create your first goal to start tracking your savings progress.</p>
-    <a href="{% url 'savings:savings_goal_add' %}" class="btn btn-primary">+ Add Goal</a>
+    <p style="color: var(--text-secondary); margin-bottom: 28px;">No savings goals yet — create your first one to start tracking your progress!</p>
+    <a href="{% url 'savings:savings_goal_add' %}" class="btn btn-primary" style="padding: 12px 28px; font-size: 15px;">+ Add Goal</a>
 </div>
 {% endif %}
 {% endblock %}
