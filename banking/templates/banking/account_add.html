@@ -96,6 +96,9 @@
                             style="flex: 1; font-family: monospace;"
                         >
                     </div>
+                    {% if errors.color %}
+                        <p class="form-error">{{ errors.color }}</p>
+                    {% endif %}
                 </div>
             </div>
 

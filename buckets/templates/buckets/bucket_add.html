@@ -81,6 +81,9 @@
                         style="flex: 1; font-family: monospace;"
                     >
                 </div>
+                {% if errors.color %}
+                    <p class="form-error">{{ errors.color }}</p>
+                {% endif %}
             </div>
 
             <div class="form-group">
@@ -106,6 +109,9 @@
                     min="1"
                     max="100"
                 >
+                {% if errors.alert_threshold %}
+                    <p class="form-error">{{ errors.alert_threshold }}</p>
+                {% endif %}
                 <p style="margin: 4px 0 0; font-size: 0.8rem; color: var(--text-secondary);">Show a warning badge when spending reaches this percentage of the allocation.</p>
             </div>
 

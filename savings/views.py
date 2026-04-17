@@ -12,7 +12,12 @@ from django.views.decorators.http import require_POST
 from banking.models import BankAccount
 from transactions.models import Transaction
 
+from .forms import AutoSaveRuleForm, ContributionForm, SavingsGoalForm
 from .models import AutoSaveRule, SavingsContribution, SavingsGoal, SavingsMilestone
+
+
+def _form_errors(form):
+    return {field: errs[0] for field, errs in form.errors.items()}
 
 _VALID_GOAL_TYPES = {c[0] for c in SavingsGoal.GOAL_TYPE_CHOICES}
 
@@ -215,66 +220,24 @@ def savings_goal_add(request):
     }
 
     if request.method == 'POST':
-        name = request.POST.get('name', '').strip()
-        description = request.POST.get('description', '').strip()
-        target_amount = request.POST.get('target_amount', '').strip()
-        deadline = request.POST.get('deadline', '').strip()
-        priority = request.POST.get('priority', 'medium').strip()
-        goal_type = request.POST.get('goal_type', 'general').strip()
-        color = request.POST.get('color', '#00d4aa').strip()
-        icon = request.POST.get('icon', '🎯').strip()
-
-        form_data = {
-            'name': name,
-            'description': description,
-            'target_amount': target_amount,
-            'deadline': deadline,
-            'priority': priority,
-            'goal_type': goal_type,
-            'color': color,
-            'icon': icon,
-        }
-
-        if not name:
-            errors['name'] = 'Goal name is required.'
-
-        target_amount_val = None
-        if not target_amount:
-            errors['target_amount'] = 'Target amount is required.'
-        else:
-            try:
-                target_amount_val = Decimal(target_amount)
-                if target_amount_val <= 0:
-                    errors['target_amount'] = 'Target amount must be greater than zero.'
-            except Exception:
-                errors['target_amount'] = 'Please enter a valid number.'
-
-        deadline_val = None
-        if deadline:
-            try:
-                deadline_val = datetime.strptime(deadline, '%Y-%m-%d').date()
-            except ValueError:
-                errors['deadline'] = 'Please enter a valid date.'
-
-        if priority not in ('low', 'medium', 'high', 'critical'):
-            priority = 'medium'
-
-        if goal_type not in _VALID_GOAL_TYPES:
-            goal_type = 'general'
-
-        if not errors:
+        form = SavingsGoalForm(request.POST)
+        form_data = request.POST.dict()
+        if form.is_valid():
+            cd = form.cleaned_data
             SavingsGoal.objects.create(
                 user=request.user,
-                name=name,
-                description=description,
-                target_amount=target_amount_val,
-                deadline=deadline_val,
-                priority=priority,
-                goal_type=goal_type,
-                color=color or '#00d4aa',
-                icon=icon or '🎯',
+                name=cd['name'],
+                description=cd.get('description', ''),
+                target_amount=cd['target_amount'],
+                deadline=cd.get('deadline'),
+                priority=cd['priority'],
+                goal_type=cd['goal_type'],
+                color=cd['color'],
+                icon=cd['icon'],
             )
             return redirect('savings:savings_list')
+        else:
+            errors = _form_errors(form)
 
     return render(request, 'savings/savings_goal_add.html', {
         'errors': errors,
@@ -439,94 +402,43 @@ def savings_goal_edit(request, goal_id):
     goal = get_object_or_404(SavingsGoal, pk=goal_id, user=request.user)
     errors = {}
     success = False
+    form_data = {
+        'name': goal.name,
+        'description': goal.description,
+        'target_amount': goal.target_amount,
+        'deadline': goal.deadline.strftime('%Y-%m-%d') if goal.deadline else '',
+        'priority': goal.priority,
+        'goal_type': goal.goal_type,
+        'color': goal.color,
+        'icon': goal.icon,
+        'is_private': goal.is_private,
+    }
 
     if request.method == 'POST':
-        name = request.POST.get('name', '').strip()
-        description = request.POST.get('description', '').strip()
-        target_amount = request.POST.get('target_amount', '').strip()
-        deadline = request.POST.get('deadline', '').strip()
-        priority = request.POST.get('priority', 'medium').strip()
-        goal_type = request.POST.get('goal_type', 'general').strip()
-        color = request.POST.get('color', '#00d4aa').strip()
-        icon = request.POST.get('icon', '🎯').strip()
-        is_private = request.POST.get('is_private') != 'false'
-
-        if not name:
-            errors['name'] = 'Goal name is required.'
-
-        target_amount_val = goal.target_amount
-        if not target_amount:
-            errors['target_amount'] = 'Target amount is required.'
-        else:
-            try:
-                target_amount_val = Decimal(target_amount)
-                if target_amount_val <= 0:
-                    errors['target_amount'] = 'Target amount must be greater than zero.'
-            except Exception:
-                errors['target_amount'] = 'Please enter a valid number.'
-
-        deadline_val = goal.deadline
-        if deadline:
-            try:
-                deadline_val = datetime.strptime(deadline, '%Y-%m-%d').date()
-            except ValueError:
-                errors['deadline'] = 'Please enter a valid date.'
-        else:
-            deadline_val = None
-
-        if priority not in ('low', 'medium', 'high', 'critical'):
-            priority = 'medium'
-
-        if goal_type not in _VALID_GOAL_TYPES:
-            goal_type = 'general'
-
-        if not errors:
-            goal.name = name
-            goal.description = description
-            goal.target_amount = target_amount_val
-            goal.deadline = deadline_val
-            goal.priority = priority
-            goal.goal_type = goal_type
-            goal.color = color or '#00d4aa'
-            goal.icon = icon or '🎯'
-            goal.is_private = is_private
+        form = SavingsGoalForm(request.POST)
+        form_data = request.POST.dict()
+        if form.is_valid():
+            cd = form.cleaned_data
+            goal.name = cd['name']
+            goal.description = cd.get('description', '')
+            goal.target_amount = cd['target_amount']
+            goal.deadline = cd.get('deadline')
+            goal.priority = cd['priority']
+            goal.goal_type = cd['goal_type']
+            goal.color = cd['color']
+            goal.icon = cd['icon']
+            goal.is_private = cd.get('is_private', False)
             goal.save()
             success = True
-
-        return render(request, 'savings/savings_goal_edit.html', {
-            'goal': goal,
-            'errors': errors,
-            'success': success,
-            'goal_type_choices': SavingsGoal.GOAL_TYPE_CHOICES,
-            'form_data': {
-                'name': name,
-                'description': description,
-                'target_amount': target_amount,
-                'deadline': deadline,
-                'priority': priority,
-                'goal_type': goal_type,
-                'color': color,
-                'icon': icon,
-                'is_private': is_private,
-            },
-        })
+        else:
+            errors = _form_errors(form)
 
     return render(request, 'savings/savings_goal_edit.html', {
         'goal': goal,
         'errors': errors,
         'success': success,
         'goal_type_choices': SavingsGoal.GOAL_TYPE_CHOICES,
-        'form_data': {
-            'name': goal.name,
-            'description': goal.description,
-            'target_amount': goal.target_amount,
-            'deadline': goal.deadline.strftime('%Y-%m-%d') if goal.deadline else '',
-            'priority': goal.priority,
-            'goal_type': goal.goal_type,
-            'color': goal.color,
-            'icon': goal.icon,
-            'is_private': goal.is_private,
-        },
+        'form_data': form_data,
     })
 
 
@@ -754,30 +666,11 @@ def auto_save_rules(request):
     }
 
     if request.method == 'POST':
-        amount_raw = request.POST.get('amount', '').strip()
+        form = AutoSaveRuleForm(request.POST)
+        form_data = request.POST.dict()
+
         goal_id = request.POST.get('goal', '').strip()
-        frequency = request.POST.get('frequency', '').strip()
         account_id = request.POST.get('source_account', '').strip()
-        next_run_raw = request.POST.get('next_run', '').strip()
-
-        form_data = {
-            'amount': amount_raw,
-            'goal': goal_id,
-            'frequency': frequency,
-            'source_account': account_id,
-            'next_run': next_run_raw,
-        }
-
-        amount_val = None
-        if not amount_raw:
-            errors['amount'] = 'Amount is required.'
-        else:
-            try:
-                amount_val = Decimal(amount_raw)
-                if amount_val <= 0:
-                    errors['amount'] = 'Amount must be greater than zero.'
-            except InvalidOperation:
-                errors['amount'] = 'Please enter a valid number.'
 
         goal_obj = None
         if not goal_id:
@@ -788,9 +681,6 @@ def auto_save_rules(request):
             except SavingsGoal.DoesNotExist:
                 errors['goal'] = 'Invalid goal.'
 
-        if frequency not in ('weekly', 'biweekly', 'monthly'):
-            errors['frequency'] = 'Please select a valid frequency.'
-
         account_obj = None
         if not account_id:
             errors['source_account'] = 'Please select an account.'
@@ -800,25 +690,19 @@ def auto_save_rules(request):
             except BankAccount.DoesNotExist:
                 errors['source_account'] = 'Invalid account.'
 
-        next_run_val = None
-        if not next_run_raw:
-            errors['next_run'] = 'First run date is required.'
-        else:
-            try:
-                next_run_val = datetime.strptime(next_run_raw, '%Y-%m-%d').date()
-            except ValueError:
-                errors['next_run'] = 'Please enter a valid date.'
-
-        if not errors:
+        if form.is_valid() and not errors:
+            cd = form.cleaned_data
             AutoSaveRule.objects.create(
                 user=request.user,
                 goal=goal_obj,
-                amount=amount_val,
-                frequency=frequency,
+                amount=cd['amount'],
+                frequency=cd['frequency'],
                 source_account=account_obj,
-                next_run=next_run_val,
+                next_run=cd['next_run'],
             )
             return redirect('savings:auto_save_rules')
+        elif not form.is_valid():
+            errors.update(_form_errors(form))
 
     return render(request, 'savings/auto_save_rules.html', {
         'rules': rules,

@@ -15,8 +15,14 @@ from django.urls import reverse_lazy
 
 from banking.models import BankAccount
 from buckets.models import Bucket
+from .forms import LoginForm, ProfileForm, RegisterForm
 from .models import UserPreferences
 from .currencies import CURRENCY_CHOICES
+
+
+def _form_errors(form):
+    """Convert Django form errors to the flat dict used by templates."""
+    return {field: errs[0] for field, errs in form.errors.items()}
 
 TIMEZONE_CHOICES = [(tz, tz) for tz in pytz.common_timezones]
 
@@ -38,24 +44,19 @@ def login_view(request):
     form_data = {}
 
     if request.method == 'POST':
-        email = request.POST.get('email', '').strip()
-        password = request.POST.get('password', '')
-
-        form_data = {'email': email}
-
-        if not email:
-            errors['email'] = 'Email is required.'
-
-        if not password:
-            errors['password'] = 'Password is required.'
-
-        if not errors:
+        form = LoginForm(request.POST)
+        form_data = {'email': request.POST.get('email', '')}
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            password = form.cleaned_data['password']
             user = authenticate(request, username=email, password=password)
             if user is not None:
                 login(request, user)
                 return _post_login_redirect(request, user)
             else:
                 errors['__all__'] = 'Invalid email or password.'
+        else:
+            errors = _form_errors(form)
 
     return render(request, 'accounts/login.html', {
         'errors': errors,
@@ -68,39 +69,27 @@ def register(request):
     form_data = {}
 
     if request.method == 'POST':
-        email = request.POST.get('email', '').strip()
-        first_name = request.POST.get('first_name', '').strip()
-        password = request.POST.get('password', '')
-        password_confirm = request.POST.get('password_confirm', '')
-
-        form_data = {'email': email, 'first_name': first_name}
-
-        if not email:
-            errors['email'] = 'Email is required.'
-        elif User.objects.filter(email=email).exists():
-            errors['email'] = 'An account with this email already exists.'
-
-        if not first_name:
-            errors['first_name'] = 'First name is required.'
-
-        if not password:
-            errors['password'] = 'Password is required.'
-        elif len(password) < 8:
-            errors['password'] = 'Password must be at least 8 characters.'
-
-        if not password_confirm:
-            errors['password_confirm'] = 'Please confirm your password.'
-        elif password and password != password_confirm:
-            errors['password_confirm'] = 'Passwords do not match.'
-
-        if not errors:
-            user = User.objects.create_user(
-                email=email,
-                first_name=first_name,
-                password=password,
-            )
-            login(request, user)
-            return redirect('/onboarding/step1/')
+        form = RegisterForm(request.POST)
+        form_data = {
+            'email': request.POST.get('email', ''),
+            'first_name': request.POST.get('first_name', ''),
+        }
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            first_name = form.cleaned_data['first_name']
+            password = form.cleaned_data['password']
+            if User.objects.filter(email=email).exists():
+                errors['email'] = 'An account with this email already exists.'
+            else:
+                user = User.objects.create_user(
+                    email=email,
+                    first_name=first_name,
+                    password=password,
+                )
+                login(request, user)
+                return redirect('/onboarding/step1/')
+        else:
+            errors = _form_errors(form)
 
     return render(request, 'accounts/register.html', {
         'errors': errors,
@@ -114,37 +103,18 @@ def profile(request):
     success = False
 
     if request.method == 'POST':
-        first_name = request.POST.get('first_name', '').strip()
-        last_name = request.POST.get('last_name', '').strip()
-        currency = request.POST.get('currency', '').strip()
-        monthly_income = request.POST.get('monthly_income', '').strip()
-        zero_based_budgeting = request.POST.get('zero_based_budgeting') == 'on'
-
-        if not first_name:
-            errors['first_name'] = 'First name is required.'
-
-        valid_currencies = [c[0] for c in CURRENCY_CHOICES]
-        if currency not in valid_currencies:
-            errors['currency'] = 'Please select a valid currency.'
-
-        if monthly_income:
-            try:
-                monthly_income_val = float(monthly_income)
-                if monthly_income_val < 0:
-                    errors['monthly_income'] = 'Monthly income cannot be negative.'
-            except ValueError:
-                errors['monthly_income'] = 'Please enter a valid number.'
-        else:
-            monthly_income_val = 0
-
-        if not errors:
-            request.user.first_name = first_name
-            request.user.last_name = last_name
-            request.user.currency = currency
-            request.user.monthly_income = monthly_income_val
-            request.user.zero_based_budgeting = zero_based_budgeting
+        form = ProfileForm(request.POST)
+        if form.is_valid():
+            cd = form.cleaned_data
+            request.user.first_name = cd['first_name']
+            request.user.last_name = cd.get('last_name', '')
+            request.user.currency = cd['currency']
+            request.user.monthly_income = cd.get('monthly_income') or 0
+            request.user.zero_based_budgeting = cd.get('zero_based_budgeting', False)
             request.user.save()
             success = True
+        else:
+            errors = _form_errors(form)
 
     return render(request, 'accounts/profile.html', {
         'errors': errors,
