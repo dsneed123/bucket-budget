@@ -2,8 +2,8 @@ import datetime
 
 from django.utils import timezone
 
-from transactions.management.commands.process_recurring import _advance_next_due
 from transactions.models import RecurringTransaction, Transaction
+from transactions.utils import advance_next_due
 
 
 class ProcessRecurringMiddleware:
@@ -48,5 +48,5 @@ class ProcessRecurringMiddleware:
             )
 
             rt.last_generated = rt.next_due
-            rt.next_due = _advance_next_due(rt.next_due, rt.frequency)
+            rt.next_due = advance_next_due(rt.next_due, rt.frequency)
             rt.save()
