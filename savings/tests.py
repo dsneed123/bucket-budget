@@ -1157,3 +1157,85 @@ class SavingsListSortTest(TestCase):
         for sort_val in ('priority', 'deadline', 'progress'):
             response = self.client.get(self.url + f'?sort={sort_val}')
             self.assertEqual(response.context['sort'], sort_val)
+
+
+class SavingsGoalModelTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='goalmodel@example.com',
+            password='testpass',
+            first_name='Goal',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Savings',
+            account_type='savings',
+            balance=Decimal('5000.00'),
+        )
+
+    def test_create_savings_goal(self):
+        goal = SavingsGoal.objects.create(
+            user=self.user,
+            name='Emergency Fund',
+            target_amount=Decimal('10000.00'),
+        )
+        self.assertEqual(goal.name, 'Emergency Fund')
+        self.assertEqual(goal.target_amount, Decimal('10000.00'))
+        self.assertEqual(goal.current_amount, Decimal('0'))
+
+    def test_is_achieved_default_false(self):
+        goal = SavingsGoal.objects.create(
+            user=self.user,
+            name='Vacation',
+            target_amount=Decimal('2000.00'),
+        )
+        self.assertFalse(goal.is_achieved)
+
+    def test_is_private_default_true(self):
+        goal = SavingsGoal.objects.create(
+            user=self.user,
+            name='Private Goal',
+            target_amount=Decimal('500.00'),
+        )
+        self.assertTrue(goal.is_private)
+
+    def test_contribution_updates_current_amount(self):
+        goal = SavingsGoal.objects.create(
+            user=self.user,
+            name='Car Fund',
+            target_amount=Decimal('5000.00'),
+        )
+        SavingsContribution.objects.create(
+            goal=goal,
+            amount=Decimal('500.00'),
+            source_account=self.account,
+            date=datetime.date.today(),
+        )
+        goal.refresh_from_db()
+        self.assertEqual(goal.current_amount, Decimal('500.00'))
+
+    def test_multiple_contributions_accumulate(self):
+        goal = SavingsGoal.objects.create(
+            user=self.user,
+            name='House Down Payment',
+            target_amount=Decimal('20000.00'),
+        )
+        for _ in range(3):
+            SavingsContribution.objects.create(
+                goal=goal,
+                amount=Decimal('1000.00'),
+                source_account=self.account,
+                date=datetime.date.today(),
+            )
+        goal.refresh_from_db()
+        self.assertEqual(goal.current_amount, Decimal('3000.00'))
+
+    def test_goal_types(self):
+        for goal_type in ('general', 'emergency_fund', 'vacation', 'purchase', 'debt_payoff'):
+            goal = SavingsGoal.objects.create(
+                user=self.user,
+                name=f'{goal_type} goal',
+                target_amount=Decimal('1000.00'),
+                goal_type=goal_type,
+            )
+            self.assertEqual(goal.goal_type, goal_type)

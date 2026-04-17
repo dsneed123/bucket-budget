@@ -121,3 +121,64 @@ class NetWorthContextProcessorTest(TestCase):
         BankAccount.objects.create(user=self.user, name='Credit', account_type='credit', balance=Decimal('-2000.00'))
         result = net_worth(self._request())
         self.assertEqual(result['net_worth'], Decimal('-2000.00'))
+
+
+class BankAccountModelTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='bankmodel@example.com',
+            password='testpass',
+            first_name='Bank',
+            last_name='User',
+        )
+
+    def test_create_bank_account(self):
+        account = BankAccount.objects.create(
+            user=self.user,
+            name='My Checking',
+            account_type='checking',
+            balance=Decimal('500.00'),
+        )
+        self.assertEqual(account.name, 'My Checking')
+        self.assertEqual(account.balance, Decimal('500.00'))
+        self.assertEqual(account.account_type, 'checking')
+
+    def test_account_is_active_by_default(self):
+        account = BankAccount.objects.create(
+            user=self.user,
+            name='Active Account',
+            account_type='savings',
+            balance=Decimal('0.00'),
+        )
+        self.assertTrue(account.is_active)
+
+    def test_all_account_types(self):
+        for acct_type in ('checking', 'savings', 'credit', 'cash'):
+            account = BankAccount.objects.create(
+                user=self.user,
+                name=f'{acct_type} account',
+                account_type=acct_type,
+                balance=Decimal('100.00'),
+            )
+            self.assertEqual(account.account_type, acct_type)
+
+    def test_negative_balance_allowed(self):
+        account = BankAccount.objects.create(
+            user=self.user,
+            name='Overdraft',
+            account_type='checking',
+            balance=Decimal('-50.00'),
+        )
+        self.assertEqual(account.balance, Decimal('-50.00'))
+
+    def test_deactivate_account(self):
+        account = BankAccount.objects.create(
+            user=self.user,
+            name='Old Account',
+            account_type='checking',
+            balance=Decimal('0.00'),
+        )
+        account.is_active = False
+        account.save()
+        account.refresh_from_db()
+        self.assertFalse(account.is_active)
