@@ -2052,30 +2052,31 @@ kbd {
     animation: nav-bar-sweep 1s ease-in-out infinite;
 }
 
-/* Button loading state — spinner replaces button text */
+/* Standalone circular spinner — accent color border-top */
+.spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 212, 170, 0.25);
+    border-top-color: var(--accent-green);
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+/* Button loading state — hides text and shows injected .spinner */
 .btn-loading {
     color: transparent !important;
     pointer-events: none;
+    position: relative;
 }
 
-.btn-loading::after {
-    content: '';
+.btn-loading .spinner {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 14px;
-    height: 14px;
     margin: -7px 0 0 -7px;
-    border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.35);
-    border-top-color: #fff;
-    animation: spin 0.6s linear infinite;
-}
-
-/* Primary button spinner uses dark color to match text-on-green-bg */
-.btn-primary.btn-loading::after {
-    border-color: rgba(13, 17, 23, 0.3);
-    border-top-color: #0d1117;
 }
 
 /* ============================================================
