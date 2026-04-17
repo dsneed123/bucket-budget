@@ -123,6 +123,15 @@
         {% else %}
             <p class="stat-label" style="margin-top: 4px;">this fiscal month</p>
         {% endif %}
+        {% if spending_change_pct is not None %}
+            {% if spending_change_pct > 0 %}
+                <p class="stat-label" style="margin-top: 6px; color: var(--color-negative, #e74c3c);">+{{ spending_change_pct }}% vs last month</p>
+            {% elif spending_change_pct < 0 %}
+                <p class="stat-label" style="margin-top: 6px; color: var(--color-positive, #2ecc71);">{{ spending_change_pct }}% vs last month</p>
+            {% else %}
+                <p class="stat-label" style="margin-top: 6px;">0% vs last month</p>
+            {% endif %}
+        {% endif %}
     </div>
 
     <div class="card" style="padding: 20px;">
