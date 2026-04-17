@@ -48,7 +48,7 @@ def login_view(request):
 
     if request.method == 'POST':
         if getattr(request, 'limited', False):
-            errors['__all__'] = 'Too many attempts, please wait.'
+            errors['form'] = 'Too many attempts, please wait.'
         else:
             form = LoginForm(request.POST)
             form_data = {'email': request.POST.get('email', '')}
@@ -60,7 +60,7 @@ def login_view(request):
                     login(request, user)
                     return _post_login_redirect(request, user)
                 else:
-                    errors['__all__'] = 'Invalid email or password.'
+                    errors['form'] = 'Invalid email or password.'
             else:
                 errors = _form_errors(form)
 
@@ -77,7 +77,7 @@ def register(request):
 
     if request.method == 'POST':
         if getattr(request, 'limited', False):
-            errors['__all__'] = 'Too many attempts, please wait.'
+            errors['form'] = 'Too many attempts, please wait.'
             form_data = {
                 'email': request.POST.get('email', ''),
                 'first_name': request.POST.get('first_name', ''),
