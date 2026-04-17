@@ -11,7 +11,11 @@
 </style>
 
 <!-- Dashboard header with gear icon -->
-<div style="display: flex; justify-content: flex-end; margin-bottom: 16px;">
+<div class="no-print" style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 16px;">
+    <button type="button" onclick="window.print()" title="Print dashboard summary"
+        style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; cursor: pointer; color: var(--text-secondary); font-size: 16px; display: flex; align-items: center; gap: 6px; transition: color 0.15s;">
+        &#128438; <span style="font-size: 13px; font-weight: 500;">Print Summary</span>
+    </button>
     <button type="button" onclick="openWidgetModal()" title="Customize dashboard"
         style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; cursor: pointer; color: var(--text-secondary); font-size: 16px; display: flex; align-items: center; gap: 6px; transition: color 0.15s;">
         &#9881; <span style="font-size: 13px; font-weight: 500;">Customize</span>
@@ -19,7 +23,7 @@
 </div>
 
 <!-- Widget Customization Modal -->
-<div id="widget-modal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
+<div id="widget-modal" class="no-print" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
     <div style="background: var(--bg-card); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 420px; margin: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
             <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">Customize Dashboard</h3>
@@ -171,7 +175,7 @@
 {% endif %}
 
 <!-- Main Grid: Left column (budget + transactions) | Right column (goals + recurring + recs) -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
+<div class="print-single-col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
 
     <!-- ===== LEFT COLUMN ===== -->
     <div style="display: flex; flex-direction: column; gap: 24px;">
@@ -290,7 +294,7 @@
 
         <!-- Calendar Widget -->
         {% if widgets.calendar %}
-        <div class="card">
+        <div class="card no-print">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
                     <h2 class="card-title">{{ current_month }}</h2>
@@ -424,7 +428,7 @@
             </div>
             {% endif %}
 
-            <form method="post" action="{% url 'save_no_spend_goal' %}" style="display: flex; gap: 8px; align-items: center;">
+            <form method="post" action="{% url 'save_no_spend_goal' %}" class="no-print" style="display: flex; gap: 8px; align-items: center;">
                 {% csrf_token %}
                 <label style="font-size: 13px; color: var(--text-secondary); flex-shrink: 0;">Monthly goal:</label>
                 <input type="number" name="no_spend_goal" min="0" max="31"
@@ -536,7 +540,7 @@
         {% endif %}
 
         <!-- Quick Contribute Modal -->
-        <div id="contribute-modal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
+        <div id="contribute-modal" class="no-print" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
             <div style="background: var(--bg-card); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 420px; margin: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
                     <h3 id="contribute-modal-title" style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">Quick Contribute</h3>
@@ -660,7 +664,7 @@
 
         <!-- Recommendations -->
         {% if widgets.recommendations and recommendations %}
-        <div class="card">
+        <div class="card no-print">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
                     <h2 class="card-title">Recommendations</h2>
@@ -695,7 +699,7 @@
 
         <!-- Recent Activity Feed -->
         {% if widgets.activity_feed %}
-        <div class="card">
+        <div class="card no-print">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
                     <h2 class="card-title">Recent Activity</h2>

@@ -1278,3 +1278,53 @@ kbd {
         bottom: 76px;
     }
 }
+
+@media print {
+    .no-print { display: none !important; }
+    .sidebar,
+    .topbar,
+    .hamburger-btn,
+    .kbd-hint,
+    .sidebar-toggle-input,
+    label[for="sidebar-toggle"] { display: none !important; }
+
+    body { background: #fff !important; color: #000 !important; }
+
+    .layout { display: block !important; }
+
+    .main-wrapper {
+        margin-left: 0 !important;
+        padding-top: 0 !important;
+    }
+
+    .content { padding: 16px !important; }
+
+    .card {
+        background: #fff !important;
+        color: #000 !important;
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+        break-inside: avoid;
+    }
+
+    .card-title { color: #000 !important; }
+    .card-subtitle { color: #555 !important; }
+
+    .stat-label { color: #555 !important; }
+    .stat-value { color: #000 !important; }
+    .stat-positive { color: #1a7a3c !important; }
+    .stat-negative { color: #c0392b !important; }
+    .text-green { color: #1a7a3c !important; }
+    .text-red { color: #c0392b !important; }
+
+    .progress { background: #eee !important; border: 1px solid #ddd !important; }
+
+    .grid-4 { grid-template-columns: repeat(4, 1fr) !important; }
+    .print-single-col { grid-template-columns: 1fr !important; }
+
+    h1, h2, h3 { color: #000 !important; }
+    a { color: #000 !important; text-decoration: none !important; }
+
+    .btn { display: none !important; }
+    .print-only { display: block !important; }
+}
