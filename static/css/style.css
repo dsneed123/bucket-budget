@@ -1328,3 +1328,175 @@ kbd {
     .btn { display: none !important; }
     .print-only { display: block !important; }
 }
+
+/* =====================
+   Onboarding Wizard
+   ===================== */
+
+.onboarding-page {
+    min-height: 100vh;
+    background-color: var(--bg-primary);
+    display: flex;
+    flex-direction: column;
+}
+
+.onboarding-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+    background-color: var(--bg-secondary);
+}
+
+.onboarding-container {
+    flex: 1;
+    max-width: 600px;
+    width: 100%;
+    margin: 40px auto;
+    padding: 0 24px 40px;
+}
+
+.onboarding-progress {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    margin-bottom: 32px;
+}
+
+.onboarding-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.onboarding-step-dot {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    border: 2px solid var(--border);
+    color: var(--text-secondary);
+    background-color: var(--bg-card);
+}
+
+.onboarding-step.active .onboarding-step-dot {
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+}
+
+.onboarding-step.done .onboarding-step-dot {
+    border-color: var(--accent-green);
+    background-color: var(--accent-green);
+    color: #0d1117;
+}
+
+.onboarding-step-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.onboarding-step.active .onboarding-step-label {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.onboarding-step-connector {
+    height: 2px;
+    width: 52px;
+    background-color: var(--border);
+    margin-top: 17px;
+    flex-shrink: 0;
+}
+
+.onboarding-step-connector.done {
+    background-color: var(--accent-green);
+}
+
+.onboarding-card {
+    padding: 32px;
+}
+
+.onboarding-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.onboarding-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 28px;
+    line-height: 1.6;
+}
+
+.onboarding-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+}
+
+.onboarding-buckets {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.onboarding-bucket-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.onboarding-bucket-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.onboarding-bucket-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.onboarding-bucket-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.onboarding-bucket-name {
+    font-size: 14px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.onboarding-bucket-input {
+    width: 130px;
+    flex-shrink: 0;
+}
+
+.onboarding-no-accounts {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    margin-bottom: 24px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}

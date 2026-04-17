@@ -1,0 +1,48 @@
+{% extends "accounts/onboarding_base.html" %}
+{% load currency_tags %}
+
+{% block title %}Step 3: Budget Buckets — Bucket Budget{% endblock %}
+
+{% block onboarding_title %}Review your budget buckets{% endblock %}
+{% block onboarding_subtitle %}Set a monthly spending limit for each category. You can adjust these at any time.{% endblock %}
+
+{% block onboarding_content %}
+<form method="post" novalidate>
+    {% csrf_token %}
+
+    <div class="onboarding-buckets">
+        {% for bucket in buckets %}
+            <div class="onboarding-bucket-row">
+                <div class="onboarding-bucket-info">
+                    <span class="onboarding-bucket-dot" style="background-color: {{ bucket.color }};"></span>
+                    <span class="onboarding-bucket-icon">{{ bucket.icon }}</span>
+                    <span class="onboarding-bucket-name">{{ bucket.name }}</span>
+                </div>
+                <div class="onboarding-bucket-input">
+                    {% with key="allocation_"|add:bucket.pk|stringformat:"s" %}
+                    <input
+                        type="number"
+                        name="{{ key }}"
+                        class="form-control"
+                        value="{{ bucket.monthly_allocation }}"
+                        placeholder="0.00"
+                        min="0"
+                        step="0.01"
+                    >
+                    {% with err=errors|get_item:key %}
+                        {% if err %}<p class="form-error">{{ err }}</p>{% endif %}
+                    {% endwith %}
+                    {% endwith %}
+                </div>
+            </div>
+        {% empty %}
+            <p class="form-text">No budget buckets found. They will be created automatically.</p>
+        {% endfor %}
+    </div>
+
+    <div class="onboarding-actions mt-4">
+        <button type="submit" class="btn btn-primary btn-lg">Continue →</button>
+        <a href="/onboarding/step4/" class="btn btn-secondary">Skip this step</a>
+    </div>
+</form>
+{% endblock %}

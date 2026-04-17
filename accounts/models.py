@@ -103,6 +103,7 @@ class UserPreferences(models.Model):
     }
 
     no_spend_goal = models.IntegerField(default=0)
+    onboarding_complete = models.BooleanField(default=False)
 
     def get_widget_visibility(self):
         merged = dict(self.WIDGET_DEFAULTS)

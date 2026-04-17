@@ -21,6 +21,11 @@ urlpatterns = [
     path('settings/import/template/<str:data_type>/', views.download_import_template, name='download_import_template'),
     path('settings/widget-preferences/', views.save_widget_preferences, name='save_widget_preferences'),
     path('settings/no-spend-goal/', views.save_no_spend_goal, name='save_no_spend_goal'),
+    path('onboarding/step1/', views.onboarding_step1, name='onboarding_step1'),
+    path('onboarding/step2/', views.onboarding_step2, name='onboarding_step2'),
+    path('onboarding/step3/', views.onboarding_step3, name='onboarding_step3'),
+    path('onboarding/step4/', views.onboarding_step4, name='onboarding_step4'),
+    path('onboarding/skip/', views.onboarding_skip, name='onboarding_skip'),
     path('password-reset/', PasswordResetView.as_view(
         template_name='accounts/password_reset_form.html',
         email_template_name='accounts/password_reset_email.html',

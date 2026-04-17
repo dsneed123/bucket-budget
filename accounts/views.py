@@ -23,6 +23,13 @@ TIMEZONE_CHOICES = [(tz, tz) for tz in pytz.common_timezones]
 User = get_user_model()
 
 
+def _post_login_redirect(request, user):
+    prefs, _ = UserPreferences.objects.get_or_create(user=user)
+    if not prefs.onboarding_complete and not user.bank_accounts.exists():
+        return redirect('/onboarding/step1/')
+    return redirect('/dashboard/')
+
+
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('/dashboard/')
@@ -46,7 +53,7 @@ def login_view(request):
             user = authenticate(request, username=email, password=password)
             if user is not None:
                 login(request, user)
-                return redirect('/dashboard/')
+                return _post_login_redirect(request, user)
             else:
                 errors['__all__'] = 'Invalid email or password.'
 
@@ -93,7 +100,7 @@ def register(request):
                 password=password,
             )
             login(request, user)
-            return redirect('/dashboard/')
+            return redirect('/onboarding/step1/')
 
     return render(request, 'accounts/register.html', {
         'errors': errors,
@@ -551,4 +558,263 @@ def save_no_spend_goal(request):
         prefs.save()
     except (ValueError, TypeError):
         pass
+    return redirect('/dashboard/')
+
+
+# ---------------------------------------------------------------------------
+# Onboarding wizard
+# ---------------------------------------------------------------------------
+
+_ONBOARDING_STEPS = 4
+
+
+def _onboarding_guard(request):
+    """Return the prefs object, or a redirect response if onboarding is already done."""
+    prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+    if prefs.onboarding_complete:
+        return redirect('/dashboard/'), None
+    return None, prefs
+
+
+@login_required
+def onboarding_step1(request):
+    redirect_resp, prefs = _onboarding_guard(request)
+    if redirect_resp:
+        return redirect_resp
+
+    errors = {}
+
+    if request.method == 'POST':
+        monthly_income = request.POST.get('monthly_income', '').strip()
+        income_val = None
+
+        if monthly_income:
+            try:
+                income_val = float(monthly_income)
+                if income_val < 0:
+                    errors['monthly_income'] = 'Income cannot be negative.'
+            except ValueError:
+                errors['monthly_income'] = 'Please enter a valid number.'
+
+        if not errors:
+            if income_val is not None:
+                request.user.monthly_income = income_val
+                request.user.save()
+            return redirect('/onboarding/step2/')
+
+    return render(request, 'accounts/onboarding_step1.html', {
+        'errors': errors,
+        'step': 1,
+        'total_steps': _ONBOARDING_STEPS,
+    })
+
+
+@login_required
+def onboarding_step2(request):
+    redirect_resp, prefs = _onboarding_guard(request)
+    if redirect_resp:
+        return redirect_resp
+
+    errors = {}
+    form_data = {}
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        account_type = request.POST.get('account_type', '').strip()
+        balance_str = request.POST.get('balance', '').strip()
+        institution = request.POST.get('institution', '').strip()
+
+        form_data = {
+            'name': name,
+            'account_type': account_type,
+            'balance': balance_str,
+            'institution': institution,
+        }
+
+        if not name:
+            errors['name'] = 'Account name is required.'
+
+        valid_types = [c[0] for c in BankAccount.ACCOUNT_TYPE_CHOICES]
+        if account_type not in valid_types:
+            errors['account_type'] = 'Please select an account type.'
+
+        balance_val = 0
+        if balance_str:
+            try:
+                balance_val = float(balance_str)
+            except ValueError:
+                errors['balance'] = 'Please enter a valid amount.'
+
+        if not errors:
+            BankAccount.objects.create(
+                user=request.user,
+                name=name,
+                account_type=account_type,
+                balance=balance_val,
+                institution=institution or None,
+            )
+            return redirect('/onboarding/step3/')
+
+    return render(request, 'accounts/onboarding_step2.html', {
+        'errors': errors,
+        'form_data': form_data,
+        'account_type_choices': BankAccount.ACCOUNT_TYPE_CHOICES,
+        'step': 2,
+        'total_steps': _ONBOARDING_STEPS,
+    })
+
+
+@login_required
+def onboarding_step3(request):
+    redirect_resp, prefs = _onboarding_guard(request)
+    if redirect_resp:
+        return redirect_resp
+
+    from buckets.models import Bucket
+
+    buckets = list(
+        Bucket.objects.filter(
+            user=request.user,
+            is_active=True,
+            is_uncategorized=False,
+        ).order_by('sort_order', 'name')
+    )
+
+    errors = {}
+
+    if request.method == 'POST':
+        for bucket in buckets:
+            alloc_str = request.POST.get(f'allocation_{bucket.pk}', '').strip()
+            if alloc_str:
+                try:
+                    alloc = float(alloc_str)
+                    if alloc < 0:
+                        errors[f'allocation_{bucket.pk}'] = 'Cannot be negative.'
+                    else:
+                        bucket.monthly_allocation = alloc
+                        bucket.save()
+                except ValueError:
+                    errors[f'allocation_{bucket.pk}'] = 'Invalid amount.'
+
+        if not errors:
+            return redirect('/onboarding/step4/')
+
+    return render(request, 'accounts/onboarding_step3.html', {
+        'buckets': buckets,
+        'errors': errors,
+        'step': 3,
+        'total_steps': _ONBOARDING_STEPS,
+    })
+
+
+@login_required
+def onboarding_step4(request):
+    import datetime as dt
+
+    redirect_resp, prefs = _onboarding_guard(request)
+    if redirect_resp:
+        return redirect_resp
+
+    from transactions.models import Transaction
+    from buckets.models import Bucket
+
+    accounts = BankAccount.objects.filter(user=request.user, is_active=True)
+    buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
+
+    errors = {}
+    form_data = {}
+    today = dt.date.today().isoformat()
+
+    if request.method == 'POST':
+        description = request.POST.get('description', '').strip()
+        amount_str = request.POST.get('amount', '').strip()
+        transaction_type = request.POST.get('transaction_type', 'expense').strip()
+        date_str = request.POST.get('date', '').strip()
+        account_id = request.POST.get('account', '').strip()
+        bucket_id = request.POST.get('bucket', '').strip()
+
+        form_data = {
+            'description': description,
+            'amount': amount_str,
+            'transaction_type': transaction_type,
+            'date': date_str,
+            'account': account_id,
+            'bucket': bucket_id,
+        }
+
+        if not description:
+            errors['description'] = 'Description is required.'
+
+        amount_val = None
+        if not amount_str:
+            errors['amount'] = 'Amount is required.'
+        else:
+            try:
+                amount_val = float(amount_str)
+                if amount_val <= 0:
+                    errors['amount'] = 'Amount must be greater than zero.'
+            except ValueError:
+                errors['amount'] = 'Please enter a valid amount.'
+
+        valid_types = [c[0] for c in Transaction.TRANSACTION_TYPE_CHOICES]
+        if transaction_type not in valid_types:
+            errors['transaction_type'] = 'Please select a transaction type.'
+
+        date_val = None
+        if not date_str:
+            errors['date'] = 'Date is required.'
+        else:
+            try:
+                date_val = dt.date.fromisoformat(date_str)
+            except ValueError:
+                errors['date'] = 'Please enter a valid date.'
+
+        account_obj = None
+        if not account_id:
+            errors['account'] = 'Please select an account.'
+        else:
+            try:
+                account_obj = BankAccount.objects.get(pk=account_id, user=request.user)
+            except BankAccount.DoesNotExist:
+                errors['account'] = 'Invalid account selected.'
+
+        bucket_obj = None
+        if bucket_id:
+            try:
+                bucket_obj = Bucket.objects.get(pk=bucket_id, user=request.user)
+            except Bucket.DoesNotExist:
+                errors['bucket'] = 'Invalid bucket selected.'
+
+        if not errors:
+            Transaction.objects.create(
+                user=request.user,
+                account=account_obj,
+                bucket=bucket_obj,
+                amount=amount_val,
+                transaction_type=transaction_type,
+                description=description,
+                date=date_val,
+            )
+            prefs.onboarding_complete = True
+            prefs.save()
+            return redirect('/dashboard/')
+
+    return render(request, 'accounts/onboarding_step4.html', {
+        'errors': errors,
+        'form_data': form_data,
+        'accounts': accounts,
+        'buckets': buckets,
+        'today': today,
+        'transaction_type_choices': Transaction.TRANSACTION_TYPE_CHOICES,
+        'step': 4,
+        'total_steps': _ONBOARDING_STEPS,
+    })
+
+
+@login_required
+def onboarding_skip(request):
+    if request.method == 'POST':
+        prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+        prefs.onboarding_complete = True
+        prefs.save()
     return redirect('/dashboard/')
