@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db.models import Avg, Case, IntegerField, Q, Sum, Value, When
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from accounts.models import UserPreferences, UserStreak
 from core.utils import make_breadcrumbs
@@ -98,6 +98,10 @@ def health(request):
 
 @login_required
 def dashboard(request):
+    prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+    if not prefs.onboarding_complete:
+        return redirect('/onboarding/step1/')
+
     today = datetime.date.today()
     accounts = BankAccount.objects.filter(user=request.user, is_active=True).order_by('name')
     buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
@@ -341,7 +345,6 @@ def dashboard(request):
 
     streak = _update_streak(request.user, today)
 
-    prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
     widgets = prefs.get_widget_visibility()
     no_spend_goal = prefs.no_spend_goal
     widget_labels = [

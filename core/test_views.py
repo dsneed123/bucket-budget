@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from accounts.models import UserPreferences
 from banking.models import BankAccount
 from buckets.models import Bucket
 from savings.models import SavingsGoal
@@ -144,6 +145,9 @@ class DashboardViewTest(TestCase):
         self.client = Client()
         self.user = _make_user(email='dash@example.com')
         self.client.login(email='dash@example.com', password='testpass')
+        prefs, _ = UserPreferences.objects.get_or_create(user=self.user)
+        prefs.onboarding_complete = True
+        prefs.save()
 
     def test_dashboard_loads_for_authenticated_user(self):
         response = self.client.get(reverse('dashboard'))
