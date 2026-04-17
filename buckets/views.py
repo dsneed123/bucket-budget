@@ -1,6 +1,7 @@
 from decimal import Decimal
 from datetime import date
 from django.utils import timezone
+from django.db.models import Sum
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -8,6 +9,7 @@ from django.contrib.auth.decorators import login_required
 
 from .forms import BucketForm
 from .models import Bucket
+from transactions.models import Transaction
 
 
 def _form_errors(form):
@@ -69,13 +71,20 @@ def bucket_list(request):
 
     buckets = Bucket.objects.filter(user=request.user, is_active=True).order_by('sort_order', 'name')
 
+    now = date.today()
     bucket_data = []
     total_allocated = Decimal('0')
     total_spent = Decimal('0')
 
     for bucket in buckets:
         allocated = bucket.monthly_allocation
-        spent = Decimal('0')  # Will be calculated from transactions once available
+        spent = Transaction.objects.filter(
+            user=request.user,
+            bucket=bucket,
+            transaction_type='expense',
+            date__year=now.year,
+            date__month=now.month,
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
         remaining = allocated - spent
         if allocated > 0:
             pct = int((spent / allocated) * 100)
@@ -135,7 +144,13 @@ def bucket_detail(request, bucket_id):
 
     today = date.today()
     allocated = bucket.monthly_allocation
-    spent = Decimal('0')  # Will be calculated from transactions once available
+    spent = Transaction.objects.filter(
+        user=request.user,
+        bucket=bucket,
+        transaction_type='expense',
+        date__year=today.year,
+        date__month=today.month,
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
     remaining = allocated - spent
     if allocated > 0:
         pct = min(int((spent / allocated) * 100), 100)
@@ -149,7 +164,6 @@ def bucket_detail(request, bucket_id):
     else:
         bar_class = 'progress-bar'
 
-    # Build last 6 months history (placeholder until Transaction model exists)
     monthly_history = []
     year = today.year
     month = today.month
@@ -159,8 +173,15 @@ def bucket_detail(request, bucket_id):
         while m <= 0:
             m += 12
             y -= 1
+        month_spent = Transaction.objects.filter(
+            user=request.user,
+            bucket=bucket,
+            transaction_type='expense',
+            date__year=y,
+            date__month=m,
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
         label = date(y, m, 1).strftime('%b')
-        monthly_history.append({'label': label, 'spent': Decimal('0'), 'allocated': allocated})
+        monthly_history.append({'label': label, 'spent': month_spent, 'allocated': allocated})
 
     max_spent = max((h['spent'] for h in monthly_history), default=Decimal('0'))
     max_bar = max(max_spent, allocated) or Decimal('1')
@@ -168,7 +189,10 @@ def bucket_detail(request, bucket_id):
         h['bar_pct'] = int((h['spent'] / max_bar) * 100)
         h['alloc_pct'] = int((h['allocated'] / max_bar) * 100)
 
-    transactions = []  # Will be populated from Transaction model once available
+    transactions = Transaction.objects.filter(
+        user=request.user,
+        bucket=bucket,
+    ).select_related('account').order_by('-date', '-created_at')[:50]
 
     return render(request, 'buckets/bucket_detail.html', {
         'bucket': bucket,
