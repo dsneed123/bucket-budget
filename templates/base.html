@@ -31,34 +31,34 @@
                 <span class="logo">Bucket Budget</span>
             </div>
             <ul class="nav-links">
-                <li><a href="/dashboard/" {% if request.path|startswith:'/dashboard' %}class="active" aria-current="page"{% endif %}>
+                <li><a href="/dashboard/" class="{% active_link '/dashboard' %}" {% if request.path|startswith:'/dashboard' %}aria-current="page"{% endif %}>
                     <span class="nav-icon" aria-hidden="true">📊</span>Dashboard
                 </a></li>
-                <li><a href="/transactions/" {% if request.path|startswith:'/transactions' %}class="active" aria-current="page"{% endif %}>
+                <li><a href="/transactions/" class="{% active_link '/transactions' %}" {% if request.path|startswith:'/transactions' %}aria-current="page"{% endif %}>
                     <span class="nav-icon" aria-hidden="true">💳</span>Transactions
                 </a></li>
-                <li><a href="/buckets/" {% if request.path|startswith:'/buckets' %}class="active" aria-current="page"{% endif %}>
+                <li><a href="/buckets/" class="{% active_link '/buckets' %}" {% if request.path|startswith:'/buckets' %}aria-current="page"{% endif %}>
                     <span class="nav-icon" aria-hidden="true">🪣</span>Buckets
                 </a></li>
-                <li><a href="/budget/" {% if request.path|startswith:'/budget' %}class="active" aria-current="page"{% endif %}>
+                <li><a href="/budget/" class="{% active_link '/budget' %}" {% if request.path|startswith:'/budget' %}aria-current="page"{% endif %}>
                     <span class="nav-icon" aria-hidden="true">💰</span>Budget
                 </a></li>
-                <li><a href="/savings/" {% if request.path|startswith:'/savings' %}class="active" aria-current="page"{% endif %}>
+                <li><a href="/savings/" class="{% active_link '/savings' %}" {% if request.path|startswith:'/savings' %}aria-current="page"{% endif %}>
                     <span class="nav-icon" aria-hidden="true">🎯</span>Savings Goals
                 </a></li>
-                <li><a href="/rankings/" {% if request.path|startswith:'/rankings' %}class="active" aria-current="page"{% endif %}>
+                <li><a href="/rankings/" class="{% active_link '/rankings' %}" {% if request.path|startswith:'/rankings' %}aria-current="page"{% endif %}>
                     <span class="nav-icon" aria-hidden="true">🏆</span>Rankings
                 </a></li>
-                <li><a href="/rankings/review/" {% if request.path|startswith:'/rankings/review' %}class="active" aria-current="page"{% endif %}>
+                <li><a href="/rankings/review/" class="{% active_link '/rankings/review' %}" {% if request.path|startswith:'/rankings/review' %}aria-current="page"{% endif %}>
                     <span class="nav-icon" aria-hidden="true">⭐</span>Score Review{% if unscored_count %} <span class="nav-badge">{{ unscored_count }}</span>{% endif %}
                 </a></li>
-                <li><a href="/insights/" {% if request.path|startswith:'/insights' %}class="active" aria-current="page"{% endif %}>
+                <li><a href="/insights/" class="{% active_link '/insights' %}" {% if request.path|startswith:'/insights' %}aria-current="page"{% endif %}>
                     <span class="nav-icon" aria-hidden="true">💡</span>Insights
                 </a></li>
-                <li><a href="/accounts/" {% if request.path|startswith:'/accounts' %}class="active" aria-current="page"{% endif %}>
+                <li><a href="/accounts/" class="{% active_link '/accounts' %}" {% if request.path|startswith:'/accounts' %}aria-current="page"{% endif %}>
                     <span class="nav-icon" aria-hidden="true">🏦</span>Accounts
                 </a></li>
-                <li><a href="/recurring/" {% if request.path|startswith:'/recurring' %}class="active" aria-current="page"{% endif %}>
+                <li><a href="/recurring/" class="{% active_link '/recurring' %}" {% if request.path|startswith:'/recurring' %}aria-current="page"{% endif %}>
                     <span class="nav-icon" aria-hidden="true">🔄</span>Recurring
                 </a></li>
             </ul>
@@ -118,13 +118,13 @@
             {% endif %}
             <div class="nav-bottom">
                 <ul class="nav-links">
-                    <li><a href="/profile/" {% if request.path|startswith:'/profile' %}class="active" aria-current="page"{% endif %}>
+                    <li><a href="/profile/" class="{% active_link '/profile' %}" {% if request.path|startswith:'/profile' %}aria-current="page"{% endif %}>
                         <span class="nav-icon" aria-hidden="true">👤</span>Profile
                     </a></li>
-                    <li><a href="/settings/" {% if request.path|startswith:'/settings' %}class="active" aria-current="page"{% endif %}>
+                    <li><a href="/settings/" class="{% active_link '/settings' %}" {% if request.path|startswith:'/settings' %}aria-current="page"{% endif %}>
                         <span class="nav-icon" aria-hidden="true">⚙️</span>Settings
                     </a></li>
-                    <li><a href="/logout/" {% if request.path|startswith:'/logout' %}class="active" aria-current="page"{% endif %}>
+                    <li><a href="/logout/" class="{% active_link '/logout' %}" {% if request.path|startswith:'/logout' %}aria-current="page"{% endif %}>
                         <span class="nav-icon" aria-hidden="true">🚪</span>Logout
                     </a></li>
                 </ul>
