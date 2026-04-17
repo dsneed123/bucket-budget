@@ -123,9 +123,9 @@
 {% block content %}
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
     <div class="cal-nav">
-        <a href="?year={{ prev_year }}&month={{ prev_month }}">&#8249;</a>
+        <a href="?year={{ prev_year }}&month={{ prev_month }}" aria-label="Previous month">&#8249;</a>
         <span class="cal-month-label">{{ month_name }} {{ year }}</span>
-        <a href="?year={{ next_year }}&month={{ next_month }}">&#8250;</a>
+        <a href="?year={{ next_year }}&month={{ next_month }}" aria-label="Next month">&#8250;</a>
     </div>
     <div style="display: flex; gap: 10px;">
         <a href="?year={{ today.year }}&month={{ today.month }}" class="btn btn-secondary btn-sm">Today</a>
