@@ -8,6 +8,7 @@ import uuid
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Max, Q, Sum
@@ -898,6 +899,7 @@ def transaction_delete(request, transaction_id):
 
     if request.method == 'POST':
         transaction.delete()  # post_delete signal handles balance reversal.
+        messages.success(request, 'Transaction deleted successfully.')
         return redirect('transaction_list')
 
     return render(request, 'transactions/transaction_delete.html', {
