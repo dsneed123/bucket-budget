@@ -2,12 +2,16 @@ import datetime
 from decimal import Decimal
 
 from django.db.models import Avg, Count, Sum
+from django.utils import timezone
 
+from accounts.models import UserPreferences
 from buckets.models import Bucket
 from savings.models import SavingsContribution
 from transactions.models import Transaction
 
 from .models import Recommendation
+
+_REFRESH_INTERVAL = datetime.timedelta(hours=1)
 
 _VENDOR_HIGH_SPEND_PCT = Decimal('0.30')  # vendor > 30% of total → flag
 _QUALITY_DROP_THRESHOLD = Decimal('1.5')  # score drop of 1.5+ points → flag
@@ -199,7 +203,13 @@ def _vendor_recs(user, today):
     return recs
 
 
-def refresh_recommendations(user):
+def refresh_recommendations(user, force=False):
+    prefs, _ = UserPreferences.objects.get_or_create(user=user)
+    now = timezone.now()
+    if not force and prefs.recommendations_refreshed_at is not None:
+        if now - prefs.recommendations_refreshed_at < _REFRESH_INTERVAL:
+            return
+
     today = datetime.date.today()
 
     Recommendation.objects.filter(user=user, is_dismissed=False).delete()
@@ -212,3 +222,6 @@ def refresh_recommendations(user):
 
     if new_recs:
         Recommendation.objects.bulk_create(new_recs)
+
+    prefs.recommendations_refreshed_at = now
+    prefs.save(update_fields=['recommendations_refreshed_at'])

@@ -104,6 +104,7 @@ class UserPreferences(models.Model):
 
     no_spend_goal = models.IntegerField(default=0)
     onboarding_complete = models.BooleanField(default=False)
+    recommendations_refreshed_at = models.DateTimeField(null=True, blank=True)
 
     def get_widget_visibility(self):
         merged = dict(self.WIDGET_DEFAULTS)
