@@ -75,6 +75,12 @@ def transaction_list(request):
     account_id = request.GET.get('account', '').strip()
     search = request.GET.get('search', '').strip()
     tag_id = request.GET.get('tag', '').strip()
+    sort_col = request.GET.get('sort', 'date').strip()
+    sort_order = request.GET.get('order', 'desc').strip()
+    if sort_col not in ('date', 'description', 'vendor', 'amount', 'bucket', 'score'):
+        sort_col = 'date'
+    if sort_order not in ('asc', 'desc'):
+        sort_order = 'desc'
 
     # Apply filters
     if date_from:
@@ -130,8 +136,24 @@ def transaction_list(request):
             running -= txn.amount
         txn.running_balance = running
 
-    # Restore newest-first ordering for display
-    all_txns.sort(key=lambda t: (t.date, t.created_at), reverse=True)
+    # Sort by user-selected column; None scores always sort to the end
+    reverse = (sort_order == 'desc')
+    if sort_col == 'date':
+        all_txns.sort(key=lambda t: (t.date, t.created_at), reverse=reverse)
+    elif sort_col == 'description':
+        all_txns.sort(key=lambda t: (t.description or '').lower(), reverse=reverse)
+    elif sort_col == 'vendor':
+        all_txns.sort(key=lambda t: (t.vendor or '').lower(), reverse=reverse)
+    elif sort_col == 'amount':
+        all_txns.sort(key=lambda t: t.amount, reverse=reverse)
+    elif sort_col == 'bucket':
+        all_txns.sort(key=lambda t: (t.bucket.name if t.bucket else '').lower(), reverse=reverse)
+    elif sort_col == 'score':
+        _none_sentinel = -1 if reverse else 999
+        all_txns.sort(
+            key=lambda t: t.necessity_score if t.necessity_score is not None else _none_sentinel,
+            reverse=reverse,
+        )
 
     try:
         page_size = int(request.GET.get('page_size', 25))
@@ -204,6 +226,9 @@ def transaction_list(request):
     if summary_year != today.year or summary_month != today.month:
         filter_params['summary_year'] = summary_year
         filter_params['summary_month'] = summary_month
+    if sort_col != 'date' or sort_order != 'desc':
+        filter_params['sort'] = sort_col
+        filter_params['order'] = sort_order
     filter_qs = urlencode(filter_params)
     filter_qs_no_search = urlencode({k: v for k, v in filter_params.items() if k != 'search'})
 
@@ -263,6 +288,20 @@ def transaction_list(request):
                 'pct': round(row['total'] / total_income * 100),
             })
 
+    # Build sort links for each sortable column (preserves all active filters)
+    _sort_base = {k: v for k, v in filter_params.items() if k not in ('sort', 'order', 'page')}
+
+    def _sort_url(col):
+        p = dict(_sort_base)
+        p['sort'] = col
+        if col == sort_col:
+            p['order'] = 'asc' if sort_order == 'desc' else 'desc'
+        else:
+            p['order'] = 'desc' if col == 'date' else 'asc'
+        return urlencode(p)
+
+    sort_urls = {col: _sort_url(col) for col in ('date', 'description', 'vendor', 'amount', 'bucket', 'score')}
+
     return render(request, 'transactions/transaction_list.html', {
         'page_obj': page_obj,
         'total_income': total_income,
@@ -295,6 +334,9 @@ def transaction_list(request):
         'income_by_source': income_by_source,
         'page_size': page_size,
         'page_range': page_range,
+        'sort_col': sort_col,
+        'sort_order': sort_order,
+        'sort_urls': sort_urls,
     })
 
 
@@ -1475,8 +1517,30 @@ def recurring_list(request):
     if filter_subscription == 'true':
         qs = qs.filter(is_subscription=True, transaction_type='expense')
 
+    rec_sort_col = request.GET.get('sort', 'next_due').strip()
+    rec_sort_order = request.GET.get('order', 'asc').strip()
+    if rec_sort_col not in ('description', 'vendor', 'amount', 'frequency', 'next_due', 'bucket'):
+        rec_sort_col = 'next_due'
+    if rec_sort_order not in ('asc', 'desc'):
+        rec_sort_order = 'asc'
+
     all_recurring_count = qs.model.objects.filter(user=request.user).count()
     recurring = list(qs)
+
+    _rec_reverse = (rec_sort_order == 'desc')
+    _freq_rank = {'daily': 0, 'weekly': 1, 'monthly': 2, 'quarterly': 3, 'yearly': 4}
+    if rec_sort_col == 'description':
+        recurring.sort(key=lambda r: (r.description or '').lower(), reverse=_rec_reverse)
+    elif rec_sort_col == 'vendor':
+        recurring.sort(key=lambda r: (r.vendor or '').lower(), reverse=_rec_reverse)
+    elif rec_sort_col == 'amount':
+        recurring.sort(key=lambda r: r.amount, reverse=_rec_reverse)
+    elif rec_sort_col == 'frequency':
+        recurring.sort(key=lambda r: _freq_rank.get(r.frequency, 5), reverse=_rec_reverse)
+    elif rec_sort_col == 'next_due':
+        recurring.sort(key=lambda r: r.next_due, reverse=_rec_reverse)
+    elif rec_sort_col == 'bucket':
+        recurring.sort(key=lambda r: (r.bucket.name if r.bucket else '').lower(), reverse=_rec_reverse)
     active_expenses = [r for r in recurring if r.is_active and r.transaction_type == 'expense']
     total_monthly = sum(_monthly_cost(r) for r in active_expenses)
     total_yearly = total_monthly * 12
@@ -1500,6 +1564,26 @@ def recurring_list(request):
 
     buckets = Bucket.objects.filter(user=request.user).order_by('name')
 
+    _rec_sort_base = {}
+    if filter_bucket:
+        _rec_sort_base['bucket'] = filter_bucket
+    if filter_frequency:
+        _rec_sort_base['frequency'] = filter_frequency
+    if filter_type:
+        _rec_sort_base['type'] = filter_type
+    if filter_status:
+        _rec_sort_base['status'] = filter_status
+    if filter_subscription:
+        _rec_sort_base['subscription'] = filter_subscription
+
+    def _rec_sort_url(col):
+        p = dict(_rec_sort_base)
+        p['sort'] = col
+        p['order'] = ('asc' if rec_sort_order == 'desc' else 'desc') if col == rec_sort_col else 'asc'
+        return urlencode(p)
+
+    rec_sort_urls = {col: _rec_sort_url(col) for col in ('description', 'vendor', 'amount', 'frequency', 'next_due', 'bucket')}
+
     return render(request, 'transactions/recurring_list.html', {
         'recurring': recurring,
         'total_monthly': total_monthly,
@@ -1518,6 +1602,9 @@ def recurring_list(request):
         'low_necessity_subs': low_necessity_subs,
         'has_subscriptions': bool(all_active_subs),
         'all_recurring_count': all_recurring_count,
+        'sort_col': rec_sort_col,
+        'sort_order': rec_sort_order,
+        'sort_urls': rec_sort_urls,
     })
 
 
