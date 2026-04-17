@@ -142,7 +142,7 @@ def dashboard(request):
     recent_transactions = (
         Transaction.objects.filter(user=request.user)
         .select_related('account', 'bucket')
-        .order_by('-date', '-created_at')[:5]
+        .order_by('-date', '-created_at')[:10]
     )
 
     quick_add_errors = request.session.pop('quick_add_errors', {})
