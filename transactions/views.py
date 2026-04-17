@@ -68,6 +68,8 @@ def vendor_autocomplete(request):
 def transaction_list(request):
     qs = Transaction.objects.filter(user=request.user).select_related('account', 'bucket').prefetch_related('tags')
 
+    today = datetime.date.today()
+
     # Extract filter params
     date_from = request.GET.get('date_from', '').strip()
     date_to = request.GET.get('date_to', '').strip()
@@ -82,6 +84,12 @@ def transaction_list(request):
         sort_col = 'date'
     if sort_order not in ('asc', 'desc'):
         sort_order = 'desc'
+
+    # Default to current month when no date range is specified
+    if not date_from and not date_to:
+        date_from = today.replace(day=1).isoformat()
+        last_day = cal_module.monthrange(today.year, today.month)[1]
+        date_to = today.replace(day=last_day).isoformat()
 
     # Apply filters
     if date_from:
@@ -166,8 +174,6 @@ def transaction_list(request):
     paginator = Paginator(all_txns, page_size)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
-
-    today = datetime.date.today()
 
     # Parse selected summary month/year from GET params (default to current month)
     try:
