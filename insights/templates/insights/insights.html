@@ -96,7 +96,10 @@
 
         <!-- Spending Quality Score -->
         <div class="card insights-card">
-            <div class="insights-card-label">Spending Quality Score</div>
+            <div class="insights-card-label">
+                Spending Quality Score
+                <span class="info-tooltip" data-tooltip="Average necessity score (1–10) across your scored transactions. Green ≥7, gold ≥4, red below 4."><i class="info-icon" aria-hidden="true">i</i></span>
+            </div>
             <div class="insights-card-value text-{{ quality_color }}">
                 {% if quality_score is not None %}
                     {{ quality_score }}<span class="insights-card-denom">/10</span>
@@ -125,7 +128,9 @@
     <!-- Financial Health Score -->
     <div class="card health-score-section">
         <div class="trend-header">
-            <span class="insights-card-label">Financial Health Score — Current Month</span>
+            <span class="insights-card-label">Financial Health Score — Current Month
+                <span class="info-tooltip" data-tooltip="Scored 0–100 across 6 factors: savings rate (25pts), spending quality (20pts), budget adherence (20pts), emergency fund (15pts), expense trend (10pts), consistency (10pts)."><i class="info-icon" aria-hidden="true">i</i></span>
+            </span>
         </div>
         <div class="health-score-body">
             <div class="health-gauge-wrap">
