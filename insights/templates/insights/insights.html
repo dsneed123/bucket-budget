@@ -419,8 +419,8 @@
             {% for m in income_expense_trend %}
             <div class="ie-month-group">
                 <div class="ie-bars">
-                    <div class="ie-bar ie-bar-income" style="height: {{ m.income_bar_h }}px" title="Income: {{ m.income|currency }}"></div>
-                    <div class="ie-bar ie-bar-expense" style="height: {{ m.expense_bar_h }}px" title="Expenses: {{ m.expenses|currency }}"></div>
+                    <div class="ie-bar ie-bar-income" style="height: {{ m.income_bar_h }}%" title="Income: {{ m.income|currency }}"></div>
+                    <div class="ie-bar ie-bar-expense" style="height: {{ m.expense_bar_h }}%" title="Expenses: {{ m.expenses|currency }}"></div>
                 </div>
                 <div class="ie-net {% if m.net_positive %}ie-net-positive{% else %}ie-net-negative{% endif %}">
                     {% if m.net_positive %}+{% endif %}{{ m.net|currency }}
@@ -460,7 +460,7 @@
             {% for month in nw_trend_months %}
             <div class="nw-col">
                 <div class="nw-bar {% if month.positive %}nw-bar-positive{% else %}nw-bar-negative{% endif %}"
-                     style="height: {{ month.bar_height_px }}px"
+                     style="height: {{ month.bar_height_pct }}%"
                      title="{{ month.label }}: {{ month.net_worth|currency }}"></div>
                 <div class="nw-col-label">{{ month.label }}</div>
             </div>
@@ -537,7 +537,7 @@
         <div class="dow-bars-area">
             {% for day in dow_pattern %}
             <div class="dow-col">
-                <div class="dow-bar {% if day.is_peak %}dow-bar-peak{% endif %}" style="height: {{ day.bar_height_px }}px"></div>
+                <div class="dow-bar {% if day.is_peak %}dow-bar-peak{% endif %}" style="height: {{ day.bar_height_pct }}%"></div>
                 <div class="dow-col-label {% if day.is_peak %}dow-label-peak{% endif %}">{{ day.label }}</div>
             </div>
             {% endfor %}
@@ -620,7 +620,7 @@
         <div class="trend-bars-area">
             {% for month in trend_months %}
             <div class="trend-col">
-                <div class="trend-bar {% if month.above_avg %}trend-bar-above{% else %}trend-bar-below{% endif %}" style="height: {{ month.bar_height_px }}px"></div>
+                <div class="trend-bar {% if month.above_avg %}trend-bar-above{% else %}trend-bar-below{% endif %}" style="height: {{ month.bar_height_pct }}%"></div>
                 <div class="trend-col-label">{{ month.label }}</div>
             </div>
             {% endfor %}
@@ -1209,6 +1209,7 @@
     align-items: flex-end;
     gap: 3px;
     width: 100%;
+    height: 150px;
 }
 
 .ie-bar {
