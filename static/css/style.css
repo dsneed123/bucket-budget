@@ -742,7 +742,7 @@ textarea:focus {
 .form-control::placeholder,
 input::placeholder,
 textarea::placeholder {
-    color: #666;
+    color: #999;
     opacity: 1;
 }
 
