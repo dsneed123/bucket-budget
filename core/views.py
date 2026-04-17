@@ -122,6 +122,23 @@ def dashboard(request):
     total_expenses = _agg['expenses'] or Decimal('0')
     net = total_income - total_expenses
 
+    # Last month's expenses for comparison
+    prev_fyear, prev_fmonth = (fyear - 1, 12) if fmonth == 1 else (fyear, fmonth - 1)
+    prev_fstart, prev_fend = get_fiscal_month_range(prev_fyear, prev_fmonth, fiscal_start)
+    _prev_agg_cache_key = f'dashboard_agg_{request.user.pk}_{prev_fyear}_{prev_fmonth}'
+    _prev_agg = cache.get(_prev_agg_cache_key)
+    if _prev_agg is None:
+        _prev_agg = Transaction.objects.filter(
+            user=request.user, date__gte=prev_fstart, date__lte=prev_fend
+        ).aggregate(expenses=Sum('amount', filter=Q(transaction_type='expense')))
+        cache.set(_prev_agg_cache_key, _prev_agg, 300)
+    prev_month_expenses = _prev_agg['expenses'] or Decimal('0')
+
+    if prev_month_expenses > 0:
+        spending_change_pct = int(((total_expenses - prev_month_expenses) / prev_month_expenses) * 100)
+    else:
+        spending_change_pct = None
+
     recent_transactions = (
         Transaction.objects.filter(user=request.user)
         .select_related('account', 'bucket')
@@ -368,6 +385,7 @@ def dashboard(request):
         'income_pct': income_pct,
         'widgets': widgets,
         'widget_labels': widget_labels,
+        'spending_change_pct': spending_change_pct,
     })
 
 
