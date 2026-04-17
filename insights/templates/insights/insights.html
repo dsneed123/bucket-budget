@@ -32,6 +32,15 @@
         </form>
     </div>
 
+    {% if not has_data %}
+    <div class="card" style="text-align: center; padding: 48px 24px; margin-bottom: 24px;">
+        <div style="font-size: 3rem; margin-bottom: 16px;">📊</div>
+        <h3 style="color: var(--text-primary); margin-bottom: 8px;">No data for this period</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 24px;">Add transactions to start seeing insights for {{ period_label }}.</p>
+        <a href="{% url 'transaction_add' %}" class="btn btn-primary">+ Add Transaction</a>
+    </div>
+    {% else %}
+
     <div class="grid grid-4 insights-summary-cards">
 
         <!-- Period Spending -->
@@ -614,6 +623,7 @@
     </div>
 
 </div>
+{% endif %}
 {% endblock %}
 
 {% block extra_css %}

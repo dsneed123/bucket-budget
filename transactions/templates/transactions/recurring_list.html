@@ -184,10 +184,17 @@
 </div>
 {% else %}
 <div class="card" style="text-align: center; padding: 48px 24px;">
-    <div style="font-size: 3rem; margin-bottom: 16px;">🔄</div>
-    <h3 style="color: var(--text-primary); margin-bottom: 8px;">No recurring transactions yet</h3>
-    <p style="color: var(--text-secondary); margin-bottom: 24px;">Track subscriptions, bills, and other recurring expenses or income.</p>
-    <a href="{% url 'recurring_add' %}" class="btn btn-primary">+ Add Recurring</a>
+    {% if filter_bucket or filter_frequency or filter_type or filter_status or filter_subscription %}
+        <div style="font-size: 3rem; margin-bottom: 16px;">🔍</div>
+        <h3 style="color: var(--text-primary); margin-bottom: 8px;">No recurring transactions match your filters</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 24px;">Try adjusting or clearing your filters.</p>
+        <a href="{% url 'recurring_list' %}" class="btn">Clear Filters</a>
+    {% else %}
+        <div style="font-size: 3rem; margin-bottom: 16px;">🔄</div>
+        <h3 style="color: var(--text-primary); margin-bottom: 8px;">No recurring transactions yet</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 24px;">Track subscriptions, bills, and other recurring expenses or income.</p>
+        <a href="{% url 'recurring_add' %}" class="btn btn-primary">+ Add Recurring</a>
+    {% endif %}
 </div>
 {% endif %}
 {% endblock %}
