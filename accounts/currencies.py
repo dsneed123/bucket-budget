@@ -21,9 +21,14 @@ def format_currency(value, currency_code='USD'):
     code = str(currency_code).upper()
     info = CURRENCIES.get(code)
     if info is None:
+        if amount < 0:
+            return f'({code} {abs(amount):,.2f})'
         return f'{code} {amount:,.2f}'
 
     decimals = info['decimals']
     symbol = info['symbol']
+    if amount < 0:
+        formatted = f'{abs(amount):,.{decimals}f}'
+        return f'({symbol}{formatted})'
     formatted = f'{amount:,.{decimals}f}'
     return f'{symbol}{formatted}'

@@ -52,6 +52,25 @@ class CurrencyFilterTest(TestCase):
         result = self._render('not-a-number', 'USD')
         self.assertEqual(result, 'not-a-number')
 
+    def test_negative_usd(self):
+        self.assertEqual(self._render(-500, 'USD'), '($500.00)')
+
+    def test_negative_usd_large(self):
+        self.assertEqual(self._render(-1234.56, 'USD'), '($1,234.56)')
+
+    def test_negative_jpy(self):
+        self.assertEqual(self._render(-1234, 'JPY'), '(¥1,234)')
+
+    def test_negative_eur(self):
+        self.assertEqual(self._render(-99.99, 'EUR'), '(€99.99)')
+
+    def test_negative_unknown_currency(self):
+        self.assertEqual(self._render(-100, 'XYZ'), '(XYZ 100.00)')
+
+    def test_negative_decimal(self):
+        from decimal import Decimal
+        self.assertEqual(self._render(Decimal('-250.00'), 'USD'), '($250.00)')
+
 
 class DefaultBucketsSignalTest(TestCase):
     def _create_user(self, email='test@example.com'):
