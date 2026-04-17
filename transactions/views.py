@@ -865,6 +865,10 @@ def transaction_transfer(request):
                 date=date_val,
                 transfer_id=transfer_id,
             )
+            messages.success(
+                request,
+                f'Transfer of {amount_val:,.2f} from {from_account.name} to {to_account.name} on {date_val} recorded successfully.',
+            )
             return redirect('transaction_list')
 
     return render(request, 'transactions/transaction_transfer.html', {
