@@ -1,12 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Bucket Budget{% endblock %}</title>
     {% load static %}
     {% load avatar_tags %}
     {% load currency_tags %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{% block meta_description %}Bucket Budget — track spending, manage buckets, and reach your savings goals.{% endblock %}">
+    <meta name="theme-color" content="#1a2332">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{% block og_title %}Bucket Budget{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Track spending, manage buckets, and reach your savings goals.{% endblock %}">
+    <meta property="og:image" content="{% block og_image %}{% static 'favicon.svg' %}{% endblock %}">
+    <title>{% block title %}Bucket Budget{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     {% block extra_css %}{% endblock %}
 </head>
