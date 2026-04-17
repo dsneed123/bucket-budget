@@ -385,6 +385,52 @@ body {
     text-decoration: none;
 }
 
+/* =====================
+   Breadcrumb
+   ===================== */
+
+.breadcrumb-bar {
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    flex-shrink: 0;
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    list-style: none;
+    height: 36px;
+    gap: 0;
+    font-size: 13px;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+    content: '›';
+    color: var(--text-secondary);
+    margin: 0 8px;
+}
+
+.breadcrumb-item a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.breadcrumb-item a:hover {
+    color: var(--text-primary);
+}
+
+.breadcrumb-item.active span {
+    color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+    .breadcrumb-bar {
+        padding: 0 16px;
+    }
+}
+
 .avatar-lg {
     width: 72px;
     height: 72px;
