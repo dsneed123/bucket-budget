@@ -26,7 +26,7 @@ mark.search-highlight {
         {% if sort_col != 'date' or sort_order != 'desc' %}<input type="hidden" name="sort" value="{{ sort_col }}"><input type="hidden" name="order" value="{{ sort_order }}">{% endif %}
         <div style="display: flex; gap: 8px; align-items: center;">
             <div style="position: relative; flex: 1;">
-                <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none; font-size: 0.95rem;">&#128269;</span>
+                <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none; font-size: 0.95rem;" aria-hidden="true">&#128269;</span>
                 <input type="text" name="search" id="search-input" value="{{ filters.search }}" placeholder="Search description, vendor, or notes…" class="form-control" style="padding: 9px 12px 9px 36px; font-size: 0.95rem; width: 100%; box-sizing: border-box;">
             </div>
             <button type="submit" class="btn btn-primary" style="padding: 8px 18px; font-size: 0.9rem; white-space: nowrap;">Search</button>
@@ -53,14 +53,14 @@ mark.search-highlight {
 <div class="card" style="padding: 16px 20px; margin-bottom: 24px;">
     {# Month navigation #}
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-        <a href="?{{ prev_month_qs }}" style="display: inline-flex; align-items: center; padding: 4px 10px; background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; font-size: 0.85rem; text-decoration: none; transition: border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent-green)'" onmouseout="this.style.borderColor='var(--border)'">&larr;</a>
+        <a href="?{{ prev_month_qs }}" aria-label="Previous month" style="display: inline-flex; align-items: center; padding: 4px 10px; background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; font-size: 0.85rem; text-decoration: none; transition: border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent-green)'" onmouseout="this.style.borderColor='var(--border)'">&larr;</a>
         <div style="display: flex; align-items: center; gap: 10px;">
             <span style="font-size: 1rem; font-weight: 700; color: var(--text-primary);">{{ current_month }}</span>
             {% if not is_current_month %}
                 <a href="?{{ today_qs }}" style="font-size: 0.75rem; color: var(--text-secondary); text-decoration: none; border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; transition: border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent-green)'" onmouseout="this.style.borderColor='var(--border)'">Today</a>
             {% endif %}
         </div>
-        <a href="?{{ next_month_qs }}" style="display: inline-flex; align-items: center; padding: 4px 10px; background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; font-size: 0.85rem; text-decoration: none; transition: border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent-green)'" onmouseout="this.style.borderColor='var(--border)'">&rarr;</a>
+        <a href="?{{ next_month_qs }}" aria-label="Next month" style="display: inline-flex; align-items: center; padding: 4px 10px; background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; font-size: 0.85rem; text-decoration: none; transition: border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent-green)'" onmouseout="this.style.borderColor='var(--border)'">&rarr;</a>
     </div>
     {# Summary stats grid — two rows of three #}
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
@@ -128,16 +128,16 @@ mark.search-highlight {
     <form method="get" action="">
         <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
             <div style="display: flex; flex-direction: column; gap: 4px; min-width: 130px;">
-                <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">From</label>
-                <input type="date" name="date_from" value="{{ filters.date_from }}" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
+                <label for="filter-date-from" style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">From</label>
+                <input type="date" name="date_from" id="filter-date-from" value="{{ filters.date_from }}" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
             </div>
             <div style="display: flex; flex-direction: column; gap: 4px; min-width: 130px;">
-                <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">To</label>
-                <input type="date" name="date_to" value="{{ filters.date_to }}" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
+                <label for="filter-date-to" style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">To</label>
+                <input type="date" name="date_to" id="filter-date-to" value="{{ filters.date_to }}" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
             </div>
             <div style="display: flex; flex-direction: column; gap: 4px; min-width: 140px;">
-                <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Bucket</label>
-                <select name="bucket" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
+                <label for="filter-bucket" style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Bucket</label>
+                <select name="bucket" id="filter-bucket" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
                     <option value="">All buckets</option>
                     {% for b in buckets %}
                         <option value="{{ b.pk }}" {% if filters.bucket == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.icon }} {{ b.name }}</option>
@@ -145,16 +145,16 @@ mark.search-highlight {
                 </select>
             </div>
             <div style="display: flex; flex-direction: column; gap: 4px; min-width: 120px;">
-                <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Type</label>
-                <select name="type" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
+                <label for="filter-type" style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Type</label>
+                <select name="type" id="filter-type" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
                     <option value="" {% if not filters.type %}selected{% endif %}>All types</option>
                     <option value="expense" {% if filters.type == 'expense' %}selected{% endif %}>Expense</option>
                     <option value="income" {% if filters.type == 'income' %}selected{% endif %}>Income</option>
                 </select>
             </div>
             <div style="display: flex; flex-direction: column; gap: 4px; min-width: 140px;">
-                <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Account</label>
-                <select name="account" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
+                <label for="filter-account" style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Account</label>
+                <select name="account" id="filter-account" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
                     <option value="">All accounts</option>
                     {% for acc in accounts %}
                         <option value="{{ acc.pk }}" {% if filters.account == acc.pk|stringformat:"s" %}selected{% endif %}>{{ acc.name }}</option>
@@ -163,8 +163,8 @@ mark.search-highlight {
             </div>
             {% if tags %}
             <div style="display: flex; flex-direction: column; gap: 4px; min-width: 130px;">
-                <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Tag</label>
-                <select name="tag" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
+                <label for="filter-tag" style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Tag</label>
+                <select name="tag" id="filter-tag" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
                     <option value="">All tags</option>
                     {% for tag in tags %}
                         <option value="{{ tag.pk }}" {% if filters.tag == tag.pk|stringformat:"s" %}selected{% endif %}>{{ tag.name }}</option>
@@ -203,9 +203,10 @@ mark.search-highlight {
 </form>
 
 {# Bulk actions bar — shown when at least one checkbox is checked #}
-<div id="bulk-bar" style="display: none; margin-bottom: 12px;">
+<div id="bulk-bar" role="region" aria-live="polite" aria-label="Bulk actions" style="display: none; margin-bottom: 12px;">
     <div class="card" style="padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border: 1px solid var(--accent-green);">
         <span id="bulk-count" style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); white-space: nowrap;">0 selected</span>
+        <label for="bulk-action-select" class="sr-only">Choose bulk action</label>
         <select id="bulk-action-select" name="bulk_action" form="bulk-form" class="form-control" style="padding: 6px 10px; font-size: 0.85rem; min-width: 170px;" onchange="onBulkActionChange(this.value)">
             <option value="">— Bulk action —</option>
             <option value="categorize">Assign bucket</option>
@@ -255,37 +256,37 @@ mark.search-highlight {
     <table style="width: 100%; border-collapse: collapse;">
         <thead>
             <tr style="border-bottom: 1px solid var(--border);">
-                <th style="padding: 10px 12px; width: 36px;">
-                    <input type="checkbox" id="select-all" form="bulk-form" title="Select all on page" style="cursor: pointer; width: 15px; height: 15px;" onchange="onSelectAll(this.checked)">
+                <th scope="col" style="padding: 10px 12px; width: 36px;">
+                    <input type="checkbox" id="select-all" form="bulk-form" aria-label="Select all transactions on this page" style="cursor: pointer; width: 15px; height: 15px;" onchange="onSelectAll(this.checked)">
                 </th>
-                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
-                    <a href="?{{ sort_urls.date }}" style="color: {% if sort_col == 'date' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Date{% if sort_col == 'date' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                <th scope="col" style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.date }}" style="color: {% if sort_col == 'date' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Date{% if sort_col == 'date' %} <span aria-hidden="true">{% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}</span><span class="sr-only">{% if sort_order == 'asc' %}ascending{% else %}descending{% endif %}</span>{% endif %}</a>
                 </th>
-                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
-                    <a href="?{{ sort_urls.description }}" style="color: {% if sort_col == 'description' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Description{% if sort_col == 'description' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                <th scope="col" style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.description }}" style="color: {% if sort_col == 'description' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Description{% if sort_col == 'description' %} <span aria-hidden="true">{% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}</span><span class="sr-only">{% if sort_order == 'asc' %}ascending{% else %}descending{% endif %}</span>{% endif %}</a>
                 </th>
-                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
-                    <a href="?{{ sort_urls.vendor }}" style="color: {% if sort_col == 'vendor' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Vendor{% if sort_col == 'vendor' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                <th scope="col" style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.vendor }}" style="color: {% if sort_col == 'vendor' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Vendor{% if sort_col == 'vendor' %} <span aria-hidden="true">{% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}</span><span class="sr-only">{% if sort_order == 'asc' %}ascending{% else %}descending{% endif %}</span>{% endif %}</a>
                 </th>
-                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
-                    <a href="?{{ sort_urls.bucket }}" style="color: {% if sort_col == 'bucket' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Bucket{% if sort_col == 'bucket' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                <th scope="col" style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.bucket }}" style="color: {% if sort_col == 'bucket' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Bucket{% if sort_col == 'bucket' %} <span aria-hidden="true">{% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}</span><span class="sr-only">{% if sort_order == 'asc' %}ascending{% else %}descending{% endif %}</span>{% endif %}</a>
                 </th>
-                <th style="padding: 10px 12px; text-align: right; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
-                    <a href="?{{ sort_urls.amount }}" style="color: {% if sort_col == 'amount' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Amount{% if sort_col == 'amount' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                <th scope="col" style="padding: 10px 12px; text-align: right; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.amount }}" style="color: {% if sort_col == 'amount' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Amount{% if sort_col == 'amount' %} <span aria-hidden="true">{% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}</span><span class="sr-only">{% if sort_order == 'asc' %}ascending{% else %}descending{% endif %}</span>{% endif %}</a>
                 </th>
-                <th style="padding: 10px 12px; text-align: right; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Balance</th>
-                <th style="padding: 10px 12px; text-align: center; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
-                    <a href="?{{ sort_urls.score }}" style="color: {% if sort_col == 'score' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Score{% if sort_col == 'score' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                <th scope="col" style="padding: 10px 12px; text-align: right; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Balance</th>
+                <th scope="col" style="padding: 10px 12px; text-align: center; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.score }}" style="color: {% if sort_col == 'score' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Score{% if sort_col == 'score' %} <span aria-hidden="true">{% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}</span><span class="sr-only">{% if sort_order == 'asc' %}ascending{% else %}descending{% endif %}</span>{% endif %}</a>
                 </th>
-                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Tags</th>
-                <th style="padding: 10px 12px; text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;"></th>
+                <th scope="col" style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Tags</th>
+                <th scope="col" style="padding: 10px 12px; text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;"><span class="sr-only">Actions</span></th>
             </tr>
         </thead>
         <tbody>
             {% for txn in page_obj %}
             <tr style="border-bottom: 1px solid var(--border);">
                 <td style="padding: 10px 12px; width: 36px;">
-                    <input type="checkbox" name="transaction_ids" value="{{ txn.pk }}" form="bulk-form" class="txn-checkbox" style="cursor: pointer; width: 15px; height: 15px;" onchange="onCheckboxChange()">
+                    <input type="checkbox" name="transaction_ids" value="{{ txn.pk }}" form="bulk-form" class="txn-checkbox" aria-label="Select transaction: {{ txn.description }}" style="cursor: pointer; width: 15px; height: 15px;" onchange="onCheckboxChange()">
                 </td>
                 <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap;">{{ txn.date }}</td>
                 <td style="padding: 12px; font-size: 0.9rem; font-weight: 500; color: var(--text-primary);">
@@ -442,12 +443,12 @@ function confirmBulkAction() {
 {% else %}
 <div class="card" style="text-align: center; padding: 48px 24px;">
     {% if active_filter_count %}
-        <div style="font-size: 3rem; margin-bottom: 16px;">🔍</div>
+        <div style="font-size: 3rem; margin-bottom: 16px;" aria-hidden="true">🔍</div>
         <h3 style="color: var(--text-primary); margin-bottom: 8px;">No transactions match your filters</h3>
         <p style="color: var(--text-secondary); margin-bottom: 24px;">Try adjusting or clearing your filters.</p>
         <a href="{% url 'transaction_list' %}" class="btn">Clear Filters</a>
     {% else %}
-        <div style="font-size: 3rem; margin-bottom: 16px;">💳</div>
+        <div style="font-size: 3rem; margin-bottom: 16px;" aria-hidden="true">💳</div>
         <h3 style="color: var(--text-primary); margin-bottom: 8px;">No transactions yet</h3>
         <p style="color: var(--text-secondary); margin-bottom: 24px;">Add your first transaction to start tracking your spending.</p>
         <a href="{% url 'transaction_add' %}" class="btn btn-primary">+ Add Transaction</a>

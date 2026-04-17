@@ -40,7 +40,7 @@
         <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
             <div class="flex items-center justify-between">
                 <div>
-                    <div style="font-size: 1.5rem; margin-bottom: 4px;">{{ item.bucket.icon }}</div>
+                    <div style="font-size: 1.5rem; margin-bottom: 4px;" aria-hidden="true">{{ item.bucket.icon }}</div>
                     <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-secondary);">
                         <a href="{% url 'bucket_detail' item.bucket.pk %}" style="color: inherit; text-decoration: none;">{{ item.bucket.name }}</a>
                     </h3>
@@ -61,7 +61,7 @@
         <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
             <div class="flex items-center justify-between">
                 <div>
-                    <div style="font-size: 1.5rem; margin-bottom: 4px;">{{ item.bucket.icon }}</div>
+                    <div style="font-size: 1.5rem; margin-bottom: 4px;" aria-hidden="true">{{ item.bucket.icon }}</div>
                     <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary);">
                         <a href="{% url 'bucket_detail' item.bucket.pk %}" style="color: inherit; text-decoration: none;">{{ item.bucket.name }}</a>
                     </h3>
@@ -71,14 +71,14 @@
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 0.75rem; color: var(--text-secondary);">{{ item.pct }}%</span>
-                    {% if item.alert %}<span class="alert-dot" title="Spending alert: {{ item.pct }}% of {{ item.bucket.alert_threshold }}% threshold"></span>{% endif %}
+                    {% if item.alert %}<span class="alert-dot" title="Spending alert: {{ item.pct }}% of {{ item.bucket.alert_threshold }}% threshold" aria-hidden="true"></span><span class="sr-only">Spending alert: {{ item.pct }}% of {{ item.bucket.alert_threshold }}% threshold</span>{% endif %}
                     <div style="display: flex; flex-direction: column; gap: 2px;">
                         {% if not forloop.first %}
                         <form method="post" action="{% url 'bucket_reorder' %}" style="margin: 0;">
                             {% csrf_token %}
                             <input type="hidden" name="bucket_id" value="{{ item.bucket.pk }}">
                             <input type="hidden" name="direction" value="up">
-                            <button type="submit" title="Move up" style="background: none; border: none; cursor: pointer; padding: 0; line-height: 1; font-size: 0.7rem; color: var(--text-secondary);">▲</button>
+                            <button type="submit" title="Move up" aria-label="Move {{ item.bucket.name }} up" style="background: none; border: none; cursor: pointer; padding: 0; line-height: 1; font-size: 0.7rem; color: var(--text-secondary);"><span aria-hidden="true">▲</span></button>
                         </form>
                         {% else %}
                         <span style="display: block; width: 14px; height: 14px;"></span>
@@ -88,7 +88,7 @@
                             {% csrf_token %}
                             <input type="hidden" name="bucket_id" value="{{ item.bucket.pk }}">
                             <input type="hidden" name="direction" value="down">
-                            <button type="submit" title="Move down" style="background: none; border: none; cursor: pointer; padding: 0; line-height: 1; font-size: 0.7rem; color: var(--text-secondary);">▼</button>
+                            <button type="submit" title="Move down" aria-label="Move {{ item.bucket.name }} down" style="background: none; border: none; cursor: pointer; padding: 0; line-height: 1; font-size: 0.7rem; color: var(--text-secondary);"><span aria-hidden="true">▼</span></button>
                         </form>
                         {% else %}
                         <span style="display: block; width: 14px; height: 14px;"></span>
@@ -102,7 +102,7 @@
         </div>
 
         <div style="margin-bottom: 12px;">
-            <div class="progress">
+            <div class="progress" role="progressbar" aria-valuenow="{{ item.pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ item.bucket.name }}: {{ item.pct }}% of budget spent">
                 <div class="progress-bar {{ item.bar_class }}" style="width: {{ item.pct }}%;"></div>
             </div>
         </div>
@@ -132,8 +132,8 @@
     {% endfor %}
 </div>
 {% else %}
-<div class="card" style="text-align: center; padding: 48px 24px;">
-    <div style="font-size: 3rem; margin-bottom: 16px;">🪣</div>
+<div class="card" style="text-align: center; padding: 48px 24px;" role="region" aria-label="No buckets">
+    <div style="font-size: 3rem; margin-bottom: 16px;" aria-hidden="true">🪣</div>
     <h3 style="color: var(--text-primary); margin-bottom: 8px;">No buckets yet</h3>
     <p style="color: var(--text-secondary); margin-bottom: 24px;">Create your first bucket to start organizing your spending.</p>
     <a href="{% url 'bucket_add' %}" class="btn btn-primary">+ Add Bucket</a>
@@ -151,7 +151,7 @@
         {% for bucket in archived_buckets %}
         <div class="card" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; opacity: 0.7;">
             <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-size: 1.2rem;">{{ bucket.icon }}</span>
+                <span style="font-size: 1.2rem;" aria-hidden="true">{{ bucket.icon }}</span>
                 <div>
                     <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">{{ bucket.name }}</div>
                     <div style="font-size: 0.75rem; color: var(--text-secondary);">${{ bucket.monthly_allocation|floatformat:2 }}/mo{% if bucket.archived_at %} · archived {{ bucket.archived_at|date:"M j, Y" }}{% endif %}</div>

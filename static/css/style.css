@@ -4,6 +4,45 @@
     padding: 0;
 }
 
+/* =====================
+   Skip link (accessibility)
+   ===================== */
+
+.skip-link {
+    position: absolute;
+    top: -100%;
+    left: 8px;
+    z-index: 10000;
+    padding: 8px 16px;
+    background: var(--accent-green);
+    color: #0d1117;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    transition: top 0.1s;
+}
+
+.skip-link:focus {
+    top: 8px;
+}
+
+/* =====================
+   Screen-reader only utility
+   ===================== */
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 :root {
     --bg-primary: #1a1a2e;
     --bg-secondary: #16213e;
@@ -421,6 +460,13 @@ body {
     color: var(--text-primary);
 }
 
+.breadcrumb-item a:focus-visible {
+    color: var(--text-primary);
+    outline: 2px solid var(--accent-green);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
 .breadcrumb-item.active span {
     color: var(--text-primary);
 }
@@ -539,6 +585,56 @@ body {
 .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.btn:focus-visible {
+    outline: 2px solid var(--accent-green);
+    outline-offset: 2px;
+}
+
+a:focus-visible {
+    outline: 2px solid var(--accent-green);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+.hamburger-btn:focus-visible {
+    outline: 2px solid var(--accent-green);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+[role="button"]:focus-visible {
+    outline: 2px solid var(--accent-green);
+    outline-offset: 2px;
+}
+
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+    outline: 2px solid var(--accent-green);
+    outline-offset: 2px;
+}
+
+.message-close:focus-visible,
+.kbd-modal-close:focus-visible,
+.recommendation-dismiss:focus-visible {
+    outline: 2px solid var(--accent-green);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+.form-control:focus-visible,
+input[type="text"]:focus-visible,
+input[type="email"]:focus-visible,
+input[type="password"]:focus-visible,
+input[type="number"]:focus-visible,
+input[type="date"]:focus-visible,
+input[type="search"]:focus-visible,
+input[type="color"]:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid var(--accent-green);
+    outline-offset: 0;
 }
 
 .btn-primary {
