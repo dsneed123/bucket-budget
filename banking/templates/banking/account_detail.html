@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load currency_tags %}
 {% block title %}{{ account.name }} — Bucket Budget{% endblock %}
 {% block page_title %}Account Detail{% endblock %}
 
@@ -35,19 +36,19 @@
             <div>
                 <div class="stat-label">Current Balance</div>
                 <div class="stat-value {% if account.balance >= 0 %}text-green{% else %}text-red{% endif %}">
-                    ${{ account.balance|floatformat:2 }}
+                    {{ account.balance|currency:request.user.currency }}
                 </div>
             </div>
             <div>
                 <div class="stat-label">30-day Low</div>
                 <div class="stat-value" style="font-size: 1.3rem; color: var(--text-primary);">
-                    ${{ min_bal|floatformat:2 }}
+                    {{ min_bal|currency:request.user.currency }}
                 </div>
             </div>
             <div>
                 <div class="stat-label">30-day High</div>
                 <div class="stat-value" style="font-size: 1.3rem; color: var(--text-primary);">
-                    ${{ max_bal|floatformat:2 }}
+                    {{ max_bal|currency:request.user.currency }}
                 </div>
             </div>
         </div>
@@ -72,15 +73,15 @@
             <!-- Y-axis labels -->
             <div style="display: flex; align-items: stretch; gap: 0;">
                 <div style="display: flex; flex-direction: column; justify-content: space-between; padding-right: 10px; min-width: 72px; text-align: right;">
-                    <span style="font-size: 0.7rem; color: var(--text-secondary);">${{ max_bal|floatformat:0 }}</span>
-                    <span style="font-size: 0.7rem; color: var(--text-secondary);">${{ min_bal|floatformat:0 }}</span>
+                    <span style="font-size: 0.7rem; color: var(--text-secondary);">{{ max_bal|currency:request.user.currency }}</span>
+                    <span style="font-size: 0.7rem; color: var(--text-secondary);">{{ min_bal|currency:request.user.currency }}</span>
                 </div>
 
                 <!-- Chart bars -->
                 <div style="flex: 1; display: flex; align-items: flex-end; gap: 3px; height: 120px; border-bottom: 1px solid var(--border); padding-bottom: 0;">
                     {% for item in chart_data %}
                     <div
-                        title="{{ item.date|date:'M j' }}: ${{ item.balance|floatformat:2 }}"
+                        title="{{ item.date|date:'M j' }}: {{ item.balance|currency:request.user.currency }}"
                         style="
                             flex: 1;
                             height: {{ item.height_pct }}%;
@@ -148,7 +149,7 @@
                         </span>
                     </div>
                     <div style="margin-top: 3px; font-size: 0.8rem; color: var(--text-secondary);">
-                        ${{ change.previous_balance|floatformat:2 }} → ${{ change.new_balance|floatformat:2 }}
+                        {{ change.previous_balance|currency:request.user.currency }} → {{ change.new_balance|currency:request.user.currency }}
                     </div>
                 </div>
                 <div style="text-align: right; flex-shrink: 0;">
@@ -157,7 +158,7 @@
                         font-weight: 600;
                         color: {% if change.change_amount >= 0 %}var(--accent-green){% else %}var(--accent-red){% endif %};
                     ">
-                        {% if change.change_amount >= 0 %}+{% endif %}${{ change.change_amount|floatformat:2 }}
+                        {% if change.change_amount >= 0 %}+{% endif %}{{ change.change_amount|currency:request.user.currency }}
                     </span>
                 </div>
             </div>

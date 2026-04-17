@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load currency_tags %}
 {% block title %}{{ bucket.icon }} {{ bucket.name }} — Bucket Budget{% endblock %}
 {% block page_title %}{{ bucket.icon }} {{ bucket.name }}{% endblock %}
 
@@ -24,15 +25,15 @@
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; text-align: center; min-width: 300px;">
             <div>
                 <div class="stat-label">Allocated</div>
-                <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">${{ bucket.monthly_allocation|floatformat:2 }}</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">{{ bucket.monthly_allocation|currency:request.user.currency }}</div>
             </div>
             <div>
                 <div class="stat-label">Spent</div>
-                <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">${{ spent|floatformat:2 }}</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">{{ spent|currency:request.user.currency }}</div>
             </div>
             <div>
                 <div class="stat-label">Remaining</div>
-                <div style="font-size: 1.1rem; font-weight: 700; {% if remaining >= 0 %}color: var(--accent-green);{% else %}color: var(--accent-red);{% endif %}">${{ remaining|floatformat:2 }}</div>
+                <div style="font-size: 1.1rem; font-weight: 700; {% if remaining >= 0 %}color: var(--accent-green);{% else %}color: var(--accent-red);{% endif %}">{{ remaining|currency:request.user.currency }}</div>
             </div>
         </div>
     </div>
@@ -104,7 +105,7 @@
                 {% endif %}
             </div>
             <div style="text-align: right; padding-right: 24px; color: var(--text-secondary); font-size: 0.8rem; white-space: nowrap;">{{ tx.date|date:"M j, Y" }}</div>
-            <div style="text-align: right; font-weight: 600; color: var(--accent-red);">-${{ tx.amount|floatformat:2 }}</div>
+            <div style="text-align: right; font-weight: 600; color: var(--accent-red);">-{{ tx.amount|currency:request.user.currency }}</div>
         </div>
         {% endfor %}
     </div>

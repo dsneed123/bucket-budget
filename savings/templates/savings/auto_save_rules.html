@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load currency_tags %}
 {% block title %}Auto-Save Rules — Bucket Budget{% endblock %}
 {% block page_title %}Auto-Save Rules{% endblock %}
 
@@ -22,7 +23,7 @@
                             </span>
                         </div>
                         <div style="margin-top: 6px; font-size: 0.85rem; color: var(--text-secondary);">
-                            <strong style="color: var(--text-primary);">${{ rule.amount|floatformat:2 }}</strong>
+                            <strong style="color: var(--text-primary);">{{ rule.amount|currency:request.user.currency }}</strong>
                             {{ rule.get_frequency_display|lower }}
                             from <strong style="color: var(--text-primary);">{{ rule.source_account.name }}</strong>
                         </div>
