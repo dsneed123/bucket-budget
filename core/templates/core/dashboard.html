@@ -216,7 +216,7 @@
                     <h2 class="card-title">Budget Overview</h2>
                     <p class="card-subtitle">{{ current_month }}</p>
                 </div>
-                <a href="{% url 'budget_overview' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">Full budget</a>
+                <a href="{% url 'budget_overview' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View budget</a>
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 16px;">
@@ -270,6 +270,11 @@
                     </div>
                 </div>
                 {% endif %}
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px; border-top: 1px solid var(--border);">
+                    <span style="font-size: 13px; color: var(--text-secondary);">{{ days_left }} day{{ days_left|pluralize }} remaining</span>
+                    <a href="{% url 'budget_overview' %}" style="font-size: 13px; color: var(--accent-blue); text-decoration: none; font-weight: 500;">View budget &rarr;</a>
+                </div>
 
             </div>
         </div>
