@@ -5,7 +5,6 @@ from decimal import Decimal
 from django.core.cache import cache
 from django.db.models import Avg, Count, Sum
 
-from savings.models import SavingsContribution
 from transactions.models import Transaction
 
 from .models import BankAccount, BalanceHistory
@@ -100,26 +99,26 @@ def net_worth(request):
             date__month=month,
         ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
 
-    def _month_contributions(year, month):
-        return SavingsContribution.objects.filter(
-            goal__user=request.user,
-            transaction_type='contribution',
+    def _month_expenses(year, month):
+        return Transaction.objects.filter(
+            user=request.user,
+            transaction_type='expense',
             date__year=year,
             date__month=month,
         ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
 
-    def _savings_rate(contributions, income):
+    def _savings_rate(income, expenses):
         if income > 0:
-            return round(float(contributions / income * 100), 1)
+            return round(float((income - expenses) / income * 100), 1)
         return None
 
     cur_income = _month_income(today.year, today.month)
-    cur_contributions = _month_contributions(today.year, today.month)
-    cur_savings_rate = _savings_rate(cur_contributions, cur_income)
+    cur_expenses = _month_expenses(today.year, today.month)
+    cur_savings_rate = _savings_rate(cur_income, cur_expenses)
 
     prev_income = _month_income(last_month_end.year, last_month_end.month)
-    prev_contributions = _month_contributions(last_month_end.year, last_month_end.month)
-    prev_savings_rate = _savings_rate(prev_contributions, prev_income)
+    prev_expenses = _month_expenses(last_month_end.year, last_month_end.month)
+    prev_savings_rate = _savings_rate(prev_income, prev_expenses)
 
     if cur_savings_rate is None:
         savings_rate_color = 'secondary'
