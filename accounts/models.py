@@ -23,7 +23,7 @@ class CustomUserManager(BaseUserManager):
 class CustomUser(AbstractUser):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=150)
-    last_name = models.CharField(max_length=150)
+    last_name = models.CharField(max_length=150, blank=True)
     currency = models.CharField(max_length=3, default='USD')
     monthly_income = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     zero_based_budgeting = models.BooleanField(default=False)
