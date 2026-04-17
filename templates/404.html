@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Not Found — Bucket Budget</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        .error-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-primary);
+        }
+        .error-container {
+            text-align: center;
+            padding: 2rem;
+            max-width: 480px;
+        }
+        .error-code {
+            font-size: 6rem;
+            font-weight: 700;
+            color: var(--accent-green);
+            line-height: 1;
+            margin-bottom: 1rem;
+        }
+        .error-title {
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            margin-bottom: 0.75rem;
+        }
+        .error-message {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body class="theme-{{ user_theme|default:'dark' }}">
+    <div class="error-page">
+        <div class="error-container">
+            <div class="error-code">404</div>
+            <h1 class="error-title">Page Not Found</h1>
+            <p class="error-message">
+                Looks like this bucket is empty. The page you're looking for doesn't exist or may have been moved.
+            </p>
+            <a href="/dashboard/" class="btn btn-primary">Back to Dashboard</a>
+        </div>
+    </div>
+</body>
+</html>
