@@ -72,7 +72,7 @@ def _build_digest(user, start, end):
     total_spent = _week_expenses(user, start, end)
     top_cats = _top_categories(user, start, end)
     quality_score, scored_count = _spending_quality(user, start, end)
-    refresh_recommendations(user)
+    refresh_recommendations(user, force=True)
     recs = list(
         Recommendation.objects.filter(user=user, is_dismissed=False)
         .order_by('-priority', '-created_at')[:5]
