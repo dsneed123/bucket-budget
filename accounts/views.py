@@ -9,7 +9,9 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login, authenticate, update_session_auth_hash, logout
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.views import PasswordChangeView
+from django.contrib.auth.views import PasswordChangeView, PasswordResetView
+from django_ratelimit.decorators import ratelimit
+from django.utils.decorators import method_decorator
 from django.contrib import messages
 from django.urls import reverse_lazy
 
@@ -36,6 +38,7 @@ def _post_login_redirect(request, user):
     return redirect('/dashboard/')
 
 
+@ratelimit(key='ip', rate='5/m', method='POST', block=False)
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('/dashboard/')
@@ -44,19 +47,22 @@ def login_view(request):
     form_data = {}
 
     if request.method == 'POST':
-        form = LoginForm(request.POST)
-        form_data = {'email': request.POST.get('email', '')}
-        if form.is_valid():
-            email = form.cleaned_data['email']
-            password = form.cleaned_data['password']
-            user = authenticate(request, username=email, password=password)
-            if user is not None:
-                login(request, user)
-                return _post_login_redirect(request, user)
-            else:
-                errors['__all__'] = 'Invalid email or password.'
+        if getattr(request, 'limited', False):
+            errors['__all__'] = 'Too many attempts, please wait.'
         else:
-            errors = _form_errors(form)
+            form = LoginForm(request.POST)
+            form_data = {'email': request.POST.get('email', '')}
+            if form.is_valid():
+                email = form.cleaned_data['email']
+                password = form.cleaned_data['password']
+                user = authenticate(request, username=email, password=password)
+                if user is not None:
+                    login(request, user)
+                    return _post_login_redirect(request, user)
+                else:
+                    errors['__all__'] = 'Invalid email or password.'
+            else:
+                errors = _form_errors(form)
 
     return render(request, 'accounts/login.html', {
         'errors': errors,
@@ -64,32 +70,40 @@ def login_view(request):
     })
 
 
+@ratelimit(key='ip', rate='3/m', method='POST', block=False)
 def register(request):
     errors = {}
     form_data = {}
 
     if request.method == 'POST':
-        form = RegisterForm(request.POST)
-        form_data = {
-            'email': request.POST.get('email', ''),
-            'first_name': request.POST.get('first_name', ''),
-        }
-        if form.is_valid():
-            email = form.cleaned_data['email']
-            first_name = form.cleaned_data['first_name']
-            password = form.cleaned_data['password']
-            if User.objects.filter(email=email).exists():
-                errors['email'] = 'An account with this email already exists.'
-            else:
-                user = User.objects.create_user(
-                    email=email,
-                    first_name=first_name,
-                    password=password,
-                )
-                login(request, user)
-                return redirect('/onboarding/step1/')
+        if getattr(request, 'limited', False):
+            errors['__all__'] = 'Too many attempts, please wait.'
+            form_data = {
+                'email': request.POST.get('email', ''),
+                'first_name': request.POST.get('first_name', ''),
+            }
         else:
-            errors = _form_errors(form)
+            form = RegisterForm(request.POST)
+            form_data = {
+                'email': request.POST.get('email', ''),
+                'first_name': request.POST.get('first_name', ''),
+            }
+            if form.is_valid():
+                email = form.cleaned_data['email']
+                first_name = form.cleaned_data['first_name']
+                password = form.cleaned_data['password']
+                if User.objects.filter(email=email).exists():
+                    errors['email'] = 'An account with this email already exists.'
+                else:
+                    user = User.objects.create_user(
+                        email=email,
+                        first_name=first_name,
+                        password=password,
+                    )
+                    login(request, user)
+                    return redirect('/onboarding/step1/')
+            else:
+                errors = _form_errors(form)
 
     return render(request, 'accounts/register.html', {
         'errors': errors,
@@ -491,6 +505,18 @@ def delete_account(request):
     return render(request, 'accounts/delete_account.html', {
         'errors': errors,
     })
+
+
+@method_decorator(ratelimit(key='ip', rate='3/h', method='POST', block=False), name='post')
+class RateLimitedPasswordResetView(PasswordResetView):
+    def post(self, request, *args, **kwargs):
+        if getattr(request, 'limited', False):
+            form = self.get_form()
+            return self.render_to_response(self.get_context_data(
+                form=form,
+                rate_limit_error='Too many attempts, please wait.',
+            ))
+        return super().post(request, *args, **kwargs)
 
 
 class ChangePasswordView(PasswordChangeView):

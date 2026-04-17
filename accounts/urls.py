@@ -1,6 +1,5 @@
 from django.contrib.auth.views import (
     LogoutView,
-    PasswordResetView,
     PasswordResetDoneView,
     PasswordResetConfirmView,
     PasswordResetCompleteView,
@@ -26,7 +25,7 @@ urlpatterns = [
     path('onboarding/step3/', views.onboarding_step3, name='onboarding_step3'),
     path('onboarding/step4/', views.onboarding_step4, name='onboarding_step4'),
     path('onboarding/skip/', views.onboarding_skip, name='onboarding_skip'),
-    path('password-reset/', PasswordResetView.as_view(
+    path('password-reset/', views.RateLimitedPasswordResetView.as_view(
         template_name='accounts/password_reset_form.html',
         email_template_name='accounts/password_reset_email.html',
         success_url=reverse_lazy('password_reset_done'),
