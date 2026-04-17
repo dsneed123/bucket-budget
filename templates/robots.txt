@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+Allow: /login/
+Allow: /register/
+
+Disallow: /dashboard/
+Disallow: /accounts/
+Disallow: /banking/
+Disallow: /buckets/
+Disallow: /transactions/
+Disallow: /rankings/
+Disallow: /savings/
+Disallow: /budget/
+Disallow: /insights/
+Disallow: /profile/
+Disallow: /settings/
+Disallow: /onboarding/
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: {{ request.scheme }}://{{ request.get_host }}/sitemap.xml
