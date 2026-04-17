@@ -61,9 +61,13 @@ def budget_overview(request, year=None, month=None):
 
     remaining_budget = monthly_income - total_spent
 
+    _bucket_spending = {
+        row['bucket_id']: row['s']
+        for row in month_expenses.values('bucket_id').annotate(s=Sum('amount'))
+    }
     bucket_data = []
     for bucket in buckets:
-        spent = month_expenses.filter(bucket=bucket).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+        spent = _bucket_spending.get(bucket.pk) or Decimal('0')
         rollover = bucket.rollover_amount(year, month) if bucket.rollover else Decimal('0')
         effective_allocation = bucket.monthly_allocation + rollover
         remaining = effective_allocation - spent

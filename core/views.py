@@ -4,7 +4,8 @@ from collections import defaultdict
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Avg, Case, IntegerField, Sum, Value, When
+from django.core.cache import cache
+from django.db.models import Avg, Case, IntegerField, Q, Sum, Value, When
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 
@@ -107,8 +108,17 @@ def dashboard(request):
     month_qs = Transaction.objects.filter(
         user=request.user, date__gte=fstart, date__lte=fend
     )
-    total_income = month_qs.filter(transaction_type='income').aggregate(s=Sum('amount'))['s'] or Decimal('0')
-    total_expenses = month_qs.filter(transaction_type='expense').aggregate(s=Sum('amount'))['s'] or Decimal('0')
+
+    _agg_cache_key = f'dashboard_agg_{request.user.pk}_{fyear}_{fmonth}'
+    _agg = cache.get(_agg_cache_key)
+    if _agg is None:
+        _agg = month_qs.aggregate(
+            income=Sum('amount', filter=Q(transaction_type='income')),
+            expenses=Sum('amount', filter=Q(transaction_type='expense')),
+        )
+        cache.set(_agg_cache_key, _agg, 300)
+    total_income = _agg['income'] or Decimal('0')
+    total_expenses = _agg['expenses'] or Decimal('0')
     net = total_income - total_expenses
 
     recent_transactions = (
@@ -167,9 +177,13 @@ def dashboard(request):
         user=request.user, transaction_type='expense',
         date__gte=fstart, date__lte=fend,
     )
+    _bucket_spending = {
+        row['bucket_id']: row['s']
+        for row in month_expenses_qs.values('bucket_id').annotate(s=Sum('amount'))
+    }
     top_bucket_data = []
     for bucket in budget_buckets:
-        spent = month_expenses_qs.filter(bucket=bucket).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+        spent = _bucket_spending.get(bucket.pk) or Decimal('0')
         effective_alloc = bucket.monthly_allocation
         pct = min(int((spent / effective_alloc) * 100), 100) if effective_alloc > 0 else 0
         top_bucket_data.append({'bucket': bucket, 'spent': spent, 'pct': pct, 'over': spent > effective_alloc})
