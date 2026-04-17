@@ -139,6 +139,7 @@ mark.search-highlight {
                 <label for="filter-bucket" style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Bucket</label>
                 <select name="bucket" id="filter-bucket" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
                     <option value="">All buckets</option>
+                    <option value="__none__" {% if filters.bucket == '__none__' %}selected{% endif %}>Uncategorized</option>
                     {% for b in buckets %}
                         <option value="{{ b.pk }}" {% if filters.bucket == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.icon }} {{ b.name }}</option>
                     {% endfor %}
