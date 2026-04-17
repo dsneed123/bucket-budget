@@ -12,22 +12,22 @@
 
 <!-- Dashboard header with gear icon -->
 <div class="no-print" style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 16px;">
-    <button type="button" onclick="window.print()" title="Print dashboard summary"
+    <button type="button" onclick="window.print()" title="Print dashboard summary" aria-label="Print dashboard summary"
         style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; cursor: pointer; color: var(--text-secondary); font-size: 16px; display: flex; align-items: center; gap: 6px; transition: color 0.15s;">
-        &#128438; <span style="font-size: 13px; font-weight: 500;">Print Summary</span>
+        <span aria-hidden="true">&#128438;</span> <span style="font-size: 13px; font-weight: 500;">Print Summary</span>
     </button>
-    <button type="button" onclick="openWidgetModal()" title="Customize dashboard"
+    <button type="button" onclick="openWidgetModal()" title="Customize dashboard" aria-label="Customize dashboard widgets"
         style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; cursor: pointer; color: var(--text-secondary); font-size: 16px; display: flex; align-items: center; gap: 6px; transition: color 0.15s;">
-        &#9881; <span style="font-size: 13px; font-weight: 500;">Customize</span>
+        <span aria-hidden="true">&#9881;</span> <span style="font-size: 13px; font-weight: 500;">Customize</span>
     </button>
 </div>
 
 <!-- Widget Customization Modal -->
-<div id="widget-modal" class="no-print" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
+<div id="widget-modal" class="no-print" role="dialog" aria-modal="true" aria-labelledby="widget-modal-title" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
     <div style="background: var(--bg-card); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 420px; margin: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-            <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">Customize Dashboard</h3>
-            <button type="button" onclick="closeWidgetModal()" style="background: none; border: none; color: var(--text-secondary); font-size: 20px; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+            <h3 id="widget-modal-title" style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">Customize Dashboard</h3>
+            <button type="button" onclick="closeWidgetModal()" aria-label="Close customize dashboard dialog" style="background: none; border: none; color: var(--text-secondary); font-size: 20px; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
         </div>
         <form method="post" action="{% url 'save_widget_preferences' %}">
             {% csrf_token %}
@@ -71,7 +71,7 @@
 <!-- Streak Banner -->
 {% if streak.current_streak > 0 %}
 <div style="display: flex; align-items: center; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 18px; margin-bottom: 20px;">
-    <span style="font-size: 22px;">🔥</span>
+    <span style="font-size: 22px;" aria-hidden="true">🔥</span>
     <div>
         <span style="font-size: 15px; font-weight: 700; color: var(--text-primary);">
             {{ streak.current_streak }} day streak!
@@ -115,11 +115,14 @@
     <div class="card" style="padding: 20px;">
         <p class="stat-label">Savings Rate
             {% if sidebar_savings_rate_arrow == 'up' %}
-                <span class="savings-rate-arrow savings-rate-arrow-up" style="font-size: 10px;">&#9650;</span>
+                <span class="savings-rate-arrow savings-rate-arrow-up" style="font-size: 10px;" aria-hidden="true">&#9650;</span>
+                <span class="sr-only">trending up</span>
             {% elif sidebar_savings_rate_arrow == 'down' %}
-                <span class="savings-rate-arrow savings-rate-arrow-down" style="font-size: 10px;">&#9660;</span>
+                <span class="savings-rate-arrow savings-rate-arrow-down" style="font-size: 10px;" aria-hidden="true">&#9660;</span>
+                <span class="sr-only">trending down</span>
             {% elif sidebar_savings_rate_arrow == 'same' %}
-                <span class="savings-rate-arrow savings-rate-arrow-same" style="font-size: 10px;">&#8212;</span>
+                <span class="savings-rate-arrow savings-rate-arrow-same" style="font-size: 10px;" aria-hidden="true">&#8212;</span>
+                <span class="sr-only">no change</span>
             {% endif %}
         </p>
         {% if sidebar_savings_rate is not None %}
@@ -200,7 +203,7 @@
                             {{ total_expenses|currency:user.currency }} / {{ total_allocated|currency:user.currency }} ({{ budget_pct }}%)
                         </span>
                     </div>
-                    <div class="progress" style="height: 10px;">
+                    <div class="progress" style="height: 10px;" role="progressbar" aria-valuenow="{{ budget_pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="Budget: {{ budget_pct }}% spent">
                         <div class="progress-bar" style="width: {{ budget_pct }}%; background: {% if budget_pct >= 100 %}var(--accent-red){% elif budget_pct >= 80 %}#f9ca24{% else %}var(--accent-blue){% endif %};"></div>
                     </div>
                 </div>
@@ -229,12 +232,12 @@
                         {% for item in top_buckets %}
                         <div>
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                <span style="font-size: 13px; color: var(--text-primary);">{{ item.bucket.icon }} {{ item.bucket.name }}</span>
+                                <span style="font-size: 13px; color: var(--text-primary);"><span aria-hidden="true">{{ item.bucket.icon }}</span> {{ item.bucket.name }}</span>
                                 <span style="font-size: 12px; font-weight: 600; color: {% if item.over %}var(--accent-red){% else %}var(--text-secondary){% endif %};">
                                     {{ item.spent|currency:user.currency }} / {{ item.bucket.monthly_allocation|currency:user.currency }} ({{ item.pct }}%)
                                 </span>
                             </div>
-                            <div class="progress" style="height: 6px;">
+                            <div class="progress" style="height: 6px;" role="progressbar" aria-valuenow="{{ item.pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ item.bucket.name }}: {{ item.pct }}% of budget spent">
                                 <div class="progress-bar" style="width: {{ item.pct }}%; background: {% if item.over %}var(--accent-red){% else %}{{ item.bucket.color }}{% endif %};"></div>
                             </div>
                         </div>
@@ -321,10 +324,11 @@
                 <div class="cal-day{% if cell.is_today %} cal-day-today{% endif %}{% if cell.has_income or cell.has_expense %} cal-day-active{% endif %}{% if cell.is_no_spend and not cell.is_today %} cal-day-no-spend{% endif %}"
                      data-day="{{ cell.day }}"
                      onclick="calShowDay(this, {{ cell.day }})"
+                     {% if cell.has_income or cell.has_expense %}role="button" tabindex="0" aria-label="{{ cell.day }} {{ current_month }}{% if cell.has_income %}, has income{% endif %}{% if cell.has_expense %}, has expenses{% endif %}"{% else %}aria-label="{{ cell.day }} {{ current_month }}"{% endif %}
                      style="display: flex; flex-direction: column; align-items: center; padding: 4px 2px; border-radius: var(--radius-sm); cursor: {% if cell.has_income or cell.has_expense %}pointer{% else %}default{% endif %}; position: relative;
                             {% if cell.is_today %}background: var(--accent-blue); color: #fff;{% elif cell.is_no_spend %}background: rgba(0,212,170,0.15);{% endif %}">
-                    <span style="font-size: 12px; font-weight: {% if cell.is_today %}700{% else %}400{% endif %}; color: {% if cell.is_today %}#fff{% else %}var(--text-primary){% endif %}; line-height: 1.4;">{{ cell.day }}</span>
-                    <div style="display: flex; gap: 2px; height: 5px; margin-top: 2px;">
+                    <span style="font-size: 12px; font-weight: {% if cell.is_today %}700{% else %}400{% endif %}; color: {% if cell.is_today %}#fff{% else %}var(--text-primary){% endif %}; line-height: 1.4;" aria-hidden="true">{{ cell.day }}</span>
+                    <div style="display: flex; gap: 2px; height: 5px; margin-top: 2px;" aria-hidden="true">
                         {% if cell.has_income %}<span style="width: 5px; height: 5px; border-radius: 50%; background: {% if cell.is_today %}rgba(255,255,255,0.9){% else %}var(--accent-green){% endif %}; display: inline-block; flex-shrink: 0;"></span>{% endif %}
                         {% if cell.has_expense %}<span style="width: 5px; height: 5px; border-radius: 50%; background: {% if cell.is_today %}rgba(255,255,255,0.9){% else %}var(--accent-red){% endif %}; display: inline-block; flex-shrink: 0;"></span>{% endif %}
                     </div>
@@ -337,7 +341,7 @@
             {% endfor %}
 
             <!-- Transaction detail panel -->
-            <div id="cal-detail" style="display: none; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);">
+            <div id="cal-detail" aria-live="polite" style="display: none; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);">
                 <p id="cal-detail-title" style="margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--text-primary);"></p>
                 <ul id="cal-detail-list" style="margin: 0; padding: 0; list-style: none;"></ul>
             </div>
@@ -347,12 +351,22 @@
             .cal-day { transition: background 0.1s; }
             .cal-day:not(.cal-day-today):hover { background: var(--bg-primary); }
             .cal-day-selected:not(.cal-day-today) { background: var(--bg-secondary) !important; outline: 2px solid var(--accent-blue); outline-offset: -2px; }
+            .cal-day[role="button"]:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 2px; }
             .cal-day-no-spend { background: rgba(0,212,170,0.15); }
             </style>
             <script>
             (function() {
                 var calTxns = JSON.parse(document.getElementById('cal-txns-data').textContent);
                 var _selectedDay = null;
+
+                // Keyboard support for calendar day buttons
+                document.addEventListener('keydown', function(e) {
+                    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('cal-day') && e.target.getAttribute('role') === 'button') {
+                        e.preventDefault();
+                        var day = parseInt(e.target.dataset.day, 10);
+                        window.calShowDay(e.target, day);
+                    }
+                });
 
                 window.calShowDay = function(el, day) {
                     var detail = document.getElementById('cal-detail');
@@ -406,7 +420,7 @@
             </div>
 
             <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
-                <span style="font-size: 28px;">🌿</span>
+                <span style="font-size: 28px;" aria-hidden="true">🌿</span>
                 <div>
                     <p style="margin: 0; font-size: 22px; font-weight: 700; color: var(--accent-green);">
                         {{ no_spend_days }} <span style="font-size: 15px; font-weight: 400; color: var(--text-secondary);">/ {{ days_elapsed }} days elapsed</span>
@@ -423,15 +437,15 @@
             </div>
 
             {% if no_spend_goal > 0 %}
-            <div class="progress" style="height: 8px; margin-bottom: 16px;">
+            <div class="progress" style="height: 8px; margin-bottom: 16px;" role="progressbar" aria-valuenow="{{ no_spend_days }}" aria-valuemin="0" aria-valuemax="{{ no_spend_goal }}" aria-label="No-spend days: {{ no_spend_days }} of {{ no_spend_goal }} goal">
                 <div class="progress-bar" style="width: {% widthratio no_spend_days no_spend_goal 100 %}%; background: var(--accent-green); max-width: 100%;"></div>
             </div>
             {% endif %}
 
             <form method="post" action="{% url 'save_no_spend_goal' %}" class="no-print" style="display: flex; gap: 8px; align-items: center;">
                 {% csrf_token %}
-                <label style="font-size: 13px; color: var(--text-secondary); flex-shrink: 0;">Monthly goal:</label>
-                <input type="number" name="no_spend_goal" min="0" max="31"
+                <label for="no-spend-goal-input" style="font-size: 13px; color: var(--text-secondary); flex-shrink: 0;">Monthly goal:</label>
+                <input type="number" id="no-spend-goal-input" name="no_spend_goal" min="0" max="31"
                     value="{{ no_spend_goal }}"
                     placeholder="0"
                     style="width: 64px; padding: 6px 8px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 14px;">
@@ -453,7 +467,7 @@
             </div>
 
             <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
-                <span style="font-size: 28px;">💰</span>
+                <span style="font-size: 28px;" aria-hidden="true">💰</span>
                 <div>
                     <p style="margin: 0; font-size: 22px; font-weight: 700; color: var(--accent-green);">
                         {{ total_income|currency:user.currency }}
@@ -475,7 +489,7 @@
             </div>
 
             {% if monthly_income > 0 %}
-            <div class="progress" style="height: 8px;">
+            <div class="progress" style="height: 8px;" role="progressbar" aria-valuenow="{{ income_pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="Income received: {{ income_pct }}% of expected monthly income">
                 <div class="progress-bar" style="width: {{ income_pct }}%; background: var(--accent-green); max-width: 100%;"></div>
             </div>
             <p style="margin: 8px 0 0; font-size: 12px; color: var(--text-secondary);">
@@ -540,23 +554,23 @@
         {% endif %}
 
         <!-- Quick Contribute Modal -->
-        <div id="contribute-modal" class="no-print" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
+        <div id="contribute-modal" class="no-print" role="dialog" aria-modal="true" aria-labelledby="contribute-modal-title" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
             <div style="background: var(--bg-card); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 420px; margin: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
                     <h3 id="contribute-modal-title" style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">Quick Contribute</h3>
-                    <button type="button" onclick="closeContributeModal()" style="background: none; border: none; color: var(--text-secondary); font-size: 20px; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+                    <button type="button" onclick="closeContributeModal()" aria-label="Close contribute dialog" style="background: none; border: none; color: var(--text-secondary); font-size: 20px; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
                 </div>
                 <form id="contribute-modal-form" method="post" action="">
                     {% csrf_token %}
                     <input type="hidden" name="next" value="/dashboard/">
                     <div style="margin-bottom: 16px;">
-                        <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">Amount</label>
-                        <input type="number" name="amount" step="0.01" min="0.01" required placeholder="0.00"
+                        <label for="contribute-amount" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">Amount</label>
+                        <input type="number" id="contribute-amount" name="amount" step="0.01" min="0.01" required placeholder="0.00"
                             style="width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 15px; box-sizing: border-box;">
                     </div>
                     <div style="margin-bottom: 20px;">
-                        <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">From Account</label>
-                        <select name="source_account" required
+                        <label for="contribute-account" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">From Account</label>
+                        <select id="contribute-account" name="source_account" required
                             style="width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 14px; box-sizing: border-box;">
                             <option value="">Select account…</option>
                             {% for account in accounts %}
@@ -608,7 +622,7 @@
                 {% for entry in bill_countdown %}
                 <li style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border);">
                     <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
-                        <span style="font-size: 20px; flex-shrink: 0;">💳</span>
+                        <span style="font-size: 20px; flex-shrink: 0;" aria-hidden="true">💳</span>
                         <div style="min-width: 0;">
                             <p style="margin: 0; font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                 {{ entry.item.description }}
@@ -689,7 +703,7 @@
                     <form method="post" action="{% url 'dismiss_recommendation' rec.pk %}">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="/dashboard/">
-                        <button type="submit" class="recommendation-dismiss" title="Dismiss">&times;</button>
+                        <button type="submit" class="recommendation-dismiss" aria-label="Dismiss recommendation">&times;</button>
                     </form>
                 </div>
                 {% endfor %}
@@ -711,7 +725,7 @@
                 <ul style="list-style: none; padding: 0; margin: 0;">
                     {% for event in activity_feed %}
                     <li style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border);">
-                        <span style="font-size: 20px; flex-shrink: 0; width: 28px; text-align: center;">{{ event.icon }}</span>
+                        <span style="font-size: 20px; flex-shrink: 0; width: 28px; text-align: center;" aria-hidden="true">{{ event.icon }}</span>
                         <div style="flex: 1; min-width: 0;">
                             <p style="margin: 0; font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ event.description }}</p>
                             <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-secondary);">{{ event.timestamp|timesince }} ago</p>

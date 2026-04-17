@@ -21,6 +21,7 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body class="theme-{{ user_theme }}">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <div class="nav-loading-bar" id="nav-loading-bar"></div>
     <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle-input">
     <div class="layout">
@@ -30,35 +31,35 @@
                 <span class="logo">Bucket Budget</span>
             </div>
             <ul class="nav-links">
-                <li><a href="/dashboard/" {% if request.path == '/dashboard/' %}class="active"{% endif %}>
-                    <span class="nav-icon">📊</span>Dashboard
+                <li><a href="/dashboard/" {% if request.path == '/dashboard/' %}class="active" aria-current="page"{% endif %}>
+                    <span class="nav-icon" aria-hidden="true">📊</span>Dashboard
                 </a></li>
-                <li><a href="/transactions/" {% if request.path == '/transactions/' %}class="active"{% endif %}>
-                    <span class="nav-icon">💳</span>Transactions
+                <li><a href="/transactions/" {% if request.path == '/transactions/' %}class="active" aria-current="page"{% endif %}>
+                    <span class="nav-icon" aria-hidden="true">💳</span>Transactions
                 </a></li>
-                <li><a href="/buckets/" {% if request.path == '/buckets/' %}class="active"{% endif %}>
-                    <span class="nav-icon">🪣</span>Buckets
+                <li><a href="/buckets/" {% if request.path == '/buckets/' %}class="active" aria-current="page"{% endif %}>
+                    <span class="nav-icon" aria-hidden="true">🪣</span>Buckets
                 </a></li>
-                <li><a href="/budget/" {% if request.path == '/budget/' %}class="active"{% endif %}>
-                    <span class="nav-icon">💰</span>Budget
+                <li><a href="/budget/" {% if request.path == '/budget/' %}class="active" aria-current="page"{% endif %}>
+                    <span class="nav-icon" aria-hidden="true">💰</span>Budget
                 </a></li>
-                <li><a href="/savings/" {% if request.path == '/savings/' %}class="active"{% endif %}>
-                    <span class="nav-icon">🎯</span>Savings Goals
+                <li><a href="/savings/" {% if request.path == '/savings/' %}class="active" aria-current="page"{% endif %}>
+                    <span class="nav-icon" aria-hidden="true">🎯</span>Savings Goals
                 </a></li>
-                <li><a href="/rankings/" {% if request.path == '/rankings/' or request.path == '/rankings/review/' %}class="active"{% endif %}>
-                    <span class="nav-icon">🏆</span>Rankings
+                <li><a href="/rankings/" {% if request.path == '/rankings/' or request.path == '/rankings/review/' %}class="active" aria-current="page"{% endif %}>
+                    <span class="nav-icon" aria-hidden="true">🏆</span>Rankings
                 </a></li>
-                <li><a href="/rankings/review/" {% if request.path == '/rankings/review/' %}class="active"{% endif %}>
-                    <span class="nav-icon">⭐</span>Score Review{% if unscored_count %} <span class="nav-badge">{{ unscored_count }}</span>{% endif %}
+                <li><a href="/rankings/review/" {% if request.path == '/rankings/review/' %}class="active" aria-current="page"{% endif %}>
+                    <span class="nav-icon" aria-hidden="true">⭐</span>Score Review{% if unscored_count %} <span class="nav-badge">{{ unscored_count }}</span>{% endif %}
                 </a></li>
-                <li><a href="/insights/" {% if request.path == '/insights/' %}class="active"{% endif %}>
-                    <span class="nav-icon">💡</span>Insights
+                <li><a href="/insights/" {% if request.path == '/insights/' %}class="active" aria-current="page"{% endif %}>
+                    <span class="nav-icon" aria-hidden="true">💡</span>Insights
                 </a></li>
-                <li><a href="/accounts/" {% if request.path == '/accounts/' %}class="active"{% endif %}>
-                    <span class="nav-icon">🏦</span>Accounts
+                <li><a href="/accounts/" {% if request.path == '/accounts/' %}class="active" aria-current="page"{% endif %}>
+                    <span class="nav-icon" aria-hidden="true">🏦</span>Accounts
                 </a></li>
-                <li><a href="/recurring/" {% if request.path == '/recurring/' %}class="active"{% endif %}>
-                    <span class="nav-icon">🔄</span>Recurring
+                <li><a href="/recurring/" {% if request.path == '/recurring/' %}class="active" aria-current="page"{% endif %}>
+                    <span class="nav-icon" aria-hidden="true">🔄</span>Recurring
                 </a></li>
             </ul>
             {% if user.is_authenticated %}
@@ -92,11 +93,14 @@
                         {% if sidebar_savings_rate is not None %}
                             {{ sidebar_savings_rate }}%
                             {% if sidebar_savings_rate_arrow == 'up' %}
-                                <span class="savings-rate-arrow savings-rate-arrow-up">&#9650;</span>
+                                <span class="savings-rate-arrow savings-rate-arrow-up" aria-hidden="true">&#9650;</span>
+                                <span class="sr-only">trending up</span>
                             {% elif sidebar_savings_rate_arrow == 'down' %}
-                                <span class="savings-rate-arrow savings-rate-arrow-down">&#9660;</span>
+                                <span class="savings-rate-arrow savings-rate-arrow-down" aria-hidden="true">&#9660;</span>
+                                <span class="sr-only">trending down</span>
                             {% elif sidebar_savings_rate_arrow == 'same' %}
-                                <span class="savings-rate-arrow savings-rate-arrow-same">&#8212;</span>
+                                <span class="savings-rate-arrow savings-rate-arrow-same" aria-hidden="true">&#8212;</span>
+                                <span class="sr-only">no change</span>
                             {% endif %}
                         {% else %}
                             <span class="quality-score-na">—</span>
@@ -114,14 +118,14 @@
             {% endif %}
             <div class="nav-bottom">
                 <ul class="nav-links">
-                    <li><a href="/profile/" {% if request.path == '/profile/' %}class="active"{% endif %}>
-                        <span class="nav-icon">👤</span>Profile
+                    <li><a href="/profile/" {% if request.path == '/profile/' %}class="active" aria-current="page"{% endif %}>
+                        <span class="nav-icon" aria-hidden="true">👤</span>Profile
                     </a></li>
-                    <li><a href="/settings/" {% if request.path == '/settings/' %}class="active"{% endif %}>
-                        <span class="nav-icon">⚙️</span>Settings
+                    <li><a href="/settings/" {% if request.path == '/settings/' %}class="active" aria-current="page"{% endif %}>
+                        <span class="nav-icon" aria-hidden="true">⚙️</span>Settings
                     </a></li>
-                    <li><a href="/logout/" {% if request.path == '/logout/' %}class="active"{% endif %}>
-                        <span class="nav-icon">🚪</span>Logout
+                    <li><a href="/logout/" {% if request.path == '/logout/' %}class="active" aria-current="page"{% endif %}>
+                        <span class="nav-icon" aria-hidden="true">🚪</span>Logout
                     </a></li>
                 </ul>
             </div>
@@ -141,7 +145,7 @@
                     {% if user.is_authenticated %}
                         <span class="balance-display {% if net_worth >= 0 %}balance-positive{% else %}balance-negative{% endif %}">{{ net_worth|currency:user.currency }}</span>
                         <span class="username">Hi, {{ user.first_name|default:user.username }}</span>
-                        <a href="/profile/" class="avatar" style="background-color: {{ user.email|avatar_color }};" title="{{ user.first_name }} {{ user.last_name }}">{{ user|avatar_initials }}</a>
+                        <a href="/profile/" class="avatar" style="background-color: {{ user.email|avatar_color }};" title="{{ user.first_name }} {{ user.last_name }}" aria-label="Profile: {{ user.first_name }} {{ user.last_name }}">{{ user|avatar_initials }}</a>
                     {% else %}
                         <a href="#" class="user-link">Sign in</a>
                     {% endif %}
@@ -161,27 +165,27 @@
             </div>
             {% endif %}
 
-            <main class="content">
+            <main class="content" id="main-content">
                 {% block content %}{% endblock %}
             </main>
         </div>
     </div>
 
     <nav class="bottom-nav" aria-label="Mobile navigation">
-        <a href="/dashboard/" class="bottom-nav-item {% if request.path == '/dashboard/' %}active{% endif %}">
-            <span class="bottom-nav-icon">📊</span>
+        <a href="/dashboard/" class="bottom-nav-item {% if request.path == '/dashboard/' %}active{% endif %}" {% if request.path == '/dashboard/' %}aria-current="page"{% endif %}>
+            <span class="bottom-nav-icon" aria-hidden="true">📊</span>
             <span class="bottom-nav-label">Dashboard</span>
         </a>
-        <a href="/transactions/" class="bottom-nav-item {% if request.path == '/transactions/' %}active{% endif %}">
-            <span class="bottom-nav-icon">💳</span>
+        <a href="/transactions/" class="bottom-nav-item {% if request.path == '/transactions/' %}active{% endif %}" {% if request.path == '/transactions/' %}aria-current="page"{% endif %}>
+            <span class="bottom-nav-icon" aria-hidden="true">💳</span>
             <span class="bottom-nav-label">Transactions</span>
         </a>
-        <a href="/budget/" class="bottom-nav-item {% if request.path == '/budget/' %}active{% endif %}">
-            <span class="bottom-nav-icon">💰</span>
+        <a href="/budget/" class="bottom-nav-item {% if request.path == '/budget/' %}active{% endif %}" {% if request.path == '/budget/' %}aria-current="page"{% endif %}>
+            <span class="bottom-nav-icon" aria-hidden="true">💰</span>
             <span class="bottom-nav-label">Budget</span>
         </a>
-        <a href="/buckets/" class="bottom-nav-item {% if request.path == '/buckets/' %}active{% endif %}">
-            <span class="bottom-nav-icon">🪣</span>
+        <a href="/buckets/" class="bottom-nav-item {% if request.path == '/buckets/' %}active{% endif %}" {% if request.path == '/buckets/' %}aria-current="page"{% endif %}>
+            <span class="bottom-nav-icon" aria-hidden="true">🪣</span>
             <span class="bottom-nav-label">More</span>
         </a>
     </nav>
@@ -207,11 +211,11 @@
         })();
     </script>
 
-    <div class="kbd-modal-overlay" id="kbd-modal-overlay" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+    <div class="kbd-modal-overlay" id="kbd-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="kbd-modal-title">
         <div class="kbd-modal">
             <div class="kbd-modal-header">
-                <span class="kbd-modal-title">Keyboard Shortcuts</span>
-                <button class="kbd-modal-close" id="kbd-modal-close" aria-label="Close">&times;</button>
+                <span class="kbd-modal-title" id="kbd-modal-title">Keyboard Shortcuts</span>
+                <button class="kbd-modal-close" id="kbd-modal-close" aria-label="Close keyboard shortcuts dialog">&times;</button>
             </div>
             <ul class="kbd-list">
                 <li><span>Dashboard</span><kbd>d</kbd></li>
@@ -251,6 +255,7 @@
                 if (btn && !btn.disabled) {
                     btn.disabled = true;
                     btn.classList.add('btn-loading');
+                    btn.setAttribute('aria-busy', 'true');
                 }
             });
         })();
