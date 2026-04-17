@@ -8,6 +8,7 @@ from django.http import StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
+from accounts.currencies import format_currency
 from accounts.utils import get_current_fiscal_month, get_fiscal_month_range, get_user_fiscal_start
 from buckets.models import Bucket
 from core.utils import make_breadcrumbs
@@ -127,7 +128,7 @@ def budget_overview(request, year=None, month=None):
         if item['bucket'].monthly_allocation == 0 and item['spent'] > 0:
             alerts.append({
                 'level': 'warning',
-                'message': f'{item["bucket"].icon} {item["bucket"].name} has no allocation but has ${item["spent"]:,.2f} in spending.',
+                'message': f'{item["bucket"].icon} {item["bucket"].name} has no allocation but has {format_currency(item["spent"], request.user.currency)} in spending.',
             })
 
     total_remaining = total_allocated - total_spent

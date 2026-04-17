@@ -9,6 +9,7 @@ from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from accounts.currencies import format_currency
 from banking.models import BankAccount
 from core.utils import make_breadcrumbs
 from transactions.models import Transaction
@@ -553,7 +554,7 @@ def savings_goal_contribute(request, goal_id):
         goal.save()
         messages.success(request, f'Congratulations! You\'ve reached your goal "{goal.name}"!')
     else:
-        messages.success(request, f'Contribution of ${amount_val:,.2f} added successfully.')
+        messages.success(request, f'Contribution of {format_currency(amount_val, request.user.currency)} added successfully.')
 
     next_url = request.POST.get('next', '').strip()
     if next_url and next_url.startswith('/'):
@@ -582,7 +583,7 @@ def savings_goal_withdraw(request, goal_id):
             if amount_val <= 0:
                 errors['withdraw_amount'] = 'Amount must be greater than zero.'
             elif amount_val > goal.current_amount:
-                errors['withdraw_amount'] = f'Cannot withdraw more than the saved amount (${goal.current_amount:,.2f}).'
+                errors['withdraw_amount'] = f'Cannot withdraw more than the saved amount ({format_currency(goal.current_amount, request.user.currency)}).'
         except InvalidOperation:
             errors['withdraw_amount'] = 'Please enter a valid number.'
 
@@ -651,7 +652,7 @@ def savings_goal_withdraw(request, goal_id):
         goal.is_achieved = False
         goal.save()
 
-    messages.success(request, f'Withdrawal of ${amount_val:,.2f} recorded successfully.')
+    messages.success(request, f'Withdrawal of {format_currency(amount_val, request.user.currency)} recorded successfully.')
     return redirect('savings:savings_goal_detail', goal_id=goal.pk)
 
 
