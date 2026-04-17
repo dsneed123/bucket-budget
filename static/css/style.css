@@ -1454,6 +1454,57 @@ table th.sortable:hover {
 }
 
 /* =====================
+   Tablet responsive (768px–1024px)
+   ===================== */
+
+@media (min-width: 768px) and (max-width: 1024px) {
+    /* Collapse sidebar to icon-only narrow bar */
+    :root {
+        --sidebar-width: 64px;
+    }
+
+    .sidebar-header {
+        padding: 20px 0;
+        justify-content: center;
+    }
+
+    .logo {
+        display: none;
+    }
+
+    /* Center icons; hide text labels using font-size trick on text nodes */
+    .nav-links li a {
+        padding: 12px 0;
+        justify-content: center;
+        gap: 0;
+        font-size: 0;
+        white-space: nowrap;
+    }
+
+    .nav-links li a .nav-icon {
+        font-size: 18px;
+        width: 20px;
+    }
+
+    /* Hide sidebar stat widgets — not enough room at 64px */
+    .sidebar-quality-widget,
+    .sidebar-savings-rate-widget {
+        display: none;
+    }
+
+    /* Cards: collapse 4-col and 3-col grids to 2-col */
+    .grid-3,
+    .grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* Tables remain horizontally scrollable */
+    .table-wrapper {
+        overflow-x: auto;
+    }
+}
+
+/* =====================
    Mobile responsive (<768px)
    ===================== */
 
