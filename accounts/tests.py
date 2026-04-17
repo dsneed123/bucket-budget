@@ -103,7 +103,7 @@ class ProfileZeroBasedBudgetingTest(TestCase):
         }
         if zero_based:
             data['zero_based_budgeting'] = 'on'
-        return self.client.post(reverse('profile'), data)
+        return self.client.post(reverse('accounts:profile'), data)
 
     def test_zero_based_budgeting_enabled_on_save(self):
         self._post_profile(zero_based=True)

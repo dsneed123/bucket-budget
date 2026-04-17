@@ -21,7 +21,7 @@ urlpatterns = [
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     path('robots.txt', TemplateView.as_view(template_name='robots.txt', content_type='text/plain')),
     path('', include('core.urls')),
-    path('', include('accounts.urls')),
+    path('', include('accounts.urls', namespace='accounts')),
     path('', include('banking.urls')),
     path('', include('buckets.urls')),
     path('', include('transactions.urls')),

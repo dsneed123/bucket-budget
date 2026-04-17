@@ -73,18 +73,18 @@ class LoginViewTest(TestCase):
         self.user = _make_user()
 
     def test_get_login_page_returns_200(self):
-        response = self.client.get(reverse('login'))
+        response = self.client.get(reverse('accounts:login'))
         self.assertEqual(response.status_code, 200)
 
     def test_post_valid_credentials_redirects(self):
-        response = self.client.post(reverse('login'), {
+        response = self.client.post(reverse('accounts:login'), {
             'email': 'user@example.com',
             'password': 'testpass',
         })
         self.assertIn(response.status_code, (301, 302))
 
     def test_post_invalid_password_shows_error(self):
-        response = self.client.post(reverse('login'), {
+        response = self.client.post(reverse('accounts:login'), {
             'email': 'user@example.com',
             'password': 'wrongpass',
         })
@@ -92,7 +92,7 @@ class LoginViewTest(TestCase):
         self.assertIn('form', response.context['errors'])
 
     def test_post_nonexistent_email_shows_error(self):
-        response = self.client.post(reverse('login'), {
+        response = self.client.post(reverse('accounts:login'), {
             'email': 'nobody@example.com',
             'password': 'testpass',
         })
@@ -101,7 +101,7 @@ class LoginViewTest(TestCase):
 
     def test_authenticated_user_redirected_away_from_login(self):
         self.client.login(email='user@example.com', password='testpass')
-        response = self.client.get(reverse('login'))
+        response = self.client.get(reverse('accounts:login'))
         self.assertEqual(response.status_code, 302)
 
 
@@ -110,11 +110,11 @@ class RegisterViewTest(TestCase):
         self.client = Client()
 
     def test_get_register_page_returns_200(self):
-        response = self.client.get(reverse('register'))
+        response = self.client.get(reverse('accounts:register'))
         self.assertEqual(response.status_code, 200)
 
     def test_post_valid_data_creates_user_and_redirects(self):
-        response = self.client.post(reverse('register'), {
+        response = self.client.post(reverse('accounts:register'), {
             'email': 'new@example.com',
             'first_name': 'New',
             'password': 'Securepass1!',
@@ -125,7 +125,7 @@ class RegisterViewTest(TestCase):
 
     def test_post_duplicate_email_shows_error(self):
         _make_user(email='existing@example.com')
-        response = self.client.post(reverse('register'), {
+        response = self.client.post(reverse('accounts:register'), {
             'email': 'existing@example.com',
             'first_name': 'Dup',
             'password': 'Securepass1!',

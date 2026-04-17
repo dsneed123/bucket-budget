@@ -72,7 +72,7 @@ class NoSpendDaysTest(TestCase):
         self.assertEqual(response.context['no_spend_goal'], 0)
 
     def test_save_no_spend_goal(self):
-        response = self.client.post(reverse('save_no_spend_goal'), {'no_spend_goal': '15'})
+        response = self.client.post(reverse('accounts:save_no_spend_goal'), {'no_spend_goal': '15'})
         self.assertRedirects(response, '/dashboard/')
         prefs = UserPreferences.objects.get(user=self.user)
         self.assertEqual(prefs.no_spend_goal, 15)
@@ -85,7 +85,7 @@ class NoSpendDaysTest(TestCase):
         self.assertEqual(response.context['no_spend_goal'], 20)
 
     def test_no_spend_goal_cannot_be_negative(self):
-        self.client.post(reverse('save_no_spend_goal'), {'no_spend_goal': '-5'})
+        self.client.post(reverse('accounts:save_no_spend_goal'), {'no_spend_goal': '-5'})
         prefs = UserPreferences.objects.get(user=self.user)
         self.assertEqual(prefs.no_spend_goal, 0)
 

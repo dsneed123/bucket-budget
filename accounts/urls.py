@@ -1,3 +1,5 @@
+app_name = 'accounts'
+
 from django.contrib.auth.views import (
     LogoutView,
     PasswordResetDoneView,
