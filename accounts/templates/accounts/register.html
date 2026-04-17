@@ -7,7 +7,7 @@
     <p class="auth-subtitle">Start tracking your budget today.</p>
 
     {% if errors.form %}
-        <p class="form-error mb-3">{{ errors.form }}</p>
+        <div class="form-error-alert">{{ errors.form }}</div>
     {% endif %}
 
     <form method="post" novalidate>
