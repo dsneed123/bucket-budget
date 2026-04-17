@@ -92,6 +92,25 @@
     });
 })();
 </script>
+<script>
+(function() {
+    var radios = document.querySelectorAll('input[name="transaction_type"]');
+    function updateToggle() {
+        radios.forEach(function(r) {
+            var label = r.closest('label');
+            if (r.checked) {
+                label.style.background = r.value === 'expense' ? 'var(--accent-red, #e74c3c)' : 'var(--accent-green)';
+                label.style.color = '#fff';
+            } else {
+                label.style.background = 'var(--bg-primary)';
+                label.style.color = '';
+            }
+        });
+    }
+    radios.forEach(function(r) { r.addEventListener('change', updateToggle); });
+    updateToggle();
+})();
+</script>
 
 <!-- Streak Banner -->
 {% if streak.current_streak > 0 %}
@@ -231,6 +250,70 @@
 
     <!-- ===== LEFT COLUMN ===== -->
     <div class="dashboard-col">
+
+        <!-- Quick Add Transaction -->
+        {% if accounts %}
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Quick Add</h2>
+                <p class="card-subtitle">Record a transaction fast</p>
+            </div>
+            <form method="post" action="{% url 'transaction_add' %}" novalidate>
+                {% csrf_token %}
+                <input type="hidden" name="next" value="/dashboard/">
+                <input type="hidden" name="date" value="{{ quick_add_form_data.date }}">
+
+                <div style="display: flex; gap: 0; margin-bottom: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; width: 100%;">
+                    <label style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 500; padding: 7px 0; background: var(--bg-primary); transition: background 0.15s;">
+                        <input type="radio" name="transaction_type" value="expense" style="display: none;"
+                            {% if quick_add_form_data.transaction_type != 'income' %}checked{% endif %}>
+                        <span>Expense</span>
+                    </label>
+                    <label style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 500; padding: 7px 0; background: var(--bg-primary); border-left: 1px solid var(--border); transition: background 0.15s;">
+                        <input type="radio" name="transaction_type" value="income" style="display: none;"
+                            {% if quick_add_form_data.transaction_type == 'income' %}checked{% endif %}>
+                        <span>Income</span>
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                    <input type="number" name="amount" class="form-control" placeholder="0.00" step="0.01" min="0.01"
+                        value="{{ quick_add_form_data.amount|default:'' }}"
+                        style="flex: 0 0 110px; font-size: 14px;" aria-label="Amount">
+                    <input type="text" name="description" class="form-control" placeholder="Description"
+                        value="{{ quick_add_form_data.description|default:'' }}"
+                        style="flex: 1; font-size: 14px;" aria-label="Description">
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                    <select name="bucket" class="form-control" style="flex: 1; font-size: 13px;" aria-label="Bucket">
+                        <option value="">— No bucket —</option>
+                        {% for bucket in buckets %}
+                        <option value="{{ bucket.pk }}"
+                            {% if quick_add_form_data.bucket|stringformat:"s" == bucket.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ bucket.icon }} {{ bucket.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    {% if accounts|length == 1 %}
+                    <input type="hidden" name="account" value="{{ accounts.0.pk }}">
+                    {% else %}
+                    <select name="account" class="form-control" style="flex: 1; font-size: 13px;" aria-label="Account">
+                        <option value="">— Account —</option>
+                        {% for account in accounts %}
+                        <option value="{{ account.pk }}"
+                            {% if quick_add_form_data.account|stringformat:"s" == account.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ account.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    {% endif %}
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 14px;">Add Transaction</button>
+            </form>
+        </div>
+        {% endif %}
 
         <!-- Budget Overview -->
         {% if widgets.budget_overview and total_allocated > 0 %}
