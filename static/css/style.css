@@ -533,6 +533,7 @@ body {
     text-decoration: none;
     transition: background-color 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
     line-height: 1.4;
+    position: relative;
 }
 
 .btn:disabled {
@@ -1545,4 +1546,73 @@ kbd {
     margin-bottom: 24px;
     color: var(--text-secondary);
     font-size: 14px;
+}
+
+/* =====================
+   Loading states
+   ===================== */
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes nav-bar-sweep {
+    0%   { transform: translateX(-200%); }
+    100% { transform: translateX(400%); }
+}
+
+/* Nav loading bar — top-of-page progress indicator on navigation */
+.nav-loading-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    z-index: 9999;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+.nav-loading-bar.active {
+    opacity: 1;
+}
+
+.nav-loading-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 40%;
+    height: 100%;
+    background: var(--accent-green);
+    border-radius: 2px;
+    animation: nav-bar-sweep 1s ease-in-out infinite;
+}
+
+/* Button loading state — spinner replaces button text */
+.btn-loading {
+    color: transparent !important;
+    pointer-events: none;
+}
+
+.btn-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    animation: spin 0.6s linear infinite;
+}
+
+/* Primary button spinner uses dark color to match text-on-green-bg */
+.btn-primary.btn-loading::after {
+    border-color: rgba(13, 17, 23, 0.3);
+    border-top-color: #0d1117;
 }
