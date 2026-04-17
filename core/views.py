@@ -301,7 +301,7 @@ def dashboard(request):
     )[:3]
 
     upcoming_end = today + datetime.timedelta(days=7)
-    upcoming_recurring = (
+    upcoming_recurring = list(
         RecurringTransaction.objects.filter(
             user=request.user,
             is_active=True,
@@ -310,6 +310,9 @@ def dashboard(request):
         )
         .select_related('bucket')
         .order_by('next_due')
+    )
+    upcoming_recurring_total = sum(
+        item.amount for item in upcoming_recurring if item.transaction_type == 'expense'
     )
 
     bill_countdown_end = today + datetime.timedelta(days=30)
@@ -371,6 +374,7 @@ def dashboard(request):
         'ideal_daily_spend': ideal_daily_spend,
         'top_buckets': top_buckets,
         'upcoming_recurring': upcoming_recurring,
+        'upcoming_recurring_total': upcoming_recurring_total,
         'bill_countdown': bill_countdown,
         'recommendations': recommendations,
         'daily_spending': daily_spending,
