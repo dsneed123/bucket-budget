@@ -76,7 +76,7 @@ def transaction_list(request):
     bucket_id = request.GET.get('bucket', '').strip()
     txn_type = request.GET.get('type', '').strip()
     account_id = request.GET.get('account', '').strip()
-    search = request.GET.get('search', '').strip()
+    search = request.GET.get('q', '').strip()
     tag_id = request.GET.get('tag', '').strip()
     sort_col = request.GET.get('sort', 'date').strip()
     sort_order = request.GET.get('order', 'desc').strip()
@@ -114,7 +114,7 @@ def transaction_list(request):
         qs = qs.filter(account_id=account_id)
     if search:
         qs = qs.filter(
-            Q(description__icontains=search) | Q(vendor__icontains=search) | Q(notes__icontains=search)
+            Q(description__icontains=search) | Q(vendor__icontains=search)
         )
     if tag_id:
         try:
@@ -226,7 +226,7 @@ def transaction_list(request):
     if account_id:
         filter_params['account'] = account_id
     if search:
-        filter_params['search'] = search
+        filter_params['q'] = search
     if tag_id:
         filter_params['tag'] = tag_id
     if page_size != 25:
@@ -239,7 +239,7 @@ def transaction_list(request):
         filter_params['sort'] = sort_col
         filter_params['order'] = sort_order
     filter_qs = urlencode(filter_params)
-    filter_qs_no_search = urlencode({k: v for k, v in filter_params.items() if k != 'search'})
+    filter_qs_no_search = urlencode({k: v for k, v in filter_params.items() if k != 'q'})
 
     # Build prev/next month query strings (preserve current filters, strip summary month params)
     base_month_params = {k: v for k, v in filter_params.items() if k not in ('summary_year', 'summary_month', 'page')}
@@ -334,7 +334,7 @@ def transaction_list(request):
             'bucket': bucket_id,
             'type': txn_type,
             'account': account_id,
-            'search': search,
+            'q': search,
             'tag': tag_id,
         },
         'active_filter_count': active_filter_count,
