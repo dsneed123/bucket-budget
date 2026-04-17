@@ -334,7 +334,7 @@ def dashboard(request):
     )
     bill_countdown = [
         {'item': bill, 'days_until': (bill.next_due - today).days}
-        for bill in _bill_qs
+        for bill in _bill_qs[:3]
     ]
 
     activity_feed = _build_activity_feed(request.user)
