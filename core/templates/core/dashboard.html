@@ -23,27 +23,29 @@
 </div>
 
 <!-- Widget Customization Modal -->
-<div id="widget-modal" class="no-print" role="dialog" aria-modal="true" aria-labelledby="widget-modal-title" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
-    <div style="background: var(--bg-card); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 420px; margin: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-            <h3 id="widget-modal-title" style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">Customize Dashboard</h3>
-            <button type="button" onclick="closeWidgetModal()" aria-label="Close customize dashboard dialog" style="background: none; border: none; color: var(--text-secondary); font-size: 20px; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+<div id="widget-modal" class="modal-overlay no-print" role="dialog" aria-modal="true" aria-labelledby="widget-modal-title">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 id="widget-modal-title" class="modal-title">Customize Dashboard</h3>
+            <button type="button" onclick="closeWidgetModal()" class="modal-close" aria-label="Close customize dashboard dialog">&times;</button>
         </div>
         <form method="post" action="{% url 'accounts:save_widget_preferences' %}">
             {% csrf_token %}
-            <p style="margin: 0 0 16px; font-size: 13px; color: var(--text-secondary);">Toggle which widgets appear on your dashboard.</p>
-            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
-                {% for key, label in widget_labels %}
-                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 10px 12px; background: var(--bg-primary); border-radius: var(--radius-sm);">
-                    <span style="font-size: 14px; font-weight: 500; color: var(--text-primary);">{{ label }}</span>
-                    <input type="checkbox" name="{{ key }}" {% if widgets|get_item:key %}checked{% endif %}
-                        style="width: 16px; height: 16px; accent-color: var(--accent-blue); cursor: pointer;">
-                </label>
-                {% endfor %}
+            <div class="modal-body">
+                <p style="margin: 0 0 16px; font-size: 13px; color: var(--text-secondary);">Toggle which widgets appear on your dashboard.</p>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    {% for key, label in widget_labels %}
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 10px 12px; background: var(--bg-primary); border-radius: var(--radius-sm);">
+                        <span style="font-size: 14px; font-weight: 500; color: var(--text-primary);">{{ label }}</span>
+                        <input type="checkbox" name="{{ key }}" {% if widgets|get_item:key %}checked{% endif %}
+                            style="width: 16px; height: 16px; accent-color: var(--accent-blue); cursor: pointer;">
+                    </label>
+                    {% endfor %}
+                </div>
             </div>
-            <div style="display: flex; gap: 10px;">
-                <button type="button" onclick="closeWidgetModal()" class="btn btn-secondary" style="flex: 1;">Cancel</button>
-                <button type="submit" class="btn btn-primary" style="flex: 1;">Save</button>
+            <div class="modal-footer">
+                <button type="button" onclick="closeWidgetModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
             </div>
         </form>
     </div>
@@ -51,11 +53,10 @@
 <script>
 (function() {
     function openWidgetModal() {
-        var m = document.getElementById('widget-modal');
-        m.style.display = 'flex';
+        document.getElementById('widget-modal').classList.add('open');
     }
     function closeWidgetModal() {
-        document.getElementById('widget-modal').style.display = 'none';
+        document.getElementById('widget-modal').classList.remove('open');
     }
     window.openWidgetModal = openWidgetModal;
     window.closeWidgetModal = closeWidgetModal;
@@ -554,33 +555,35 @@
         {% endif %}
 
         <!-- Quick Contribute Modal -->
-        <div id="contribute-modal" class="no-print" role="dialog" aria-modal="true" aria-labelledby="contribute-modal-title" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
-            <div style="background: var(--bg-card); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 420px; margin: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-                    <h3 id="contribute-modal-title" style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">Quick Contribute</h3>
-                    <button type="button" onclick="closeContributeModal()" aria-label="Close contribute dialog" style="background: none; border: none; color: var(--text-secondary); font-size: 20px; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+        <div id="contribute-modal" class="modal-overlay no-print" role="dialog" aria-modal="true" aria-labelledby="contribute-modal-title">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h3 id="contribute-modal-title" class="modal-title">Quick Contribute</h3>
+                    <button type="button" onclick="closeContributeModal()" class="modal-close" aria-label="Close contribute dialog">&times;</button>
                 </div>
                 <form id="contribute-modal-form" method="post" action="">
                     {% csrf_token %}
                     <input type="hidden" name="next" value="/dashboard/">
-                    <div style="margin-bottom: 16px;">
-                        <label for="contribute-amount" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">Amount</label>
-                        <input type="number" id="contribute-amount" name="amount" step="0.01" min="0.01" required placeholder="0.00"
-                            style="width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 15px; box-sizing: border-box;">
+                    <div class="modal-body">
+                        <div style="margin-bottom: 16px;">
+                            <label for="contribute-amount" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">Amount</label>
+                            <input type="number" id="contribute-amount" name="amount" step="0.01" min="0.01" required placeholder="0.00"
+                                style="width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 15px; box-sizing: border-box;">
+                        </div>
+                        <div>
+                            <label for="contribute-account" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">From Account</label>
+                            <select id="contribute-account" name="source_account" required
+                                style="width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 14px; box-sizing: border-box;">
+                                <option value="">Select account…</option>
+                                {% for account in accounts %}
+                                <option value="{{ account.pk }}">{{ account.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
-                    <div style="margin-bottom: 20px;">
-                        <label for="contribute-account" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">From Account</label>
-                        <select id="contribute-account" name="source_account" required
-                            style="width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 14px; box-sizing: border-box;">
-                            <option value="">Select account…</option>
-                            {% for account in accounts %}
-                            <option value="{{ account.pk }}">{{ account.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div style="display: flex; gap: 10px;">
-                        <button type="button" onclick="closeContributeModal()" class="btn btn-secondary" style="flex: 1;">Cancel</button>
-                        <button type="submit" class="btn btn-primary" style="flex: 1;">Add Contribution</button>
+                    <div class="modal-footer">
+                        <button type="button" onclick="closeContributeModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Contribution</button>
                     </div>
                 </form>
             </div>
@@ -593,12 +596,12 @@
                 var title = document.getElementById('contribute-modal-title');
                 form.action = '/savings/' + goalId + '/contribute/';
                 title.textContent = 'Contribute to ' + goalName;
-                modal.style.display = 'flex';
+                modal.classList.add('open');
                 var amountInput = form.querySelector('input[name="amount"]');
                 if (amountInput) amountInput.focus();
             }
             function closeContributeModal() {
-                document.getElementById('contribute-modal').style.display = 'none';
+                document.getElementById('contribute-modal').classList.remove('open');
             }
             window.openContributeModal = openContributeModal;
             window.closeContributeModal = closeContributeModal;
