@@ -40,10 +40,10 @@ def update_balance_on_save(sender, instance, created, **kwargs):
 
     if created:
         account = BankAccount.objects.get(pk=instance.account_id)
-        if instance.transaction_type == 'expense':
-            account.balance -= instance.amount
-        else:  # income / transfer
+        if instance.transaction_type == 'income':
             account.balance += instance.amount
+        else:  # expense / transfer
+            account.balance -= instance.amount
         account.save(change_reason='transaction', reference_id=str(instance.pk))
     else:
         old_account_id = instance._pre_save_account_id
@@ -56,29 +56,29 @@ def update_balance_on_save(sender, instance, created, **kwargs):
         if old_account_id == instance.account_id:
             # Same account — reverse old and apply new in a single write.
             account = BankAccount.objects.get(pk=instance.account_id)
-            if old_type == 'expense':
-                account.balance += old_amount
-            else:
+            if old_type == 'income':
                 account.balance -= old_amount
-            if instance.transaction_type == 'expense':
-                account.balance -= instance.amount
-            else:
+            else:  # expense / transfer
+                account.balance += old_amount
+            if instance.transaction_type == 'income':
                 account.balance += instance.amount
+            else:  # expense / transfer
+                account.balance -= instance.amount
             account.save(change_reason='transaction', reference_id=str(instance.pk))
         else:
             # Different accounts — reverse on old account, apply on new account.
             old_account = BankAccount.objects.get(pk=old_account_id)
-            if old_type == 'expense':
-                old_account.balance += old_amount
-            else:
+            if old_type == 'income':
                 old_account.balance -= old_amount
+            else:  # expense / transfer
+                old_account.balance += old_amount
             old_account.save(change_reason='transaction', reference_id=str(instance.pk))
 
             new_account = BankAccount.objects.get(pk=instance.account_id)
-            if instance.transaction_type == 'expense':
-                new_account.balance -= instance.amount
-            else:
+            if instance.transaction_type == 'income':
                 new_account.balance += instance.amount
+            else:  # expense / transfer
+                new_account.balance -= instance.amount
             new_account.save(change_reason='transaction', reference_id=str(instance.pk))
 
 
@@ -93,8 +93,8 @@ def update_balance_on_delete(sender, instance, **kwargs):
     from banking.models import BankAccount
 
     account = BankAccount.objects.get(pk=instance.account_id)
-    if instance.transaction_type == 'expense':
-        account.balance += instance.amount
-    else:  # income / transfer
+    if instance.transaction_type == 'income':
         account.balance -= instance.amount
+    else:  # expense / transfer
+        account.balance += instance.amount
     account.save(change_reason='transaction', reference_id=str(instance.pk))
