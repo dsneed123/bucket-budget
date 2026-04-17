@@ -321,6 +321,9 @@
                     btn.disabled = true;
                     btn.classList.add('btn-loading');
                     btn.setAttribute('aria-busy', 'true');
+                    var spinner = document.createElement('span');
+                    spinner.className = 'spinner';
+                    btn.appendChild(spinner);
                 }
             });
         })();
