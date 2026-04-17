@@ -134,12 +134,21 @@ else:
             'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
         },
     }
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'bucket-budget',
+    _redis_url = os.environ.get('REDIS_URL')
+    if ON_RAILWAY and _redis_url:
+        CACHES = {
+            'default': {
+                'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+                'LOCATION': _redis_url,
+            }
         }
-    }
+    else:
+        CACHES = {
+            'default': {
+                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+                'LOCATION': 'bucket-budget',
+            }
+        }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
