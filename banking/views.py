@@ -4,6 +4,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 
+from decimal import Decimal, InvalidOperation
+
 from .forms import AccountUpdateBalanceForm, BankAccountForm
 from .models import BankAccount
 
@@ -91,16 +93,24 @@ def account_add(request):
     form_data = {'color': '#0984e3'}
 
     if request.method == 'POST':
-        form = BankAccountForm(request.POST)
         form_data = request.POST.dict()
-        if form.is_valid():
+        raw_balance = request.POST.get('balance', '0') or '0'
+        try:
+            initial_balance = Decimal(raw_balance).quantize(Decimal('0.01'))
+        except InvalidOperation:
+            initial_balance = None
+
+        form = BankAccountForm(request.POST)
+        if initial_balance is None:
+            errors = {'balance': 'Please enter a valid number.'}
+        elif form.is_valid():
             cd = form.cleaned_data
             BankAccount.objects.create(
                 user=request.user,
                 name=cd['name'],
                 account_type=cd['account_type'],
                 institution=cd.get('institution') or None,
-                balance=cd['balance'],
+                balance=initial_balance,
                 color=cd['color'],
             )
             return redirect('account_list')
@@ -170,7 +180,6 @@ def account_edit(request, account_id):
             account.name = cd['name']
             account.account_type = cd['account_type']
             account.institution = cd.get('institution') or None
-            account.balance = cd['balance'] if cd.get('balance') is not None else account.balance
             account.color = cd['color']
             account.save()
             success = True
