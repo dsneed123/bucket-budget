@@ -816,6 +816,7 @@ textarea {
     overflow-x: auto;
     border-radius: var(--radius);
     border: 1px solid var(--border);
+    -webkit-overflow-scrolling: touch;
 }
 
 table,
@@ -823,6 +824,7 @@ table,
     width: 100%;
     border-collapse: collapse;
     font-size: 14px;
+    min-width: 480px;
 }
 
 .table thead,
@@ -849,6 +851,17 @@ table td {
     color: var(--text-primary);
     border-bottom: 1px solid var(--border);
     vertical-align: middle;
+    text-align: left;
+}
+
+.table tbody tr:nth-child(odd) td,
+table tbody tr:nth-child(odd) td {
+    background-color: var(--bg-card);
+}
+
+.table tbody tr:nth-child(even) td,
+table tbody tr:nth-child(even) td {
+    background-color: color-mix(in srgb, var(--bg-card) 70%, var(--bg-secondary) 30%);
 }
 
 .table tbody tr:last-child td,
@@ -858,11 +871,59 @@ table tbody tr:last-child td {
 
 .table tbody tr:hover td,
 table tbody tr:hover td {
-    background-color: rgba(255, 255, 255, 0.03);
+    background-color: rgba(255, 255, 255, 0.05);
 }
 
 .table-striped tbody tr:nth-child(even) td {
     background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Right-align numeric columns */
+.table td.numeric,
+table td.numeric,
+.table th.numeric,
+table th.numeric {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Sortable column header links */
+.table th a,
+table th a {
+    color: inherit;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.table th a:hover,
+table th a:hover {
+    color: var(--text-primary);
+}
+
+.table th.sortable,
+table th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.table th.sortable:hover,
+table th.sortable:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+}
+
+@media (max-width: 640px) {
+    .table-wrapper {
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        margin-left: calc(-1 * var(--spacing-md, 16px));
+        margin-right: calc(-1 * var(--spacing-md, 16px));
+    }
 }
 
 /* =====================
