@@ -391,7 +391,9 @@ def import_csv(request):
     except Exception:
         return redirect('/settings/?import_error=invalid_file&data_type=' + data_type + '#data')
 
-    if data_type == 'buckets':
+    if data_type == 'transactions':
+        return redirect('transaction_import_csv')
+    elif data_type == 'buckets':
         imported = _import_buckets(request.user, rows)
     elif data_type == 'bank_accounts':
         imported = _import_bank_accounts(request.user, rows)
