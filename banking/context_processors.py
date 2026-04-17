@@ -8,7 +8,7 @@ from django.db.models import Avg, Count, Sum
 from savings.models import SavingsContribution
 from transactions.models import Transaction
 
-from .models import BankAccount
+from .models import BankAccount, BalanceHistory
 
 _CIRCLE_RADIUS = 28
 _CIRCUMFERENCE = round(2 * math.pi * _CIRCLE_RADIUS, 2)  # ~175.93
@@ -33,18 +33,46 @@ def net_worth(request):
     if data is not None:
         return data
 
-    total = (
-        BankAccount.objects.filter(user=request.user, is_active=True)
-        .values_list('balance', flat=True)
+    accounts = list(BankAccount.objects.filter(user=request.user, is_active=True))
+    net_worth_value = sum((a.balance for a in accounts), Decimal('0'))
+
+    today = datetime.date.today()
+    first_of_month = today.replace(day=1)
+    last_month_end = first_of_month - datetime.timedelta(days=1)
+
+    account_ids = [a.pk for a in accounts]
+    all_history = (
+        list(BalanceHistory.objects.filter(account_id__in=account_ids)
+             .values('account_id', 'change_amount', 'created_at'))
+        if account_ids else []
     )
-    net_worth_value = sum(total, 0)
+
+    prev_net_worth = Decimal('0')
+    for account in accounts:
+        if account.created_at.date() > last_month_end:
+            continue
+        changes_after = sum(
+            (h['change_amount'] for h in all_history
+             if h['account_id'] == account.pk
+             and h['created_at'].date() > last_month_end),
+            Decimal('0'),
+        )
+        prev_net_worth += account.balance - changes_after
+
+    net_worth_change = net_worth_value - prev_net_worth
+    if net_worth_change > 0:
+        net_worth_arrow = 'up'
+    elif net_worth_change < 0:
+        net_worth_arrow = 'down'
+    else:
+        net_worth_arrow = 'same'
+
     unscored_count = Transaction.objects.filter(
         user=request.user,
         transaction_type='expense',
         necessity_score__isnull=True,
     ).count()
 
-    today = datetime.date.today()
     result = Transaction.objects.filter(
         user=request.user,
         transaction_type='expense',
@@ -89,10 +117,8 @@ def net_worth(request):
     cur_contributions = _month_contributions(today.year, today.month)
     cur_savings_rate = _savings_rate(cur_contributions, cur_income)
 
-    first_of_month = today.replace(day=1)
-    last_month = first_of_month - datetime.timedelta(days=1)
-    prev_income = _month_income(last_month.year, last_month.month)
-    prev_contributions = _month_contributions(last_month.year, last_month.month)
+    prev_income = _month_income(last_month_end.year, last_month_end.month)
+    prev_contributions = _month_contributions(last_month_end.year, last_month_end.month)
     prev_savings_rate = _savings_rate(prev_contributions, prev_income)
 
     if cur_savings_rate is None:
@@ -116,6 +142,9 @@ def net_worth(request):
 
     data = {
         'net_worth': net_worth_value,
+        'net_worth_change': net_worth_change,
+        'net_worth_change_abs': abs(net_worth_change),
+        'net_worth_arrow': net_worth_arrow,
         'unscored_count': unscored_count,
         'sidebar_quality_score': avg,
         'sidebar_quality_color': color,

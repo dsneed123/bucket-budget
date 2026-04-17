@@ -100,7 +100,19 @@
         <p class="stat-value {% if net_worth >= 0 %}stat-positive{% else %}stat-negative{% endif %}">
             {{ net_worth|currency:user.currency }}
         </p>
-        <p class="stat-label" style="margin-top: 4px;">All active accounts</p>
+        <p class="stat-label" style="margin-top: 4px;">
+            {% if net_worth_arrow == 'up' %}
+                <span class="savings-rate-arrow savings-rate-arrow-up" aria-hidden="true">&#9650;</span>
+                <span class="sr-only">up</span>
+            {% elif net_worth_arrow == 'down' %}
+                <span class="savings-rate-arrow savings-rate-arrow-down" aria-hidden="true">&#9660;</span>
+                <span class="sr-only">down</span>
+            {% elif net_worth_arrow == 'same' %}
+                <span class="savings-rate-arrow savings-rate-arrow-same" aria-hidden="true">&#8212;</span>
+                <span class="sr-only">no change</span>
+            {% endif %}
+            {{ net_worth_change_abs|currency:user.currency }} from last month
+        </p>
     </div>
 
     <div class="card" style="padding: 20px;">
