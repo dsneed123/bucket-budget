@@ -103,7 +103,7 @@
                 <div style="font-size: 0.75rem; color: var(--text-secondary);">{{ tx.note }}</div>
                 {% endif %}
             </div>
-            <div style="text-align: right; padding-right: 24px; color: var(--text-secondary); font-size: 0.8rem; white-space: nowrap;">{{ tx.date }}</div>
+            <div style="text-align: right; padding-right: 24px; color: var(--text-secondary); font-size: 0.8rem; white-space: nowrap;">{{ tx.date|date:"M j, Y" }}</div>
             <div style="text-align: right; font-weight: 600; color: var(--accent-red);">-${{ tx.amount|floatformat:2 }}</div>
         </div>
         {% endfor %}

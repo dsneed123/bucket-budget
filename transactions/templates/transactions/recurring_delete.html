@@ -13,7 +13,7 @@
             <p style="margin: 0 0 4px; font-weight: 600; color: var(--text-primary);">{{ rt.description }}</p>
             <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary);">
                 {{ rt.get_frequency_display }} &middot; ${{ rt.amount }}
-                {% if rt.next_due %}&middot; Next due {{ rt.next_due }}{% endif %}
+                {% if rt.next_due %}&middot; Next due {{ rt.next_due|date:"M j, Y" }}{% endif %}
             </p>
         </div>
 

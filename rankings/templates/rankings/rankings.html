@@ -539,7 +539,7 @@
             <tbody>
                 {% for purchase in essential_purchases %}
                 <tr>
-                    <td class="text-secondary">{{ purchase.date }}</td>
+                    <td class="text-secondary">{{ purchase.date|date:"M j, Y" }}</td>
                     <td>{{ purchase.description }}</td>
                     <td class="text-secondary">{{ purchase.vendor|default:"—" }}</td>
                     <td>{{ purchase.amount|currency:user.currency }}</td>
@@ -583,7 +583,7 @@
             <tbody>
                 {% for purchase in impulse_purchases %}
                 <tr>
-                    <td class="text-secondary">{{ purchase.date }}</td>
+                    <td class="text-secondary">{{ purchase.date|date:"M j, Y" }}</td>
                     <td>{{ purchase.description }}</td>
                     <td class="text-secondary">{{ purchase.vendor|default:"—" }}</td>
                     <td>{{ purchase.amount|currency:user.currency }}</td>

@@ -51,7 +51,7 @@
             <tbody>
                 {% for tx in transactions %}
                 <tr>
-                    <td class="text-secondary review-date">{{ tx.date }}</td>
+                    <td class="text-secondary review-date">{{ tx.date|date:"M j, Y" }}</td>
                     <td>{{ tx.description }}</td>
                     <td class="text-secondary">{{ tx.vendor|default:"—" }}</td>
                     <td class="review-amount">{{ tx.amount|currency:user.currency }}</td>

@@ -270,7 +270,7 @@
                                 {{ txn.description }}
                             </p>
                             <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-secondary);">
-                                {{ txn.date }} &middot; {{ txn.account.name }}{% if txn.bucket %} &middot; {{ txn.bucket.icon }} {{ txn.bucket.name }}{% endif %}
+                                {{ txn.date|date:"M j, Y" }} &middot; {{ txn.account.name }}{% if txn.bucket %} &middot; {{ txn.bucket.icon }} {{ txn.bucket.name }}{% endif %}
                             </p>
                         </div>
                         <span style="margin-left: 16px; font-size: 14px; font-weight: 600; flex-shrink: 0;"
@@ -661,7 +661,7 @@
                                 {{ item.description }}
                             </p>
                             <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-secondary);">
-                                {{ item.next_due }}{% if item.bucket %} &middot; {{ item.bucket.icon }} {{ item.bucket.name }}{% endif %}
+                                {{ item.next_due|date:"M j, Y" }}{% if item.bucket %} &middot; {{ item.bucket.icon }} {{ item.bucket.name }}{% endif %}
                             </p>
                         </div>
                         <span style="margin-left: 16px; font-size: 14px; font-weight: 600; flex-shrink: 0; color: {% if item.transaction_type == 'income' %}var(--accent-green){% else %}var(--accent-red){% endif %};">
