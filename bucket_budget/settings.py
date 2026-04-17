@@ -15,6 +15,18 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get('ALLOWED_HOSTS') else []
 
+ON_RAILWAY = os.environ.get('RAILWAY_ENVIRONMENT') is not None
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
+    if origin.strip()
+]
+if ON_RAILWAY:
+    railway_public_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')
+    if railway_public_domain:
+        CSRF_TRUSTED_ORIGINS.append(f'https://{railway_public_domain}')
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -141,3 +153,6 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+if ON_RAILWAY:
+    SECURE_SSL_REDIRECT = True
