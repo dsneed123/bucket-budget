@@ -252,6 +252,35 @@ mark.search-highlight {
     </div>
 </div>
 
+<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 10px;">
+    <!-- Showing X–Y of Z counter -->
+    <span style="font-size: 0.85rem; color: var(--text-secondary);">
+        {% with start=page_obj.start_index end=page_obj.end_index total=page_obj.paginator.count %}
+            Showing {{ start }}–{{ end }} of {{ total }} transaction{{ total|pluralize }}
+        {% endwith %}
+    </span>
+
+    <!-- Page size selector -->
+    <form method="get" style="display: flex; align-items: center; gap: 6px;">
+        {# Preserve all current filters except page_size and page #}
+        {% if filters.date_from %}<input type="hidden" name="date_from" value="{{ filters.date_from }}">{% endif %}
+        {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
+        {% if filters.bucket %}<input type="hidden" name="bucket" value="{{ filters.bucket }}">{% endif %}
+        {% if filters.type %}<input type="hidden" name="type" value="{{ filters.type }}">{% endif %}
+        {% if filters.account %}<input type="hidden" name="account" value="{{ filters.account }}">{% endif %}
+        {% if filters.search %}<input type="hidden" name="search" value="{{ filters.search }}">{% endif %}
+        {% if filters.tag %}<input type="hidden" name="tag" value="{{ filters.tag }}">{% endif %}
+        {% if sort_col != 'date' or sort_order != 'desc' %}<input type="hidden" name="sort" value="{{ sort_col }}"><input type="hidden" name="order" value="{{ sort_order }}">{% endif %}
+        <label for="page-size-select" style="font-size: 0.85rem; color: var(--text-secondary);">Per page:</label>
+        <select id="page-size-select" name="page_size" onchange="this.form.submit()"
+                style="background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 0.85rem; cursor: pointer;">
+            <option value="25" {% if page_size == 25 %}selected{% endif %}>25</option>
+            <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+            <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+        </select>
+    </form>
+</div>
+
 <div class="card">
     <table style="width: 100%; border-collapse: collapse;">
         <thead>
@@ -329,37 +358,7 @@ mark.search-highlight {
     </table>
 </div>
 
-<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 20px;">
-    <!-- Showing X–Y of Z counter -->
-    <span style="font-size: 0.85rem; color: var(--text-secondary);">
-        {% with start=page_obj.start_index end=page_obj.end_index total=page_obj.paginator.count %}
-            Showing {{ start }}–{{ end }} of {{ total }} transaction{{ total|pluralize }}
-        {% endwith %}
-    </span>
-
-    <!-- Page size selector -->
-    <form method="get" style="display: flex; align-items: center; gap: 6px;">
-        {# Preserve all current filters except page_size and page #}
-        {% if filters.date_from %}<input type="hidden" name="date_from" value="{{ filters.date_from }}">{% endif %}
-        {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
-        {% if filters.bucket %}<input type="hidden" name="bucket" value="{{ filters.bucket }}">{% endif %}
-        {% if filters.type %}<input type="hidden" name="type" value="{{ filters.type }}">{% endif %}
-        {% if filters.account %}<input type="hidden" name="account" value="{{ filters.account }}">{% endif %}
-        {% if filters.search %}<input type="hidden" name="search" value="{{ filters.search }}">{% endif %}
-        {% if filters.tag %}<input type="hidden" name="tag" value="{{ filters.tag }}">{% endif %}
-        {% if sort_col != 'date' or sort_order != 'desc' %}<input type="hidden" name="sort" value="{{ sort_col }}"><input type="hidden" name="order" value="{{ sort_order }}">{% endif %}
-        <label for="page-size-select" style="font-size: 0.85rem; color: var(--text-secondary);">Per page:</label>
-        <select id="page-size-select" name="page_size" onchange="this.form.submit()"
-                style="background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 0.85rem; cursor: pointer;">
-            <option value="25" {% if page_size == 25 %}selected{% endif %}>25</option>
-            <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
-            <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
-        </select>
-    </form>
-</div>
-
-{% if page_obj.has_other_pages %}
-<div style="display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; margin-top: 12px;">
+<div style="display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; margin-top: 16px;">
     {% if page_obj.has_previous %}
         <a href="?{% if filter_qs %}{{ filter_qs }}&{% endif %}page={{ page_obj.previous_page_number }}"
            style="display: inline-flex; align-items: center; padding: 6px 12px; background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; font-size: 0.85rem; text-decoration: none; transition: border-color 0.2s;"
@@ -388,7 +387,6 @@ mark.search-highlight {
         <span style="display: inline-flex; align-items: center; padding: 6px 12px; background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; font-size: 0.85rem; opacity: 0.4; cursor: default;">Next &rarr;</span>
     {% endif %}
 </div>
-{% endif %}
 
 <script>
 function onCheckboxChange() {
