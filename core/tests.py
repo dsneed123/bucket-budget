@@ -24,6 +24,9 @@ class NoSpendDaysTest(TestCase):
             account_type='checking',
             balance=Decimal('1000.00'),
         )
+        prefs, _ = UserPreferences.objects.get_or_create(user=self.user)
+        prefs.onboarding_complete = True
+        prefs.save()
 
     def _add_expense(self, date, amount='50.00'):
         Transaction.objects.create(
@@ -115,6 +118,9 @@ class BillCountdownTest(TestCase):
             first_name='Test',
         )
         self.client.login(email='bills@example.com', password='testpass')
+        prefs, _ = UserPreferences.objects.get_or_create(user=self.user)
+        prefs.onboarding_complete = True
+        prefs.save()
         self.account = BankAccount.objects.create(
             user=self.user,
             name='Checking',
@@ -205,6 +211,9 @@ class IncomeReceivedTest(TestCase):
             first_name='Test',
         )
         self.client.login(email='income@example.com', password='testpass')
+        prefs, _ = UserPreferences.objects.get_or_create(user=self.user)
+        prefs.onboarding_complete = True
+        prefs.save()
         self.account = BankAccount.objects.create(
             user=self.user,
             name='Checking',
