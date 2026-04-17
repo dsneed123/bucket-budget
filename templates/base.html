@@ -226,19 +226,11 @@
     {% block extra_js %}{% endblock %}
     <script>
         (function () {
-            var DISMISS_DELAY = 5000;
-            var FADE_DURATION = 500;
-
-            function dismissMessage(el) {
-                el.style.animation = 'message-fade-out ' + (FADE_DURATION / 1000) + 's ease forwards';
-                setTimeout(function () { el.remove(); }, FADE_DURATION);
-            }
-
             document.querySelectorAll('.message').forEach(function (el) {
-                var timer = setTimeout(function () { dismissMessage(el); }, DISMISS_DELAY);
+                el.addEventListener('animationend', function () { el.remove(); });
                 el.querySelector('.message-close').addEventListener('click', function () {
-                    clearTimeout(timer);
-                    dismissMessage(el);
+                    el.style.animationDelay = '0s';
+                    el.style.animationDuration = '0.15s';
                 });
             });
         })();
