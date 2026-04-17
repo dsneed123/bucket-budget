@@ -462,7 +462,7 @@ body {
 
 .breadcrumb-item a:focus-visible {
     color: var(--text-primary);
-    outline: 2px solid var(--accent-green);
+    outline: 2px solid var(--accent-blue);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
 }
@@ -594,37 +594,37 @@ body {
 }
 
 .btn:focus-visible {
-    outline: 2px solid var(--accent-green);
+    outline: 2px solid var(--accent-blue);
     outline-offset: 2px;
 }
 
 a:focus-visible {
-    outline: 2px solid var(--accent-green);
+    outline: 2px solid var(--accent-blue);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
 }
 
 .hamburger-btn:focus-visible {
-    outline: 2px solid var(--accent-green);
+    outline: 2px solid var(--accent-blue);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
 }
 
 [role="button"]:focus-visible {
-    outline: 2px solid var(--accent-green);
+    outline: 2px solid var(--accent-blue);
     outline-offset: 2px;
 }
 
 input[type="checkbox"]:focus-visible,
 input[type="radio"]:focus-visible {
-    outline: 2px solid var(--accent-green);
+    outline: 2px solid var(--accent-blue);
     outline-offset: 2px;
 }
 
 .message-close:focus-visible,
 .kbd-modal-close:focus-visible,
 .recommendation-dismiss:focus-visible {
-    outline: 2px solid var(--accent-green);
+    outline: 2px solid var(--accent-blue);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
 }
@@ -639,8 +639,8 @@ input[type="search"]:focus-visible,
 input[type="color"]:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-    outline: 2px solid var(--accent-green);
-    outline-offset: 0;
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
 }
 
 .btn-primary {
@@ -723,7 +723,6 @@ textarea {
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     transition: border-color 0.2s, box-shadow 0.2s;
-    outline: none;
     line-height: 1.5;
 }
 
@@ -821,14 +820,18 @@ select optgroup {
     font-family: inherit;
     padding: 6px 30px 6px 10px;
     cursor: pointer;
-    outline: none;
     line-height: 1.5;
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .form-select:focus {
-    border-color: var(--accent-green);
-    box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.15);
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(9, 132, 227, 0.15);
+}
+
+.form-select:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
 }
 
 .form-select:disabled {
