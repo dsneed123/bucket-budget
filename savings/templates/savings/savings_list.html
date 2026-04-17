@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load currency_tags %}
 {% block title %}Savings Goals — Bucket Budget{% endblock %}
 {% block page_title %}Savings Goals{% endblock %}
 
@@ -7,15 +8,15 @@
     <div class="flex" style="gap: 12px;">
         <div class="card card-sm" style="display:inline-block; min-width:160px;">
             <div class="stat-label">Total Saved</div>
-            <div class="stat-value text-green">${{ total_saved|floatformat:2 }}</div>
+            <div class="stat-value text-green">{{ total_saved|currency:request.user.currency }}</div>
         </div>
         <div class="card card-sm" style="display:inline-block; min-width:160px;">
             <div class="stat-label">Total Target</div>
-            <div class="stat-value">${{ total_target|floatformat:2 }}</div>
+            <div class="stat-value">{{ total_target|currency:request.user.currency }}</div>
         </div>
         <div class="card card-sm" style="display:inline-block; min-width:160px;">
             <div class="stat-label">Remaining</div>
-            <div class="stat-value {% if total_remaining <= 0 %}text-green{% endif %}">${{ total_remaining|floatformat:2 }}</div>
+            <div class="stat-value {% if total_remaining <= 0 %}text-green{% endif %}">{{ total_remaining|currency:request.user.currency }}</div>
         </div>
         {% if achieved_count > 0 %}
         <div class="card card-sm" style="display:inline-block; min-width:140px;">
@@ -76,15 +77,15 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center;">
             <div>
                 <div class="stat-label">Saved</div>
-                <div style="font-size: 0.9rem; font-weight: 600; color: var(--accent-green);">${{ item.goal.current_amount|floatformat:2 }}</div>
+                <div style="font-size: 0.9rem; font-weight: 600; color: var(--accent-green);">{{ item.goal.current_amount|currency:request.user.currency }}</div>
             </div>
             <div>
                 <div class="stat-label">Target</div>
-                <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">${{ item.goal.target_amount|floatformat:2 }}</div>
+                <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">{{ item.goal.target_amount|currency:request.user.currency }}</div>
             </div>
             <div>
                 <div class="stat-label">Remaining</div>
-                <div style="font-size: 0.9rem; font-weight: 600; {% if item.remaining <= 0 %}color: var(--accent-green);{% else %}color: var(--text-primary);{% endif %}">${{ item.remaining|floatformat:2 }}</div>
+                <div style="font-size: 0.9rem; font-weight: 600; {% if item.remaining <= 0 %}color: var(--accent-green);{% else %}color: var(--text-primary);{% endif %}">{{ item.remaining|currency:request.user.currency }}</div>
             </div>
         </div>
 

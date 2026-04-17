@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load currency_tags %}
 {% block title %}Quick Allocate — Bucket Budget{% endblock %}
 {% block page_title %}Quick Allocate{% endblock %}
 
@@ -9,7 +10,7 @@
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
             <div>
                 <div class="stat-label">Monthly Income</div>
-                <div class="stat-value text-green">${{ monthly_income|floatformat:2 }}</div>
+                <div class="stat-value text-green">{{ monthly_income|currency:request.user.currency }}</div>
             </div>
             <div style="text-align: right;">
                 <div class="stat-label">Unallocated</div>

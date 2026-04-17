@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load currency_tags %}
 {% block title %}Recurring Transactions — Bucket Budget{% endblock %}
 {% block page_title %}Recurring Transactions{% endblock %}
 
@@ -7,11 +8,11 @@
     <div style="display: flex; gap: 12px; flex-wrap: wrap;">
         <div class="card" style="display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px; margin: 0;">
             <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Monthly Cost</span>
-            <span style="font-size: 1.4rem; font-weight: 700; color: var(--accent-green);">${{ total_monthly|floatformat:2 }}</span>
+            <span style="font-size: 1.4rem; font-weight: 700; color: var(--accent-green);">{{ total_monthly|currency:request.user.currency }}</span>
         </div>
         <div class="card" style="display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px; margin: 0;">
             <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Yearly Cost</span>
-            <span style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary);">${{ total_yearly|floatformat:2 }}</span>
+            <span style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary);">{{ total_yearly|currency:request.user.currency }}</span>
         </div>
         {% if income_pct is not None %}
         <div class="card" style="display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px; margin: 0;">
@@ -23,7 +24,7 @@
         <a href="{% url 'recurring_list' %}?subscription=true" style="text-decoration: none;">
             <div class="card" style="display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px; margin: 0; {% if filter_subscription == 'true' %}border: 1.5px solid var(--accent-green);{% endif %}">
                 <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Subscriptions/mo</span>
-                <span style="font-size: 1.4rem; font-weight: 700; color: #a29bfe;">${{ subscription_monthly|floatformat:2 }}</span>
+                <span style="font-size: 1.4rem; font-weight: 700; color: #a29bfe;">{{ subscription_monthly|currency:request.user.currency }}</span>
             </div>
         </a>
         {% endif %}
@@ -38,7 +39,7 @@
         {% for bucket_key, cost in bucket_breakdown %}
         <div style="display: flex; align-items: center; gap: 8px; background: var(--bg-secondary); border-radius: 8px; padding: 8px 14px;">
             <span style="font-size: 0.85rem; color: var(--text-primary); font-weight: 500;">{{ bucket_key.1 }}</span>
-            <span style="font-size: 0.85rem; color: var(--accent-green); font-weight: 700;">${{ cost|floatformat:2 }}</span>
+            <span style="font-size: 0.85rem; color: var(--accent-green); font-weight: 700;">{{ cost|currency:request.user.currency }}</span>
             {% if total_monthly %}
             <span style="font-size: 0.75rem; color: var(--text-secondary);">{% widthratio cost total_monthly 100 %}%</span>
             {% endif %}
@@ -117,7 +118,7 @@
                 </div>
             </div>
             <div style="text-align: right;">
-                <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">${{ sub.amount|floatformat:2 }}</div>
+                <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">{{ sub.amount|currency:request.user.currency }}</div>
                 <div style="font-size: 0.75rem; color: var(--text-secondary);">{{ sub.get_frequency_display }}</div>
             </div>
         </div>
@@ -168,7 +169,7 @@
                 </td>
                 <td style="padding: 14px 16px; font-size: 0.85rem; color: var(--text-secondary);">{{ rt.vendor|default:"—" }}</td>
                 <td style="padding: 14px 16px; text-align: right; font-size: 0.95rem; font-weight: 600; {% if rt.transaction_type == 'income' %}color: var(--accent-green);{% else %}color: var(--text-primary);{% endif %}">
-                    {% if rt.transaction_type == 'income' %}+{% endif %}${{ rt.amount|floatformat:2 }}
+                    {% if rt.transaction_type == 'income' %}+{% endif %}{{ rt.amount|currency:request.user.currency }}
                 </td>
                 <td style="padding: 14px 16px; font-size: 0.85rem; color: var(--text-secondary);">{{ rt.get_frequency_display }}</td>
                 <td style="padding: 14px 16px; font-size: 0.85rem; color: var(--text-primary);">{{ rt.next_due|date:"M j, Y" }}</td>
