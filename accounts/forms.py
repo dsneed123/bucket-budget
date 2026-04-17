@@ -2,6 +2,7 @@ import re
 from decimal import Decimal
 
 from django import forms
+from django.contrib.auth.password_validation import validate_password
 from django.core.validators import MinValueValidator
 
 from .currencies import CURRENCY_CHOICES
@@ -42,8 +43,10 @@ class RegisterForm(forms.Form):
 
     def clean_password(self):
         password = self.cleaned_data.get('password', '')
-        if len(password) < 8:
-            raise forms.ValidationError('Password must be at least 8 characters.')
+        try:
+            validate_password(password)
+        except forms.ValidationError as e:
+            raise forms.ValidationError(e.messages)
         return password
 
     def clean_password_confirm(self):
