@@ -1617,6 +1617,7 @@ def recurring_list(request):
     if filter_subscription == 'true':
         qs = qs.filter(is_subscription=True, transaction_type='expense')
 
+    all_recurring_count = qs.model.objects.filter(user=request.user).count()
     recurring = list(qs)
     active_expenses = [r for r in recurring if r.is_active and r.transaction_type == 'expense']
     total_monthly = sum(_monthly_cost(r) for r in active_expenses)
@@ -1658,6 +1659,7 @@ def recurring_list(request):
         'subscription_monthly': subscription_monthly,
         'low_necessity_subs': low_necessity_subs,
         'has_subscriptions': bool(all_active_subs),
+        'all_recurring_count': all_recurring_count,
     })
 
 

@@ -130,7 +130,7 @@
     <div style="font-size: 3rem; margin-bottom: 16px;">🎯</div>
     <h3 style="color: var(--text-primary); margin-bottom: 8px;">No savings goals yet</h3>
     <p style="color: var(--text-secondary); margin-bottom: 24px;">Create your first goal to start tracking your savings progress.</p>
-    <a href="#" class="btn btn-primary">+ Add Goal</a>
+    <a href="{% url 'savings:savings_goal_add' %}" class="btn btn-primary">+ Add Goal</a>
 </div>
 {% endif %}
 {% endblock %}

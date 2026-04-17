@@ -1137,6 +1137,7 @@ def insights(request):
     # Period spending
     this_spending = _range_expenses(request.user, date_from, date_to)
     last_spending = _range_expenses(request.user, prev_date_from, prev_date_to)
+    has_data = Transaction.objects.filter(user=request.user, date__gte=date_from, date__lte=date_to).exists()
 
     if last_spending > 0:
         spending_pct_change = round(float((this_spending - last_spending) / last_spending * 100), 1)
@@ -1296,6 +1297,7 @@ def insights(request):
         'nw_change_arrow': nw_change_arrow,
         'nw_change_color': nw_change_color,
         'nw_current': nw_current,
+        'has_data': has_data,
     })
 
 
