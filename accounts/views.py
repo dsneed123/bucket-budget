@@ -9,6 +9,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login, authenticate, update_session_auth_hash, logout
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.contrib.auth.views import PasswordChangeView, PasswordResetView
 from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
@@ -812,10 +813,10 @@ def onboarding_step4(request):
     })
 
 
+@require_POST
 @login_required
 def onboarding_skip(request):
-    if request.method == 'POST':
-        prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
-        prefs.onboarding_complete = True
-        prefs.save()
+    prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+    prefs.onboarding_complete = True
+    prefs.save()
     return redirect('/dashboard/')
