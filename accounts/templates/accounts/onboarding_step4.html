@@ -1,0 +1,122 @@
+{% extends "accounts/onboarding_base.html" %}
+
+{% block title %}Step 4: First Transaction — Bucket Budget{% endblock %}
+
+{% block onboarding_title %}Add your first transaction{% endblock %}
+{% block onboarding_subtitle %}Record a recent purchase or income to get started with tracking.{% endblock %}
+
+{% block onboarding_content %}
+{% if not accounts %}
+    <div class="onboarding-no-accounts">
+        <p>You haven't added a bank account yet. You can add transactions after setting one up.</p>
+    </div>
+    <div class="onboarding-actions">
+        <a href="/onboarding/step2/" class="btn btn-secondary">Add an account first</a>
+        <form method="post" action="/onboarding/skip/" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary btn-lg">Go to Dashboard →</button>
+        </form>
+    </div>
+{% else %}
+<form method="post" novalidate>
+    {% csrf_token %}
+
+    <div class="form-group">
+        <label for="description" class="form-label">Description</label>
+        <input
+            type="text"
+            id="description"
+            name="description"
+            class="form-control"
+            value="{{ form_data.description|default:'' }}"
+            placeholder="Grocery shopping"
+            autofocus
+        >
+        {% if errors.description %}
+            <p class="form-error">{{ errors.description }}</p>
+        {% endif %}
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="amount" class="form-label">Amount</label>
+            <input
+                type="number"
+                id="amount"
+                name="amount"
+                class="form-control"
+                value="{{ form_data.amount|default:'' }}"
+                placeholder="0.00"
+                min="0.01"
+                step="0.01"
+            >
+            {% if errors.amount %}
+                <p class="form-error">{{ errors.amount }}</p>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="transaction_type" class="form-label">Type</label>
+            <select id="transaction_type" name="transaction_type" class="form-control">
+                {% for value, label in transaction_type_choices %}
+                    <option value="{{ value }}" {% if form_data.transaction_type == value or not form_data.transaction_type and value == 'expense' %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            {% if errors.transaction_type %}
+                <p class="form-error">{{ errors.transaction_type }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="date" class="form-label">Date</label>
+            <input
+                type="date"
+                id="date"
+                name="date"
+                class="form-control"
+                value="{{ form_data.date|default:today }}"
+            >
+            {% if errors.date %}
+                <p class="form-error">{{ errors.date }}</p>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="account" class="form-label">Account</label>
+            <select id="account" name="account" class="form-control">
+                <option value="">Select account…</option>
+                {% for account in accounts %}
+                    <option value="{{ account.pk }}" {% if form_data.account == account.pk|stringformat:"s" %}selected{% endif %}>{{ account.name }}</option>
+                {% endfor %}
+            </select>
+            {% if errors.account %}
+                <p class="form-error">{{ errors.account }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="bucket" class="form-label">Bucket (optional)</label>
+        <select id="bucket" name="bucket" class="form-control">
+            <option value="">No bucket</option>
+            {% for bucket in buckets %}
+                <option value="{{ bucket.pk }}" {% if form_data.bucket == bucket.pk|stringformat:"s" %}selected{% endif %}>{{ bucket.icon }} {{ bucket.name }}</option>
+            {% endfor %}
+        </select>
+        {% if errors.bucket %}
+            <p class="form-error">{{ errors.bucket }}</p>
+        {% endif %}
+    </div>
+
+    <div class="onboarding-actions">
+        <button type="submit" class="btn btn-primary btn-lg">Finish setup →</button>
+        <form method="post" action="/onboarding/skip/" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary">Skip this step</button>
+        </form>
+    </div>
+</form>
+{% endif %}
+{% endblock %}
