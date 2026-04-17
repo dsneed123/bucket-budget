@@ -4,6 +4,7 @@
     {% load static %}
     {% load avatar_tags %}
     {% load currency_tags %}
+    {% load breadcrumb_tags %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="{% block meta_description %}Bucket Budget — track spending, manage buckets, and reach your savings goals.{% endblock %}">
@@ -145,6 +146,8 @@
                     {% endif %}
                 </div>
             </header>
+
+            {% render_breadcrumbs breadcrumbs %}
 
             {% if messages %}
             <div class="messages-container" aria-live="polite">

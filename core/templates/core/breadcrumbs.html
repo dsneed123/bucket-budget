@@ -1,0 +1,15 @@
+{% if breadcrumbs %}
+<nav class="breadcrumb-bar" aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        {% for crumb in breadcrumbs %}
+        <li class="breadcrumb-item{% if forloop.last %} active{% endif %}">
+            {% if forloop.last or not crumb.url %}
+                <span>{{ crumb.label }}</span>
+            {% else %}
+                <a href="{{ crumb.url }}">{{ crumb.label }}</a>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ol>
+</nav>
+{% endif %}
