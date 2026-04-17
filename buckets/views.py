@@ -6,7 +6,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 
+from .forms import BucketForm
 from .models import Bucket
+
+
+def _form_errors(form):
+    return {field: errs[0] for field, errs in form.errors.items()}
 
 
 BUCKET_TEMPLATES = [
@@ -184,55 +189,22 @@ def bucket_add(request):
     form_data = {'color': '#0984e3', 'icon': '💰'}
 
     if request.method == 'POST':
-        name = request.POST.get('name', '').strip()
-        icon = request.POST.get('icon', '💰').strip()
-        color = request.POST.get('color', '#0984e3').strip()
-        monthly_allocation = request.POST.get('monthly_allocation', '').strip()
-        description = request.POST.get('description', '').strip()
-        alert_threshold_raw = request.POST.get('alert_threshold', '90').strip()
-
-        form_data = {
-            'name': name,
-            'icon': icon,
-            'color': color,
-            'monthly_allocation': monthly_allocation,
-            'description': description,
-            'alert_threshold': alert_threshold_raw,
-        }
-
-        if not name:
-            errors['name'] = 'Bucket name is required.'
-
-        allocation_val = Decimal('0')
-        if not monthly_allocation:
-            errors['monthly_allocation'] = 'Monthly allocation is required.'
-        else:
-            try:
-                allocation_val = Decimal(monthly_allocation)
-                if allocation_val < 0:
-                    errors['monthly_allocation'] = 'Allocation must be a positive number.'
-            except Exception:
-                errors['monthly_allocation'] = 'Please enter a valid number.'
-
-        alert_threshold_val = 90
-        try:
-            alert_threshold_val = int(alert_threshold_raw)
-            if not 1 <= alert_threshold_val <= 100:
-                alert_threshold_val = 90
-        except (ValueError, TypeError):
-            alert_threshold_val = 90
-
-        if not errors:
+        form = BucketForm(request.POST)
+        form_data = request.POST.dict()
+        if form.is_valid():
+            cd = form.cleaned_data
             Bucket.objects.create(
                 user=request.user,
-                name=name,
-                icon=icon or '💰',
-                color=color or '#0984e3',
-                monthly_allocation=allocation_val,
-                description=description,
-                alert_threshold=alert_threshold_val,
+                name=cd['name'],
+                icon=cd['icon'],
+                color=cd['color'],
+                monthly_allocation=cd['monthly_allocation'],
+                description=cd.get('description', ''),
+                alert_threshold=cd['alert_threshold'],
             )
             return redirect('bucket_list')
+        else:
+            errors = _form_errors(form)
 
     return render(request, 'buckets/bucket_add.html', {
         'errors': errors,
@@ -387,51 +359,45 @@ def bucket_edit(request, bucket_id):
     bucket = get_object_or_404(Bucket, pk=bucket_id, user=request.user, is_active=True, is_uncategorized=False)
     errors = {}
     success = False
+    form_data = {
+        'name': bucket.name,
+        'icon': bucket.icon,
+        'color': bucket.color,
+        'monthly_allocation': bucket.monthly_allocation,
+        'description': bucket.description,
+        'rollover': bucket.rollover,
+        'alert_threshold': bucket.alert_threshold,
+    }
 
     if request.method == 'POST':
-        name = request.POST.get('name', '').strip()
-        icon = request.POST.get('icon', '💰').strip()
-        color = request.POST.get('color', '#0984e3').strip()
-        monthly_allocation = request.POST.get('monthly_allocation', '').strip()
-        description = request.POST.get('description', '').strip()
-        rollover = request.POST.get('rollover') == 'on'
-        alert_threshold_raw = request.POST.get('alert_threshold', str(bucket.alert_threshold)).strip()
-
-        if not name:
-            errors['name'] = 'Bucket name is required.'
-
-        allocation_val = bucket.monthly_allocation
-        if not monthly_allocation:
-            errors['monthly_allocation'] = 'Monthly allocation is required.'
-        else:
-            try:
-                allocation_val = Decimal(monthly_allocation)
-                if allocation_val < 0:
-                    errors['monthly_allocation'] = 'Allocation must be a positive number.'
-            except Exception:
-                errors['monthly_allocation'] = 'Please enter a valid number.'
-
-        alert_threshold_val = bucket.alert_threshold
-        try:
-            alert_threshold_val = int(alert_threshold_raw)
-            if not 1 <= alert_threshold_val <= 100:
-                alert_threshold_val = bucket.alert_threshold
-        except (ValueError, TypeError):
-            alert_threshold_val = bucket.alert_threshold
-
-        if not errors:
-            bucket.name = name
-            bucket.icon = icon or '💰'
-            bucket.color = color or '#0984e3'
-            bucket.monthly_allocation = allocation_val
-            bucket.description = description
-            bucket.rollover = rollover
-            bucket.alert_threshold = alert_threshold_val
+        form = BucketForm(request.POST)
+        form_data = request.POST.dict()
+        if form.is_valid():
+            cd = form.cleaned_data
+            bucket.name = cd['name']
+            bucket.icon = cd['icon']
+            bucket.color = cd['color']
+            bucket.monthly_allocation = cd['monthly_allocation']
+            bucket.description = cd.get('description', '')
+            bucket.rollover = cd['rollover']
+            bucket.alert_threshold = cd['alert_threshold']
             bucket.save()
             success = True
+            form_data = {
+                'name': bucket.name,
+                'icon': bucket.icon,
+                'color': bucket.color,
+                'monthly_allocation': bucket.monthly_allocation,
+                'description': bucket.description,
+                'rollover': bucket.rollover,
+                'alert_threshold': bucket.alert_threshold,
+            }
+        else:
+            errors = _form_errors(form)
 
     return render(request, 'buckets/bucket_edit.html', {
         'bucket': bucket,
         'errors': errors,
         'success': success,
+        'form_data': form_data,
     })

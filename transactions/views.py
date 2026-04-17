@@ -18,7 +18,12 @@ from django.urls import reverse
 from banking.models import BankAccount
 from buckets.models import Bucket
 
+from .forms import IncomeSourceForm, RecurringTransactionForm, TransactionForm, TransactionTransferForm
 from .models import CsvColumnMapping, IncomeSource, RecurringTransaction, Tag, Transaction, VendorMapping
+
+
+def _form_errors(form):
+    return {field: errs[0] for field, errs in form.errors.items()}
 
 VALID_TRANSACTION_TYPES = [c[0] for c in Transaction.TRANSACTION_TYPE_CHOICES]
 
@@ -387,53 +392,14 @@ def transaction_add(request):
     }
 
     if request.method == 'POST':
-        amount = request.POST.get('amount', '').strip()
-        transaction_type = request.POST.get('transaction_type', '').strip()
-        description = request.POST.get('description', '').strip()
-        vendor = request.POST.get('vendor', '').strip()
-        bucket_id = request.POST.get('bucket', '').strip()
         account_id = request.POST.get('account', '').strip()
-        date_str = request.POST.get('date', '').strip()
-        necessity_score_str = request.POST.get('necessity_score', '').strip()
-        tags_raw = request.POST.get('tags', '').strip()
+        bucket_id = request.POST.get('bucket', '').strip()
         income_source_id = request.POST.get('income_source', '').strip()
 
-        form_data = {
-            'amount': amount,
-            'transaction_type': transaction_type,
-            'description': description,
-            'vendor': vendor,
-            'bucket': bucket_id,
-            'account': account_id,
-            'date': date_str,
-            'necessity_score': necessity_score_str,
-            'tags': tags_raw,
-            'income_source': income_source_id,
-        }
+        form = TransactionForm(request.POST)
+        form_data = request.POST.dict()
 
-        # Validate amount
-        amount_val = None
-        if not amount:
-            errors['amount'] = 'Amount is required.'
-        else:
-            try:
-                amount_val = Decimal(amount)
-                if amount_val <= 0:
-                    errors['amount'] = 'Amount must be greater than zero.'
-            except InvalidOperation:
-                errors['amount'] = 'Please enter a valid amount.'
-
-        # Validate transaction_type
-        if not transaction_type:
-            errors['transaction_type'] = 'Transaction type is required.'
-        elif transaction_type not in ('expense', 'income'):
-            errors['transaction_type'] = 'Please select expense or income.'
-
-        # Validate description
-        if not description:
-            errors['description'] = 'Description is required.'
-
-        # Validate account
+        # Validate FK lookups separately since they're not in TransactionForm
         account = None
         if not account_id:
             errors['account'] = 'Account is required.'
@@ -443,7 +409,6 @@ def transaction_add(request):
             except BankAccount.DoesNotExist:
                 errors['account'] = 'Please select a valid account.'
 
-        # Validate bucket (optional)
         bucket = None
         if bucket_id:
             try:
@@ -451,33 +416,25 @@ def transaction_add(request):
             except Bucket.DoesNotExist:
                 errors['bucket'] = 'Please select a valid bucket.'
 
-        # Validate income_source (optional, income only)
         income_source = None
+        transaction_type = request.POST.get('transaction_type', '').strip()
         if income_source_id and transaction_type == 'income':
             try:
                 income_source = income_sources.get(pk=income_source_id)
             except IncomeSource.DoesNotExist:
                 errors['income_source'] = 'Please select a valid income source.'
 
-        # Validate date
-        date_val = None
-        if not date_str:
-            errors['date'] = 'Date is required.'
-        else:
-            try:
-                date_val = datetime.date.fromisoformat(date_str)
-            except ValueError:
-                errors['date'] = 'Please enter a valid date.'
-
-        # Validate necessity_score (optional, expenses only)
-        necessity_score_val = None
-        if necessity_score_str and transaction_type == 'expense':
-            try:
-                necessity_score_val = int(necessity_score_str)
-                if not (1 <= necessity_score_val <= 10):
-                    errors['necessity_score'] = 'Necessity score must be between 1 and 10.'
-            except ValueError:
-                errors['necessity_score'] = 'Please enter a valid necessity score.'
+        if form.is_valid() and not errors:
+            cd = form.cleaned_data
+            amount_val = cd['amount']
+            transaction_type = cd['transaction_type']
+            description = cd['description']
+            vendor = cd.get('vendor', '')
+            date_val = cd['date']
+            necessity_score_val = cd.get('necessity_score') if transaction_type != 'income' else None
+            tags_raw = cd.get('tags', '')
+        elif not form.is_valid():
+            errors.update(_form_errors(form))
 
         if not errors:
             force_save = request.POST.get('force_save', '') == '1'
@@ -559,55 +516,13 @@ def transaction_edit(request, transaction_id):
     errors = {}
 
     if request.method == 'POST':
-        amount = request.POST.get('amount', '').strip()
-        transaction_type = request.POST.get('transaction_type', '').strip()
-        description = request.POST.get('description', '').strip()
-        vendor = request.POST.get('vendor', '').strip()
-        bucket_id = request.POST.get('bucket', '').strip()
         account_id = request.POST.get('account', '').strip()
-        date_str = request.POST.get('date', '').strip()
-        necessity_score_str = request.POST.get('necessity_score', '').strip()
-        tags_raw = request.POST.get('tags', '').strip()
-        notes = request.POST.get('notes', '')
+        bucket_id = request.POST.get('bucket', '').strip()
         income_source_id = request.POST.get('income_source', '').strip()
 
-        form_data = {
-            'amount': amount,
-            'transaction_type': transaction_type,
-            'description': description,
-            'vendor': vendor,
-            'bucket': bucket_id,
-            'account': account_id,
-            'date': date_str,
-            'necessity_score': necessity_score_str,
-            'tags': tags_raw,
-            'notes': notes,
-            'income_source': income_source_id,
-        }
+        form = TransactionForm(request.POST)
+        form_data = request.POST.dict()
 
-        # Validate amount
-        amount_val = None
-        if not amount:
-            errors['amount'] = 'Amount is required.'
-        else:
-            try:
-                amount_val = Decimal(amount)
-                if amount_val <= 0:
-                    errors['amount'] = 'Amount must be greater than zero.'
-            except InvalidOperation:
-                errors['amount'] = 'Please enter a valid amount.'
-
-        # Validate transaction_type
-        if not transaction_type:
-            errors['transaction_type'] = 'Transaction type is required.'
-        elif transaction_type not in ('expense', 'income'):
-            errors['transaction_type'] = 'Please select expense or income.'
-
-        # Validate description
-        if not description:
-            errors['description'] = 'Description is required.'
-
-        # Validate account
         account = None
         if not account_id:
             errors['account'] = 'Account is required.'
@@ -617,7 +532,6 @@ def transaction_edit(request, transaction_id):
             except BankAccount.DoesNotExist:
                 errors['account'] = 'Please select a valid account.'
 
-        # Validate bucket (optional)
         bucket = None
         if bucket_id:
             try:
@@ -625,54 +539,36 @@ def transaction_edit(request, transaction_id):
             except Bucket.DoesNotExist:
                 errors['bucket'] = 'Please select a valid bucket.'
 
-        # Validate income_source (optional, income only)
         income_source = None
+        transaction_type = request.POST.get('transaction_type', '').strip()
         if income_source_id and transaction_type == 'income':
             try:
                 income_source = income_sources.get(pk=income_source_id)
             except IncomeSource.DoesNotExist:
                 errors['income_source'] = 'Please select a valid income source.'
 
-        # Validate date
-        date_val = None
-        if not date_str:
-            errors['date'] = 'Date is required.'
-        else:
-            try:
-                date_val = datetime.date.fromisoformat(date_str)
-            except ValueError:
-                errors['date'] = 'Please enter a valid date.'
-
-        # Validate necessity_score (optional, expenses only)
-        necessity_score_val = None
-        if necessity_score_str and transaction_type == 'expense':
-            try:
-                necessity_score_val = int(necessity_score_str)
-                if not (1 <= necessity_score_val <= 10):
-                    errors['necessity_score'] = 'Necessity score must be between 1 and 10.'
-            except ValueError:
-                errors['necessity_score'] = 'Please enter a valid necessity score.'
-
-        if not errors:
-            # Update transaction fields — the post_save signal handles balance.
+        if form.is_valid() and not errors:
+            cd = form.cleaned_data
             transaction.account = account
             transaction.bucket = bucket
             transaction.income_source = income_source
-            transaction.amount = amount_val
-            transaction.transaction_type = transaction_type
-            transaction.description = description
-            transaction.vendor = vendor
-            transaction.date = date_val
-            transaction.necessity_score = necessity_score_val
-            transaction.notes = notes
+            transaction.amount = cd['amount']
+            transaction.transaction_type = cd['transaction_type']
+            transaction.description = cd['description']
+            transaction.vendor = cd.get('vendor', '')
+            transaction.date = cd['date']
+            transaction.necessity_score = cd.get('necessity_score') if cd['transaction_type'] != 'income' else None
+            transaction.notes = cd.get('notes', '')
             if request.FILES.get('receipt'):
                 transaction.receipt = request.FILES['receipt']
             elif request.POST.get('clear_receipt') == '1':
                 transaction.receipt = None
             transaction.save()
-            transaction.tags.set(_resolve_tags(request.user, tags_raw) if tags_raw else [])
+            transaction.tags.set(_resolve_tags(request.user, cd.get('tags', '')) if cd.get('tags') else [])
 
             return redirect('transaction_list')
+        elif not form.is_valid():
+            errors.update(_form_errors(form))
     else:
         existing_tags = ', '.join(transaction.tags.values_list('name', flat=True))
         form_data = {
@@ -840,31 +736,10 @@ def transaction_transfer(request):
     if request.method == 'POST':
         from_account_id = request.POST.get('from_account', '').strip()
         to_account_id = request.POST.get('to_account', '').strip()
-        amount = request.POST.get('amount', '').strip()
-        description = request.POST.get('description', '').strip()
-        date_str = request.POST.get('date', '').strip()
 
-        form_data = {
-            'from_account': from_account_id,
-            'to_account': to_account_id,
-            'amount': amount,
-            'description': description,
-            'date': date_str,
-        }
+        form = TransactionTransferForm(request.POST)
+        form_data = request.POST.dict()
 
-        # Validate amount
-        amount_val = None
-        if not amount:
-            errors['amount'] = 'Amount is required.'
-        else:
-            try:
-                amount_val = Decimal(amount)
-                if amount_val <= 0:
-                    errors['amount'] = 'Amount must be greater than zero.'
-            except InvalidOperation:
-                errors['amount'] = 'Please enter a valid amount.'
-
-        # Validate from_account
         from_account = None
         if not from_account_id:
             errors['from_account'] = 'Source account is required.'
@@ -874,7 +749,6 @@ def transaction_transfer(request):
             except BankAccount.DoesNotExist:
                 errors['from_account'] = 'Please select a valid account.'
 
-        # Validate to_account
         to_account = None
         if not to_account_id:
             errors['to_account'] = 'Destination account is required.'
@@ -884,23 +758,16 @@ def transaction_transfer(request):
             except BankAccount.DoesNotExist:
                 errors['to_account'] = 'Please select a valid account.'
 
-        # Ensure accounts differ
         if from_account and to_account and from_account_id == to_account_id:
             errors['to_account'] = 'Destination account must differ from source account.'
 
-        # Validate description
-        if not description:
-            errors['description'] = 'Description is required.'
-
-        # Validate date
-        date_val = None
-        if not date_str:
-            errors['date'] = 'Date is required.'
-        else:
-            try:
-                date_val = datetime.date.fromisoformat(date_str)
-            except ValueError:
-                errors['date'] = 'Please enter a valid date.'
+        if form.is_valid() and not errors:
+            cd = form.cleaned_data
+            amount_val = cd['amount']
+            description = cd['description']
+            date_val = cd['date']
+        elif not form.is_valid():
+            errors.update(_form_errors(form))
 
         if not errors:
             transfer_id = uuid.uuid4()
@@ -1495,28 +1362,24 @@ def income_source_add(request):
     form_data = {'name': '', 'color': '#0984e3', 'is_active': True}
 
     if request.method == 'POST':
-        name = request.POST.get('name', '').strip()
-        color = request.POST.get('color', '#0984e3').strip()
+        form = IncomeSourceForm(request.POST)
         is_active = request.POST.get('is_active', '') == '1'
+        form_data = request.POST.dict()
 
-        form_data = {'name': name, 'color': color, 'is_active': is_active}
-
-        if not name:
-            errors['name'] = 'Name is required.'
-        elif IncomeSource.objects.filter(user=request.user, name__iexact=name).exists():
-            errors['name'] = 'An income source with this name already exists.'
-
-        if not color or len(color) != 7 or not color.startswith('#'):
-            errors['color'] = 'Please select a valid color.'
-
-        if not errors:
-            IncomeSource.objects.create(
-                user=request.user,
-                name=name,
-                color=color,
-                is_active=is_active,
-            )
-            return redirect('income_source_list')
+        if form.is_valid():
+            cd = form.cleaned_data
+            if IncomeSource.objects.filter(user=request.user, name__iexact=cd['name']).exists():
+                errors['name'] = 'An income source with this name already exists.'
+            else:
+                IncomeSource.objects.create(
+                    user=request.user,
+                    name=cd['name'],
+                    color=cd['color'],
+                    is_active=is_active,
+                )
+                return redirect('income_source_list')
+        else:
+            errors = _form_errors(form)
 
     return render(request, 'transactions/income_source_add.html', {
         'errors': errors,
@@ -1529,34 +1392,29 @@ def income_source_add(request):
 def income_source_edit(request, source_id):
     source = get_object_or_404(IncomeSource, pk=source_id, user=request.user)
     errors = {}
+    form_data = {
+        'name': source.name,
+        'color': source.color,
+        'is_active': source.is_active,
+    }
 
     if request.method == 'POST':
-        name = request.POST.get('name', '').strip()
-        color = request.POST.get('color', '#0984e3').strip()
+        form = IncomeSourceForm(request.POST)
         is_active = request.POST.get('is_active', '') == '1'
+        form_data = request.POST.dict()
 
-        form_data = {'name': name, 'color': color, 'is_active': is_active}
-
-        if not name:
-            errors['name'] = 'Name is required.'
-        elif IncomeSource.objects.filter(user=request.user, name__iexact=name).exclude(pk=source_id).exists():
-            errors['name'] = 'An income source with this name already exists.'
-
-        if not color or len(color) != 7 or not color.startswith('#'):
-            errors['color'] = 'Please select a valid color.'
-
-        if not errors:
-            source.name = name
-            source.color = color
-            source.is_active = is_active
-            source.save()
-            return redirect('income_source_list')
-    else:
-        form_data = {
-            'name': source.name,
-            'color': source.color,
-            'is_active': source.is_active,
-        }
+        if form.is_valid():
+            cd = form.cleaned_data
+            if IncomeSource.objects.filter(user=request.user, name__iexact=cd['name']).exclude(pk=source_id).exists():
+                errors['name'] = 'An income source with this name already exists.'
+            else:
+                source.name = cd['name']
+                source.color = cd['color']
+                source.is_active = is_active
+                source.save()
+                return redirect('income_source_list')
+        else:
+            errors = _form_errors(form)
 
     return render(request, 'transactions/income_source_edit.html', {
         'source': source,
@@ -1679,48 +1537,11 @@ def recurring_add(request):
     }
 
     if request.method == 'POST':
-        description = request.POST.get('description', '').strip()
-        vendor = request.POST.get('vendor', '').strip()
-        amount_str = request.POST.get('amount', '').strip()
-        transaction_type = request.POST.get('transaction_type', '').strip()
-        frequency = request.POST.get('frequency', '').strip()
-        start_date_str = request.POST.get('start_date', '').strip()
-        next_due_str = request.POST.get('next_due', '').strip()
-        end_date_str = request.POST.get('end_date', '').strip()
         account_id = request.POST.get('account', '').strip()
         bucket_id = request.POST.get('bucket', '').strip()
-        is_active = request.POST.get('is_active', '') == '1'
-        is_subscription = request.POST.get('is_subscription', '') == '1'
-        necessity_score_str = request.POST.get('necessity_score', '').strip()
 
-        form_data = {
-            'description': description, 'vendor': vendor, 'amount': amount_str,
-            'transaction_type': transaction_type, 'frequency': frequency,
-            'start_date': start_date_str, 'next_due': next_due_str,
-            'end_date': end_date_str, 'account': account_id, 'bucket': bucket_id,
-            'is_active': is_active, 'is_subscription': is_subscription,
-            'necessity_score': necessity_score_str,
-        }
-
-        if not description:
-            errors['description'] = 'Description is required.'
-
-        amount = None
-        if not amount_str:
-            errors['amount'] = 'Amount is required.'
-        else:
-            try:
-                amount = Decimal(amount_str)
-                if amount <= 0:
-                    errors['amount'] = 'Amount must be greater than zero.'
-            except InvalidOperation:
-                errors['amount'] = 'Enter a valid amount.'
-
-        if not transaction_type or transaction_type not in [c[0] for c in RecurringTransaction.TRANSACTION_TYPE_CHOICES]:
-            errors['transaction_type'] = 'Please select a valid type.'
-
-        if not frequency or frequency not in [c[0] for c in RecurringTransaction.FREQUENCY_CHOICES]:
-            errors['frequency'] = 'Please select a valid frequency.'
+        form = RecurringTransactionForm(request.POST)
+        form_data = request.POST.dict()
 
         account = None
         if not account_id:
@@ -1731,31 +1552,6 @@ def recurring_add(request):
             except BankAccount.DoesNotExist:
                 errors['account'] = 'Please select a valid account.'
 
-        start_date = None
-        if not start_date_str:
-            errors['start_date'] = 'Start date is required.'
-        else:
-            try:
-                start_date = datetime.date.fromisoformat(start_date_str)
-            except ValueError:
-                errors['start_date'] = 'Enter a valid date.'
-
-        next_due = None
-        if not next_due_str:
-            errors['next_due'] = 'Next due date is required.'
-        else:
-            try:
-                next_due = datetime.date.fromisoformat(next_due_str)
-            except ValueError:
-                errors['next_due'] = 'Enter a valid date.'
-
-        end_date = None
-        if end_date_str:
-            try:
-                end_date = datetime.date.fromisoformat(end_date_str)
-            except ValueError:
-                errors['end_date'] = 'Enter a valid date.'
-
         bucket = None
         if bucket_id:
             try:
@@ -1763,34 +1559,27 @@ def recurring_add(request):
             except Bucket.DoesNotExist:
                 errors['bucket'] = 'Please select a valid bucket.'
 
-        necessity_score = None
-        if necessity_score_str:
-            try:
-                necessity_score = int(necessity_score_str)
-                if not (1 <= necessity_score <= 10):
-                    errors['necessity_score'] = 'Necessity score must be between 1 and 10.'
-                    necessity_score = None
-            except ValueError:
-                errors['necessity_score'] = 'Enter a valid necessity score.'
-
-        if not errors:
+        if form.is_valid() and not errors:
+            cd = form.cleaned_data
             RecurringTransaction.objects.create(
                 user=request.user,
                 account=account,
                 bucket=bucket,
-                amount=amount,
-                transaction_type=transaction_type,
-                description=description,
-                vendor=vendor,
-                frequency=frequency,
-                start_date=start_date,
-                next_due=next_due,
-                end_date=end_date,
-                is_active=is_active,
-                is_subscription=is_subscription,
-                necessity_score=necessity_score,
+                amount=cd['amount'],
+                transaction_type=cd['transaction_type'],
+                description=cd['description'],
+                vendor=cd.get('vendor', ''),
+                frequency=cd['frequency'],
+                start_date=cd['start_date'],
+                next_due=cd['next_due'],
+                end_date=cd.get('end_date'),
+                is_active=cd.get('is_active', True),
+                is_subscription=cd.get('is_subscription', False),
+                necessity_score=cd.get('necessity_score'),
             )
             return redirect('recurring_list')
+        elif not form.is_valid():
+            errors.update(_form_errors(form))
 
     return render(request, 'transactions/recurring_add.html', {
         'errors': errors,
@@ -1810,48 +1599,11 @@ def recurring_edit(request, recurring_id):
     buckets = Bucket.objects.filter(user=request.user).order_by('name')
 
     if request.method == 'POST':
-        description = request.POST.get('description', '').strip()
-        vendor = request.POST.get('vendor', '').strip()
-        amount_str = request.POST.get('amount', '').strip()
-        transaction_type = request.POST.get('transaction_type', '').strip()
-        frequency = request.POST.get('frequency', '').strip()
-        start_date_str = request.POST.get('start_date', '').strip()
-        next_due_str = request.POST.get('next_due', '').strip()
-        end_date_str = request.POST.get('end_date', '').strip()
         account_id = request.POST.get('account', '').strip()
         bucket_id = request.POST.get('bucket', '').strip()
-        is_active = request.POST.get('is_active', '') == '1'
-        is_subscription = request.POST.get('is_subscription', '') == '1'
-        necessity_score_str = request.POST.get('necessity_score', '').strip()
 
-        form_data = {
-            'description': description, 'vendor': vendor, 'amount': amount_str,
-            'transaction_type': transaction_type, 'frequency': frequency,
-            'start_date': start_date_str, 'next_due': next_due_str,
-            'end_date': end_date_str, 'account': account_id, 'bucket': bucket_id,
-            'is_active': is_active, 'is_subscription': is_subscription,
-            'necessity_score': necessity_score_str,
-        }
-
-        if not description:
-            errors['description'] = 'Description is required.'
-
-        amount = None
-        if not amount_str:
-            errors['amount'] = 'Amount is required.'
-        else:
-            try:
-                amount = Decimal(amount_str)
-                if amount <= 0:
-                    errors['amount'] = 'Amount must be greater than zero.'
-            except InvalidOperation:
-                errors['amount'] = 'Enter a valid amount.'
-
-        if not transaction_type or transaction_type not in [c[0] for c in RecurringTransaction.TRANSACTION_TYPE_CHOICES]:
-            errors['transaction_type'] = 'Please select a valid type.'
-
-        if not frequency or frequency not in [c[0] for c in RecurringTransaction.FREQUENCY_CHOICES]:
-            errors['frequency'] = 'Please select a valid frequency.'
+        form = RecurringTransactionForm(request.POST)
+        form_data = request.POST.dict()
 
         account = None
         if not account_id:
@@ -1862,31 +1614,6 @@ def recurring_edit(request, recurring_id):
             except BankAccount.DoesNotExist:
                 errors['account'] = 'Please select a valid account.'
 
-        start_date = None
-        if not start_date_str:
-            errors['start_date'] = 'Start date is required.'
-        else:
-            try:
-                start_date = datetime.date.fromisoformat(start_date_str)
-            except ValueError:
-                errors['start_date'] = 'Enter a valid date.'
-
-        next_due = None
-        if not next_due_str:
-            errors['next_due'] = 'Next due date is required.'
-        else:
-            try:
-                next_due = datetime.date.fromisoformat(next_due_str)
-            except ValueError:
-                errors['next_due'] = 'Enter a valid date.'
-
-        end_date = None
-        if end_date_str:
-            try:
-                end_date = datetime.date.fromisoformat(end_date_str)
-            except ValueError:
-                errors['end_date'] = 'Enter a valid date.'
-
         bucket = None
         if bucket_id:
             try:
@@ -1894,32 +1621,25 @@ def recurring_edit(request, recurring_id):
             except Bucket.DoesNotExist:
                 errors['bucket'] = 'Please select a valid bucket.'
 
-        necessity_score = None
-        if necessity_score_str:
-            try:
-                necessity_score = int(necessity_score_str)
-                if not (1 <= necessity_score <= 10):
-                    errors['necessity_score'] = 'Necessity score must be between 1 and 10.'
-                    necessity_score = None
-            except ValueError:
-                errors['necessity_score'] = 'Enter a valid necessity score.'
-
-        if not errors:
-            rt.description = description
-            rt.vendor = vendor
-            rt.amount = amount
-            rt.transaction_type = transaction_type
-            rt.frequency = frequency
+        if form.is_valid() and not errors:
+            cd = form.cleaned_data
+            rt.description = cd['description']
+            rt.vendor = cd.get('vendor', '')
+            rt.amount = cd['amount']
+            rt.transaction_type = cd['transaction_type']
+            rt.frequency = cd['frequency']
             rt.account = account
             rt.bucket = bucket
-            rt.start_date = start_date
-            rt.next_due = next_due
-            rt.end_date = end_date
-            rt.is_active = is_active
-            rt.is_subscription = is_subscription
-            rt.necessity_score = necessity_score
+            rt.start_date = cd['start_date']
+            rt.next_due = cd['next_due']
+            rt.end_date = cd.get('end_date')
+            rt.is_active = cd.get('is_active', True)
+            rt.is_subscription = cd.get('is_subscription', False)
+            rt.necessity_score = cd.get('necessity_score')
             rt.save()
             return redirect('recurring_list')
+        elif not form.is_valid():
+            errors.update(_form_errors(form))
     else:
         form_data = {
             'description': rt.description,
