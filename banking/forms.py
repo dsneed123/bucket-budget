@@ -26,13 +26,6 @@ class BankAccountForm(forms.Form):
         strip=True,
         required=False,
     )
-    balance = forms.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        required=False,
-        initial=Decimal('0'),
-        error_messages={'invalid': 'Please enter a valid number.'},
-    )
     color = forms.CharField(
         max_length=7,
         strip=True,
@@ -46,9 +39,6 @@ class BankAccountForm(forms.Form):
         if value not in valid:
             raise forms.ValidationError('Please select a valid account type.')
         return value
-
-    def clean_balance(self):
-        return self.cleaned_data.get('balance') or Decimal('0')
 
     def clean_color(self):
         color = (self.cleaned_data.get('color') or '').strip()
