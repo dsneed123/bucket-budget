@@ -1064,6 +1064,79 @@ table tbody tr:hover td {
     display: none;
 }
 
+.bottom-nav-more-menu {
+    display: none;
+    position: fixed;
+    bottom: 64px;
+    left: 0;
+    right: 0;
+    background-color: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    z-index: 149;
+    padding: 8px 0;
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+}
+
+.bottom-nav-more-menu.open {
+    display: block;
+}
+
+.bottom-nav-more-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    bottom: 64px;
+    z-index: 148;
+}
+
+.bottom-nav-more-overlay.open {
+    display: block;
+}
+
+.bottom-nav-more-menu a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    transition: color 0.2s, background-color 0.2s;
+}
+
+.bottom-nav-more-menu a:hover,
+.bottom-nav-more-menu a.active {
+    color: var(--accent-green);
+    background-color: var(--bg-hover, rgba(255,255,255,0.05));
+}
+
+.bottom-nav-more-menu .nav-icon {
+    font-size: 18px;
+    line-height: 1;
+    width: 24px;
+    text-align: center;
+}
+
+.bottom-nav-more-menu .nav-badge {
+    margin-left: auto;
+    background: var(--accent-green);
+    color: var(--bg-primary);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 7px;
+}
+
+.bottom-nav-more-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+}
+
 /* =====================
    Messages
    ===================== */
