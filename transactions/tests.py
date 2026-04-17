@@ -628,6 +628,7 @@ class TransactionAddSplitViewTest(TestCase):
             'vendor': 'Costco',
             'account': str(self.account.pk),
             'date': '2026-04-16',
+            'total_amount': '100.00',
             'split_amount': ['60.00', '40.00'],
             'split_bucket': [str(self.bucket1.pk), str(self.bucket2.pk)],
         }
@@ -743,6 +744,28 @@ class TransactionAddSplitViewTest(TestCase):
         self.assertRedirects(response, reverse('transaction_list'))
         self.account.refresh_from_db()
         self.assertEqual(self.account.balance, Decimal('600.00'))
+
+    def test_missing_total_amount_shows_error(self):
+        response = self._post(total_amount='')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Total amount is required')
+        self.assertEqual(Transaction.objects.filter(user=self.user).count(), 0)
+
+    def test_splits_not_equal_to_total_shows_error(self):
+        response = self._post(total_amount='150.00')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'unallocated')
+        self.assertEqual(Transaction.objects.filter(user=self.user).count(), 0)
+
+    def test_splits_over_total_shows_error(self):
+        response = self._post(**{
+            'total_amount': '80.00',
+            'split_amount': ['60.00', '40.00'],
+            'split_bucket': ['', ''],
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'over by')
+        self.assertEqual(Transaction.objects.filter(user=self.user).count(), 0)
 
 
 class TagModelTest(TestCase):

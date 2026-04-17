@@ -660,6 +660,7 @@ def transaction_add_split(request):
     form_data = {
         'transaction_type': 'expense',
         'date': datetime.date.today().isoformat(),
+        'total_amount': '',
         'splits': default_splits,
     }
 
@@ -669,6 +670,7 @@ def transaction_add_split(request):
         vendor = request.POST.get('vendor', '').strip()
         account_id = request.POST.get('account', '').strip()
         date_str = request.POST.get('date', '').strip()
+        total_amount_str = request.POST.get('total_amount', '').strip()
 
         # Collect split rows from POST (arrays: split_amount[], split_bucket[])
         split_amounts = request.POST.getlist('split_amount')
@@ -684,6 +686,7 @@ def transaction_add_split(request):
             'vendor': vendor,
             'account': account_id,
             'date': date_str,
+            'total_amount': total_amount_str,
             'splits': splits_raw if splits_raw else default_splits,
         }
 
@@ -716,6 +719,18 @@ def transaction_add_split(request):
                 date_val = datetime.date.fromisoformat(date_str)
             except ValueError:
                 errors['date'] = 'Please enter a valid date.'
+
+        # Validate total amount
+        total_amount_val = None
+        if not total_amount_str:
+            errors['total_amount'] = 'Total amount is required.'
+        else:
+            try:
+                total_amount_val = Decimal(total_amount_str)
+                if total_amount_val <= 0:
+                    errors['total_amount'] = 'Total amount must be greater than zero.'
+            except InvalidOperation:
+                errors['total_amount'] = 'Enter a valid total amount.'
 
         # Validate splits
         split_errors = {}
@@ -752,6 +767,14 @@ def transaction_add_split(request):
 
             if split_errors:
                 errors['split_rows'] = split_errors
+            elif total_amount_val is not None:
+                splits_sum = sum(s['amount'] for s in validated_splits)
+                if splits_sum != total_amount_val:
+                    diff = total_amount_val - splits_sum
+                    if diff > 0:
+                        errors['splits'] = f'Splits total ${splits_sum:.2f} — still ${diff:.2f} unallocated.'
+                    else:
+                        errors['splits'] = f'Splits total ${splits_sum:.2f} — over by ${abs(diff):.2f}.'
 
         if not errors:
             group_id = uuid.uuid4()

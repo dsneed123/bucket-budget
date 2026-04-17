@@ -99,6 +99,24 @@
                 >
             </div>
 
+            <div class="form-group">
+                <label for="total_amount" class="form-label">Total amount</label>
+                <input
+                    type="number"
+                    id="total_amount"
+                    name="total_amount"
+                    class="form-control"
+                    value="{{ form_data.total_amount|default:'' }}"
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0.01"
+                    oninput="updateTotal()"
+                >
+                {% if errors.total_amount %}
+                    <p class="form-error">{{ errors.total_amount }}</p>
+                {% endif %}
+            </div>
+
             <!-- Split rows -->
             <div class="form-group" style="margin-top: 8px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -212,13 +230,39 @@
 
     window.updateTotal = function () {
         var inputs = document.querySelectorAll('.split-amount');
-        var total = 0;
+        var splitSum = 0;
         inputs.forEach(function (inp) {
             var v = parseFloat(inp.value);
-            if (!isNaN(v) && v > 0) total += v;
+            if (!isNaN(v) && v > 0) splitSum += v;
         });
+
+        var totalInput = document.getElementById('total_amount');
+        var totalVal = parseFloat(totalInput ? totalInput.value : '');
         var el = document.getElementById('split-total');
-        el.textContent = total > 0 ? 'Total: ' + formatCurrency(total) : 'Total: —';
+
+        if (splitSum === 0) {
+            el.textContent = 'Total: —';
+            el.style.color = 'var(--text-secondary)';
+            return;
+        }
+
+        if (!isNaN(totalVal) && totalVal > 0) {
+            var diff = totalVal - splitSum;
+            var absDiff = Math.abs(diff);
+            if (absDiff < 0.005) {
+                el.textContent = formatCurrency(splitSum) + ' ✓';
+                el.style.color = 'var(--color-success, #22c55e)';
+            } else if (diff > 0) {
+                el.textContent = formatCurrency(splitSum) + ' — ' + formatCurrency(diff) + ' remaining';
+                el.style.color = 'var(--text-secondary)';
+            } else {
+                el.textContent = formatCurrency(splitSum) + ' — over by ' + formatCurrency(absDiff);
+                el.style.color = 'var(--color-danger, #ef4444)';
+            }
+        } else {
+            el.textContent = 'Total: ' + formatCurrency(splitSum);
+            el.style.color = 'var(--text-secondary)';
+        }
     };
 
     window.addSplit = function () {
@@ -250,6 +294,34 @@
     document.addEventListener('DOMContentLoaded', function () {
         updateTotal();
         updateRemoveButtons();
+
+        var form = document.getElementById('split-form');
+        form.addEventListener('submit', function (e) {
+            var totalInput = document.getElementById('total_amount');
+            var totalVal = parseFloat(totalInput ? totalInput.value : '');
+            if (isNaN(totalVal) || totalVal <= 0) return; // let server handle missing total
+
+            var inputs = document.querySelectorAll('.split-amount');
+            var splitSum = 0;
+            inputs.forEach(function (inp) {
+                var v = parseFloat(inp.value);
+                if (!isNaN(v) && v > 0) splitSum += v;
+            });
+
+            if (Math.abs(totalVal - splitSum) >= 0.005) {
+                e.preventDefault();
+                var diff = totalVal - splitSum;
+                var msg = diff > 0
+                    ? 'Splits must equal the total amount. Still ' + formatCurrency(diff) + ' unallocated.'
+                    : 'Splits must equal the total amount. Over by ' + formatCurrency(Math.abs(diff)) + '.';
+                var existing = form.querySelector('.split-client-error');
+                if (existing) existing.remove();
+                var p = document.createElement('p');
+                p.className = 'form-error split-client-error';
+                p.textContent = msg;
+                document.getElementById('add-split-btn').insertAdjacentElement('afterend', p);
+            }
+        });
     });
 }());
 </script>
