@@ -204,19 +204,19 @@
                 <p style="font-size: 13px; color: var(--text-secondary); margin: 2px 0 10px;">How necessary was this expense?</p>
                 <div style="display: flex; gap: 8px; margin-bottom: 10px;">
                     <button type="button" id="btn-want"
-                            style="flex: 1; padding: 8px 4px; font-size: 13px; border-radius: 6px; border: 1px solid #ff4757; background: rgba(255,71,87,0.12); color: #ff4757; cursor: pointer;"
+                            style="flex: 1; padding: 8px 4px; font-size: 13px; font-weight: 600; border-radius: 6px; border: none; background: #ff4757; color: #fff; cursor: pointer; opacity: 0.45; transition: opacity 0.15s;"
                             onclick="setNecessityCategory('want', 2)">
-                        Want <span style="opacity: 0.7; font-size: 11px;">(1–3)</span>
+                        Want <span style="font-weight: 400; font-size: 11px;">(1–3)</span>
                     </button>
                     <button type="button" id="btn-useful"
-                            style="flex: 1; padding: 8px 4px; font-size: 13px; border-radius: 6px; border: 1px solid #f9ca24; background: rgba(249,202,36,0.12); color: #f9ca24; cursor: pointer;"
+                            style="flex: 1; padding: 8px 4px; font-size: 13px; font-weight: 600; border-radius: 6px; border: none; background: #f9ca24; color: #1a1a2e; cursor: pointer; opacity: 0.45; transition: opacity 0.15s;"
                             onclick="setNecessityCategory('useful', 5)">
-                        Useful <span style="opacity: 0.7; font-size: 11px;">(4–6)</span>
+                        Useful <span style="font-weight: 400; font-size: 11px;">(4–6)</span>
                     </button>
                     <button type="button" id="btn-need"
-                            style="flex: 1; padding: 8px 4px; font-size: 13px; border-radius: 6px; border: 1px solid #00d4aa; background: rgba(0,212,170,0.12); color: #00d4aa; cursor: pointer;"
+                            style="flex: 1; padding: 8px 4px; font-size: 13px; font-weight: 600; border-radius: 6px; border: none; background: #00d4aa; color: #1a1a2e; cursor: pointer; opacity: 0.45; transition: opacity 0.15s;"
                             onclick="setNecessityCategory('need', 9)">
-                        Need <span style="opacity: 0.7; font-size: 11px;">(7–10)</span>
+                        Need <span style="font-weight: 400; font-size: 11px;">(7–10)</span>
                     </button>
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px;">
@@ -224,12 +224,8 @@
                            value="{{ form_data.necessity_score|default:'5' }}"
                            style="flex: 1; cursor: pointer; accent-color: var(--accent-green);"
                            oninput="onSliderInput(this.value)">
-                    <input type="number" id="necessity-score" name="necessity_score"
-                           class="form-control" min="1" max="10" step="1"
-                           value="{{ form_data.necessity_score|default:'' }}"
-                           placeholder="—"
-                           style="width: 68px; text-align: center;"
-                           oninput="onScoreInput(this.value)">
+                    <input type="hidden" id="necessity-score" name="necessity_score"
+                           value="{{ form_data.necessity_score|default:'' }}">
                 </div>
                 {% if errors.necessity_score %}
                     <p class="form-error">{{ errors.necessity_score }}</p>
@@ -296,14 +292,9 @@
 
 (function () {
     var CATEGORIES = {
-        want:   { id: 'btn-want',   min: 1, max: 3,  activeBg: 'rgba(255,71,87,0.35)'  },
-        useful: { id: 'btn-useful', min: 4, max: 6,  activeBg: 'rgba(249,202,36,0.35)' },
-        need:   { id: 'btn-need',   min: 7, max: 10, activeBg: 'rgba(0,212,170,0.35)'  },
-    };
-    var INACTIVE_BG = {
-        want:   'rgba(255,71,87,0.12)',
-        useful: 'rgba(249,202,36,0.12)',
-        need:   'rgba(0,212,170,0.12)',
+        want:   { id: 'btn-want',   min: 1, max: 3  },
+        useful: { id: 'btn-useful', min: 4, max: 6  },
+        need:   { id: 'btn-need',   min: 7, max: 10 },
     };
 
     function highlightButtons(score) {
@@ -311,8 +302,7 @@
             var cfg = CATEGORIES[cat];
             var btn = document.getElementById(cfg.id);
             var active = score !== null && score >= cfg.min && score <= cfg.max;
-            btn.style.background = active ? cfg.activeBg : INACTIVE_BG[cat];
-            btn.style.fontWeight = active ? '600' : '400';
+            btn.style.opacity = active ? '1' : '0.45';
         }
     }
 
@@ -326,16 +316,6 @@
         var v = parseInt(value);
         document.getElementById('necessity-score').value = v;
         highlightButtons(v);
-    };
-
-    window.onScoreInput = function (value) {
-        var v = parseInt(value);
-        if (!isNaN(v) && v >= 1 && v <= 10) {
-            document.getElementById('necessity-slider').value = v;
-            highlightButtons(v);
-        } else {
-            highlightButtons(null);
-        }
     };
 
     function toggleNecessitySection() {
