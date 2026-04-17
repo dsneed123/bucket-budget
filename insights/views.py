@@ -253,9 +253,9 @@ def _range_dow_pattern(user, date_from, date_to):
     max_amount = max((d['amount'] for d in days), default=Decimal('0'))
     peak_amount = max_amount
     for day in days:
-        day['bar_height_px'] = (
-            max(2, int(float(day['amount'] / max_amount) * _DOW_CHART_H))
-            if max_amount > 0 else 2
+        day['bar_height_pct'] = (
+            int(float(day['amount'] / max_amount) * 100)
+            if max_amount > 0 else 0
         )
         day['is_peak'] = max_amount > 0 and day['amount'] == peak_amount
     return days
@@ -700,9 +700,9 @@ def _dow_pattern(user, year, month):
     max_amount = max((d['amount'] for d in days), default=Decimal('0'))
     peak_amount = max_amount
     for day in days:
-        day['bar_height_px'] = (
-            max(2, int(float(day['amount'] / max_amount) * _DOW_CHART_H))
-            if max_amount > 0 else 2
+        day['bar_height_pct'] = (
+            int(float(day['amount'] / max_amount) * 100)
+            if max_amount > 0 else 0
         )
         day['is_peak'] = max_amount > 0 and day['amount'] == peak_amount
     return days
@@ -730,12 +730,12 @@ def _income_expense_trend(user, today):
     )
     for m in months:
         m['income_bar_h'] = (
-            max(2, int(float(m['income'] / chart_max) * _INCOME_EXPENSE_CHART_H))
-            if chart_max > 0 else 2
+            int(float(m['income'] / chart_max) * 100)
+            if chart_max > 0 else 0
         )
         m['expense_bar_h'] = (
-            max(2, int(float(m['expenses'] / chart_max) * _INCOME_EXPENSE_CHART_H))
-            if chart_max > 0 else 2
+            int(float(m['expenses'] / chart_max) * 100)
+            if chart_max > 0 else 0
         )
         m['net_positive'] = m['net'] >= 0
     return months
@@ -960,9 +960,9 @@ def _net_worth_trend(user, today):
     max_abs = max(all_values, default=Decimal('0'))
     for m in months:
         m['positive'] = m['net_worth'] >= 0
-        m['bar_height_px'] = (
-            max(2, int(float(abs(m['net_worth']) / max_abs) * _NW_CHART_H))
-            if max_abs > 0 else 2
+        m['bar_height_pct'] = (
+            int(float(abs(m['net_worth']) / max_abs) * 100)
+            if max_abs > 0 else 0
         )
 
     current = months[-1] if months else None
@@ -983,9 +983,9 @@ def _monthly_trend(user, today):
     trend_avg = sum(m['amount'] for m in months) / Decimal('12')
     for m in months:
         m['above_avg'] = trend_avg > 0 and m['amount'] > trend_avg
-        m['bar_height_px'] = (
-            max(2, int(float(m['amount'] / trend_max) * _TREND_CHART_H))
-            if trend_max > 0 else 2
+        m['bar_height_pct'] = (
+            int(float(m['amount'] / trend_max) * 100)
+            if trend_max > 0 else 0
         )
     return months, trend_avg
 
