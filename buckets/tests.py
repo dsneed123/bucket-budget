@@ -657,3 +657,63 @@ class BucketTemplatesViewTest(TestCase):
     def test_bucket_list_has_templates_link(self):
         response = self.client.get(reverse('bucket_list'))
         self.assertContains(response, 'Templates')
+
+
+class BucketModelTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='bucketmodel@example.com',
+            password='testpass',
+            first_name='Bucket',
+        )
+        # Remove auto-created default buckets so tests are isolated
+        Bucket.objects.filter(user=self.user).delete()
+
+    def test_create_bucket(self):
+        bucket = Bucket.objects.create(
+            user=self.user,
+            name='Groceries',
+            monthly_allocation=Decimal('300.00'),
+        )
+        self.assertEqual(bucket.name, 'Groceries')
+        self.assertEqual(bucket.monthly_allocation, Decimal('300.00'))
+
+    def test_default_alert_threshold(self):
+        bucket = Bucket.objects.create(
+            user=self.user,
+            name='Transport',
+            monthly_allocation=Decimal('100.00'),
+        )
+        self.assertEqual(bucket.alert_threshold, 90)
+
+    def test_is_active_by_default(self):
+        bucket = Bucket.objects.create(
+            user=self.user,
+            name='Bills',
+            monthly_allocation=Decimal('200.00'),
+        )
+        self.assertTrue(bucket.is_active)
+
+    def test_rollover_default_false(self):
+        bucket = Bucket.objects.create(
+            user=self.user,
+            name='Dining',
+            monthly_allocation=Decimal('150.00'),
+        )
+        self.assertFalse(bucket.rollover)
+
+    def test_spent_this_month_returns_zero(self):
+        bucket = Bucket.objects.create(
+            user=self.user,
+            name='Entertainment',
+            monthly_allocation=Decimal('150.00'),
+        )
+        self.assertEqual(bucket.spent_this_month(), Decimal('0'))
+
+    def test_remaining_equals_full_allocation_when_nothing_spent(self):
+        bucket = Bucket.objects.create(
+            user=self.user,
+            name='Savings',
+            monthly_allocation=Decimal('400.00'),
+        )
+        self.assertEqual(bucket.remaining_this_month(), Decimal('400.00'))

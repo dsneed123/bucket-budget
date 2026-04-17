@@ -2121,3 +2121,120 @@ class ProcessRecurringCommandTest(TestCase):
         self.assertEqual(txn.description, rt.description)
         self.assertEqual(txn.vendor, rt.vendor)
         self.assertEqual(txn.transaction_type, rt.transaction_type)
+
+
+class TransactionBalanceSignalTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='balsignal@example.com',
+            password='testpass',
+            first_name='Signal',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('1000.00'),
+        )
+
+    def _make_transaction(self, **kwargs):
+        defaults = dict(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('100.00'),
+            transaction_type='expense',
+            description='Test',
+            date=datetime.date(2026, 4, 16),
+        )
+        defaults.update(kwargs)
+        return Transaction.objects.create(**defaults)
+
+    def test_expense_decreases_balance(self):
+        self._make_transaction(amount=Decimal('200.00'), transaction_type='expense')
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('800.00'))
+
+    def test_income_increases_balance(self):
+        self._make_transaction(amount=Decimal('500.00'), transaction_type='income')
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1500.00'))
+
+    def test_delete_expense_reverses_balance(self):
+        txn = self._make_transaction(amount=Decimal('150.00'), transaction_type='expense')
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('850.00'))
+        txn.delete()
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1000.00'))
+
+    def test_delete_income_reverses_balance(self):
+        txn = self._make_transaction(amount=Decimal('300.00'), transaction_type='income')
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1300.00'))
+        txn.delete()
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1000.00'))
+
+    def test_multiple_expenses_accumulate(self):
+        self._make_transaction(amount=Decimal('100.00'), transaction_type='expense')
+        self._make_transaction(amount=Decimal('50.00'), transaction_type='expense')
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('850.00'))
+
+
+class RecurringTransactionModelTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='recurmodel@example.com',
+            password='testpass',
+            first_name='Recur',
+        )
+        self.account = BankAccount.objects.create(
+            user=self.user,
+            name='Checking',
+            account_type='checking',
+            balance=Decimal('1000.00'),
+        )
+
+    def _make_recurring(self, **kwargs):
+        defaults = dict(
+            user=self.user,
+            account=self.account,
+            amount=Decimal('15.99'),
+            transaction_type='expense',
+            description='Netflix',
+            frequency='monthly',
+            start_date=datetime.date(2026, 1, 1),
+            next_due=datetime.date(2026, 5, 1),
+        )
+        defaults.update(kwargs)
+        return RecurringTransaction.objects.create(**defaults)
+
+    def test_create_recurring_transaction(self):
+        rt = self._make_recurring()
+        self.assertEqual(rt.description, 'Netflix')
+        self.assertEqual(rt.frequency, 'monthly')
+        self.assertEqual(rt.amount, Decimal('15.99'))
+
+    def test_is_active_by_default(self):
+        rt = self._make_recurring()
+        self.assertTrue(rt.is_active)
+
+    def test_is_subscription_default_false(self):
+        rt = self._make_recurring()
+        self.assertFalse(rt.is_subscription)
+
+    def test_frequency_choices(self):
+        for freq in ('daily', 'weekly', 'biweekly', 'monthly', 'yearly'):
+            rt = self._make_recurring(frequency=freq, description=f'{freq} payment')
+            self.assertEqual(rt.frequency, freq)
+
+    def test_next_due_stored(self):
+        due = datetime.date(2026, 6, 15)
+        rt = self._make_recurring(next_due=due)
+        self.assertEqual(rt.next_due, due)
+
+    def test_str_representation(self):
+        rt = self._make_recurring(description='Spotify')
+        self.assertIn('monthly', str(rt))
+        self.assertIn('Spotify', str(rt))

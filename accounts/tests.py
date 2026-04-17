@@ -1,5 +1,6 @@
 import datetime
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase, Client
 from django.template import Context, Template
 from django.urls import reverse
@@ -8,6 +9,8 @@ from accounts.models import CustomUser
 from accounts.signals import DEFAULT_BUCKETS
 from accounts.utils import get_current_fiscal_month, get_fiscal_month_range, get_user_fiscal_start
 from buckets.models import Bucket
+
+User = get_user_model()
 
 
 class CurrencyFilterTest(TestCase):
@@ -270,3 +273,57 @@ class TimezoneSettingTest(TestCase):
         })
         prefs = UserPreferences.objects.get(user=self.user)
         self.assertEqual(prefs.timezone, 'UTC')
+
+
+class CustomUserModelTest(TestCase):
+    def test_create_user_with_email(self):
+        user = User.objects.create_user(
+            email='model@example.com',
+            password='pass123',
+            first_name='Model',
+            last_name='Test',
+        )
+        self.assertEqual(user.email, 'model@example.com')
+        self.assertEqual(user.first_name, 'Model')
+        self.assertTrue(user.check_password('pass123'))
+
+    def test_email_required(self):
+        with self.assertRaises(ValueError):
+            User.objects.create_user(email='', password='pass', first_name='Test')
+
+    def test_default_currency_is_usd(self):
+        user = User.objects.create_user(
+            email='currency@example.com',
+            password='pass',
+            first_name='Test',
+        )
+        self.assertEqual(user.currency, 'USD')
+
+    def test_email_is_username_field(self):
+        self.assertEqual(CustomUser.USERNAME_FIELD, 'email')
+
+    def test_create_superuser(self):
+        admin = User.objects.create_superuser(
+            email='admin@example.com',
+            password='adminpass',
+            first_name='Admin',
+        )
+        self.assertTrue(admin.is_staff)
+        self.assertTrue(admin.is_superuser)
+
+    def test_zero_based_budgeting_default_false(self):
+        user = User.objects.create_user(
+            email='zb@example.com',
+            password='pass',
+            first_name='ZB',
+        )
+        self.assertFalse(user.zero_based_budgeting)
+
+    def test_monthly_income_default_zero(self):
+        from decimal import Decimal
+        user = User.objects.create_user(
+            email='income@example.com',
+            password='pass',
+            first_name='Income',
+        )
+        self.assertEqual(user.monthly_income, Decimal('0'))
