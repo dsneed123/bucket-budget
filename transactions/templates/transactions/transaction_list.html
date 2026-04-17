@@ -23,6 +23,7 @@ mark.search-highlight {
         {% if filters.type %}<input type="hidden" name="type" value="{{ filters.type }}">{% endif %}
         {% if filters.account %}<input type="hidden" name="account" value="{{ filters.account }}">{% endif %}
         {% if filters.tag %}<input type="hidden" name="tag" value="{{ filters.tag }}">{% endif %}
+        {% if sort_col != 'date' or sort_order != 'desc' %}<input type="hidden" name="sort" value="{{ sort_col }}"><input type="hidden" name="order" value="{{ sort_order }}">{% endif %}
         <div style="display: flex; gap: 8px; align-items: center;">
             <div style="position: relative; flex: 1;">
                 <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none; font-size: 0.95rem;">&#128269;</span>
@@ -173,6 +174,7 @@ mark.search-highlight {
             {% endif %}
             {# Carry the active search term through filter form submissions #}
             {% if filters.search %}<input type="hidden" name="search" value="{{ filters.search }}">{% endif %}
+            {% if sort_col != 'date' or sort_order != 'desc' %}<input type="hidden" name="sort" value="{{ sort_col }}"><input type="hidden" name="order" value="{{ sort_order }}">{% endif %}
             <div style="display: flex; gap: 8px; align-items: flex-end; padding-bottom: 1px;">
                 <button type="submit" class="btn btn-primary" style="padding: 6px 14px; font-size: 0.85rem; white-space: nowrap;">
                     Filter{% if active_filter_count %} <span style="display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.25); border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; font-weight: 700; margin-left: 4px;">{{ active_filter_count }}</span>{% endif %}
@@ -256,13 +258,25 @@ mark.search-highlight {
                 <th style="padding: 10px 12px; width: 36px;">
                     <input type="checkbox" id="select-all" form="bulk-form" title="Select all on page" style="cursor: pointer; width: 15px; height: 15px;" onchange="onSelectAll(this.checked)">
                 </th>
-                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Date</th>
-                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
-                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Vendor</th>
-                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Bucket</th>
-                <th style="padding: 10px 12px; text-align: right; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Amount</th>
+                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.date }}" style="color: {% if sort_col == 'date' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Date{% if sort_col == 'date' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                </th>
+                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.description }}" style="color: {% if sort_col == 'description' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Description{% if sort_col == 'description' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                </th>
+                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.vendor }}" style="color: {% if sort_col == 'vendor' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Vendor{% if sort_col == 'vendor' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                </th>
+                <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.bucket }}" style="color: {% if sort_col == 'bucket' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Bucket{% if sort_col == 'bucket' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                </th>
+                <th style="padding: 10px 12px; text-align: right; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.amount }}" style="color: {% if sort_col == 'amount' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Amount{% if sort_col == 'amount' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                </th>
                 <th style="padding: 10px 12px; text-align: right; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Balance</th>
-                <th style="padding: 10px 12px; text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Score</th>
+                <th style="padding: 10px 12px; text-align: center; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.score }}" style="color: {% if sort_col == 'score' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Score{% if sort_col == 'score' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                </th>
                 <th style="padding: 10px 12px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Tags</th>
                 <th style="padding: 10px 12px; text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;"></th>
             </tr>
@@ -332,6 +346,7 @@ mark.search-highlight {
         {% if filters.account %}<input type="hidden" name="account" value="{{ filters.account }}">{% endif %}
         {% if filters.search %}<input type="hidden" name="search" value="{{ filters.search }}">{% endif %}
         {% if filters.tag %}<input type="hidden" name="tag" value="{{ filters.tag }}">{% endif %}
+        {% if sort_col != 'date' or sort_order != 'desc' %}<input type="hidden" name="sort" value="{{ sort_col }}"><input type="hidden" name="order" value="{{ sort_order }}">{% endif %}
         <label for="page-size-select" style="font-size: 0.85rem; color: var(--text-secondary);">Per page:</label>
         <select id="page-size-select" name="page_size" onchange="this.form.submit()"
                 style="background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 0.85rem; cursor: pointer;">

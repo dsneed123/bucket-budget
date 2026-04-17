@@ -92,6 +92,7 @@
                 <option value="true" {% if filter_subscription == 'true' %}selected{% endif %}>Subscriptions</option>
             </select>
         </div>
+        {% if sort_col != 'next_due' or sort_order != 'asc' %}<input type="hidden" name="sort" value="{{ sort_col }}"><input type="hidden" name="order" value="{{ sort_order }}">{% endif %}
         <button type="submit" class="btn" style="padding: 6px 14px; font-size: 0.85rem;">Filter</button>
         {% if filter_bucket or filter_frequency or filter_type or filter_status or filter_subscription %}
             <a href="{% url 'recurring_list' %}" style="font-size: 0.85rem; color: var(--text-secondary); text-decoration: none; align-self: center;">Clear</a>
@@ -130,12 +131,24 @@
     <table style="width: 100%; border-collapse: collapse;">
         <thead>
             <tr style="border-bottom: 1px solid var(--border);">
-                <th style="padding: 10px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
-                <th style="padding: 10px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Vendor</th>
-                <th style="padding: 10px 16px; text-align: right; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Amount</th>
-                <th style="padding: 10px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Frequency</th>
-                <th style="padding: 10px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Next Due</th>
-                <th style="padding: 10px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Bucket</th>
+                <th style="padding: 10px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.description }}" style="color: {% if sort_col == 'description' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Description{% if sort_col == 'description' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                </th>
+                <th style="padding: 10px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.vendor }}" style="color: {% if sort_col == 'vendor' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Vendor{% if sort_col == 'vendor' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                </th>
+                <th style="padding: 10px 16px; text-align: right; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.amount }}" style="color: {% if sort_col == 'amount' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Amount{% if sort_col == 'amount' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                </th>
+                <th style="padding: 10px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.frequency }}" style="color: {% if sort_col == 'frequency' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Frequency{% if sort_col == 'frequency' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                </th>
+                <th style="padding: 10px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.next_due }}" style="color: {% if sort_col == 'next_due' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Next Due{% if sort_col == 'next_due' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                </th>
+                <th style="padding: 10px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <a href="?{{ sort_urls.bucket }}" style="color: {% if sort_col == 'bucket' %}var(--text-primary){% else %}var(--text-secondary){% endif %}; text-decoration: none;">Bucket{% if sort_col == 'bucket' %} {% if sort_order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a>
+                </th>
                 <th style="padding: 10px 16px; text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
                 <th style="padding: 10px 16px; text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;"></th>
             </tr>
