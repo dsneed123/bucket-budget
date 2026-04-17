@@ -17,6 +17,7 @@ from django.urls import reverse
 
 from banking.models import BankAccount
 from buckets.models import Bucket
+from core.utils import make_breadcrumbs
 
 from .forms import IncomeSourceForm, RecurringTransactionForm, TransactionForm, TransactionTransferForm
 from .models import CsvColumnMapping, IncomeSource, RecurringTransaction, Tag, Transaction, VendorMapping
@@ -303,6 +304,7 @@ def transaction_list(request):
     sort_urls = {col: _sort_url(col) for col in ('date', 'description', 'vendor', 'amount', 'bucket', 'score')}
 
     return render(request, 'transactions/transaction_list.html', {
+        'breadcrumbs': make_breadcrumbs(('Dashboard', '/dashboard/'), ('Transactions', None)),
         'page_obj': page_obj,
         'total_income': total_income,
         'total_expenses': total_expenses,
@@ -1585,6 +1587,7 @@ def recurring_list(request):
     rec_sort_urls = {col: _rec_sort_url(col) for col in ('description', 'vendor', 'amount', 'frequency', 'next_due', 'bucket')}
 
     return render(request, 'transactions/recurring_list.html', {
+        'breadcrumbs': make_breadcrumbs(('Dashboard', '/dashboard/'), ('Recurring', None)),
         'recurring': recurring,
         'total_monthly': total_monthly,
         'total_yearly': total_yearly,

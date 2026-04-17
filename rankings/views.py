@@ -7,6 +7,7 @@ from django.db.models import Avg, Count, Q, Sum
 from django.db.models.functions import ExtractWeekDay
 from django.shortcuts import redirect, render
 
+from core.utils import make_breadcrumbs
 from transactions.models import Transaction
 
 from .models import ScoreStreak
@@ -516,6 +517,7 @@ def rankings(request):
     }
 
     return render(request, 'rankings/rankings.html', {
+        'breadcrumbs': make_breadcrumbs(('Dashboard', '/dashboard/'), ('Rankings', None)),
         'current_score': current_score,
         'current_count': current_count,
         'current_color': _score_color(current_score),

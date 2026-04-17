@@ -10,6 +10,7 @@ from django.urls import reverse
 
 from accounts.utils import get_current_fiscal_month, get_fiscal_month_range, get_user_fiscal_start
 from buckets.models import Bucket
+from core.utils import make_breadcrumbs
 from budget.models import BudgetSummary, MonthlyBudgetAllocation
 from transactions.models import Transaction
 
@@ -160,6 +161,7 @@ def budget_overview(request, year=None, month=None):
     notes = summary.notes if summary else ''
 
     return render(request, 'budget/budget_overview.html', {
+        'breadcrumbs': make_breadcrumbs(('Dashboard', '/dashboard/'), ('Budget', None)),
         'current_month': selected_date.strftime('%B %Y'),
         'year': year,
         'month': month,

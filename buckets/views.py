@@ -7,6 +7,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 
+from core.utils import make_breadcrumbs
 from .forms import BucketForm
 from .models import Bucket
 from transactions.models import Transaction
@@ -126,6 +127,7 @@ def bucket_list(request):
     over_by = total_allocated - monthly_income if monthly_income > 0 and total_allocated > monthly_income else Decimal('0')
 
     return render(request, 'buckets/bucket_list.html', {
+        'breadcrumbs': make_breadcrumbs(('Dashboard', '/dashboard/'), ('Buckets', None)),
         'bucket_data': bucket_data,
         'total_allocated': total_allocated,
         'total_spent': total_spent,
