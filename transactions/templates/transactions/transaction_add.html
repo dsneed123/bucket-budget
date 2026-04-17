@@ -240,7 +240,7 @@
             <div style="background: rgba(249,202,36,0.12); border: 1px solid #f9ca24; border-radius: 8px; padding: 14px 16px; margin-top: 8px;">
                 <p style="font-weight: 600; color: #f9ca24; margin: 0 0 6px;">Similar transaction found — is this a duplicate?</p>
                 <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 10px;">
-                    {{ duplicate_warning.date }} &mdash; {{ duplicate_warning.description }}{% if duplicate_warning.vendor %} ({{ duplicate_warning.vendor }}){% endif %} &mdash; ${{ duplicate_warning.amount }}
+                    {{ duplicate_warning.date|date:"M j, Y" }} &mdash; {{ duplicate_warning.description }}{% if duplicate_warning.vendor %} ({{ duplicate_warning.vendor }}){% endif %} &mdash; ${{ duplicate_warning.amount }}
                 </p>
                 <input type="hidden" name="force_save" value="1">
                 <div style="display: flex; gap: 10px;">

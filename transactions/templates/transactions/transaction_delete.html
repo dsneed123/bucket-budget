@@ -22,7 +22,7 @@
             </div>
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
                 <span>Date</span>
-                <span style="color: var(--text-primary); font-weight: 500;">{{ transaction.date }}</span>
+                <span style="color: var(--text-primary); font-weight: 500;">{{ transaction.date|date:"M j, Y" }}</span>
             </div>
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
                 <span>Type</span>

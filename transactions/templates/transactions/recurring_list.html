@@ -171,7 +171,7 @@
                     {% if rt.transaction_type == 'income' %}+{% endif %}${{ rt.amount|floatformat:2 }}
                 </td>
                 <td style="padding: 14px 16px; font-size: 0.85rem; color: var(--text-secondary);">{{ rt.get_frequency_display }}</td>
-                <td style="padding: 14px 16px; font-size: 0.85rem; color: var(--text-primary);">{{ rt.next_due|date:"M d, Y" }}</td>
+                <td style="padding: 14px 16px; font-size: 0.85rem; color: var(--text-primary);">{{ rt.next_due|date:"M j, Y" }}</td>
                 <td style="padding: 14px 16px; font-size: 0.85rem; color: var(--text-secondary);">
                     {% if rt.bucket %}{{ rt.bucket.name }}{% else %}—{% endif %}
                 </td>
