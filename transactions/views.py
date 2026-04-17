@@ -387,7 +387,7 @@ def transaction_export_csv(request):
 
         writer = csv.writer(_EchoBuf())
         yield writer.writerow(['date', 'description', 'vendor', 'amount', 'type', 'bucket', 'account', 'necessity_score', 'tags'])
-        for txn in queryset.iterator():
+        for txn in queryset:
             tag_names = ', '.join(t.name for t in txn.tags.all())
             yield writer.writerow([
                 txn.date.isoformat(),

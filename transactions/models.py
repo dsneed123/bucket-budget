@@ -105,6 +105,11 @@ class Transaction(models.Model):
 
     class Meta:
         ordering = ['-date', '-created_at']
+        indexes = [
+            models.Index(fields=['user', 'date']),
+            models.Index(fields=['user', 'bucket']),
+            models.Index(fields=['user', 'account']),
+        ]
 
     def __str__(self):
         return f'{self.transaction_type} - {self.description} ({self.amount})'
