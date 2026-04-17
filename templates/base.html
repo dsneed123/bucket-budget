@@ -21,6 +21,7 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body class="theme-{{ user_theme }}">
+    <div class="nav-loading-bar" id="nav-loading-bar"></div>
     <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle-input">
     <div class="layout">
         <label for="sidebar-toggle" class="sidebar-overlay"></label>
@@ -224,6 +225,36 @@
         </div>
     </div>
     <div class="kbd-hint">Press <kbd>?</kbd> for shortcuts</div>
+
+    <script>
+        (function () {
+            var navBar = document.getElementById('nav-loading-bar');
+
+            // Show loading bar when navigating away
+            document.addEventListener('click', function (e) {
+                var a = e.target.closest('a[href]');
+                if (!a) return;
+                var href = a.getAttribute('href');
+                if (!href || href.startsWith('#') || href.startsWith('javascript') || a.target === '_blank') return;
+                if (navBar) navBar.classList.add('active');
+            });
+
+            // Hide loading bar when page is shown (including back/forward cache)
+            window.addEventListener('pageshow', function () {
+                if (navBar) navBar.classList.remove('active');
+            });
+
+            // Disable submit button and show spinner on form submission
+            document.addEventListener('submit', function (e) {
+                var form = e.target;
+                var btn = form.querySelector('[type="submit"]');
+                if (btn && !btn.disabled) {
+                    btn.disabled = true;
+                    btn.classList.add('btn-loading');
+                }
+            });
+        })();
+    </script>
 
     <script>
         (function () {
