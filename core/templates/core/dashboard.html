@@ -8,6 +8,30 @@
 @media (max-width: 640px) {
     .daily-bar-hide-sm { display: none !important; }
 }
+.dashboard-main-grid,
+.dashboard-secondary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+}
+.dashboard-col {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+@media (max-width: 767px) {
+    .dashboard-main-grid,
+    .dashboard-secondary-grid {
+        grid-template-columns: 1fr;
+    }
+}
+@media print {
+    .dashboard-main-grid,
+    .dashboard-secondary-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
 </style>
 
 <!-- Dashboard header with gear icon -->
@@ -202,11 +226,11 @@
 </div>
 {% endif %}
 
-<!-- Main Grid: Left column (budget + transactions) | Right column (goals + recurring + recs) -->
-<div class="print-single-col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
+<!-- Main Grid: Left column (budget + transactions) | Right column (savings + upcoming + recs) -->
+<div class="dashboard-main-grid" style="margin-bottom: 24px;">
 
     <!-- ===== LEFT COLUMN ===== -->
-    <div style="display: flex; flex-direction: column; gap: 24px;">
+    <div class="dashboard-col">
 
         <!-- Budget Overview -->
         {% if widgets.budget_overview and total_allocated > 0 %}
@@ -325,7 +349,203 @@
     </div>
 
     <!-- ===== RIGHT COLUMN ===== -->
-    <div style="display: flex; flex-direction: column; gap: 24px;">
+    <div class="dashboard-col">
+
+        <!-- Savings Goals -->
+        {% if widgets.savings_goals %}
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h2 class="card-title">Savings Goals</h2>
+                    <p class="card-subtitle">Top goals by priority</p>
+                </div>
+            </div>
+
+            {% if savings_widget_data %}
+                <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 4px;">
+                    {% for item in savings_widget_data %}
+                    <div style="display: flex; align-items: center; gap: 16px; padding: 12px; background: var(--bg-primary); border-radius: var(--radius); border-left: 3px solid {{ item.goal.color }};">
+                        <span style="font-size: 24px; flex-shrink: 0;">{{ item.goal.icon }}</span>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                <p style="margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.goal.name }}</p>
+                                <span style="flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 10px; text-transform: uppercase;
+                                    {% if item.goal.priority == 'critical' %}background: #ff4757; color: #fff;
+                                    {% elif item.goal.priority == 'high' %}background: #f9ca24; color: #1a1a2e;
+                                    {% elif item.goal.priority == 'medium' %}background: var(--accent-blue); color: #fff;
+                                    {% else %}background: var(--bg-secondary); color: var(--text-secondary);{% endif %}">
+                                    {{ item.goal.priority }}
+                                </span>
+                            </div>
+                            <div class="progress" style="height: 6px; margin-bottom: 4px;">
+                                <div class="progress-bar {% if item.pct >= 90 %}progress-bar--danger{% elif item.pct >= 75 %}progress-bar--warning{% else %}progress-bar--success{% endif %}" style="width: {{ item.pct }}%;"></div>
+                            </div>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary);">
+                                {{ item.goal.current_amount|currency:user.currency }} of {{ item.goal.target_amount|currency:user.currency }}
+                                <span style="margin-left: 4px;">({{ item.pct }}%)</span>
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            class="btn btn-primary btn-sm"
+                            style="flex-shrink: 0;"
+                            onclick="openContributeModal('{{ item.goal.pk }}', '{{ item.goal.name|escapejs }}')"
+                        >Contribute</button>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--border); margin-top: 4px;">
+                    <span style="font-size: 13px; color: var(--text-secondary);">Total saved: <span style="color: var(--accent-green); font-weight: 600;">{{ total_saved|currency:user.currency }}</span></span>
+                    <a href="{% url 'savings:savings_list' %}" style="font-size: 13px; color: var(--accent-green); text-decoration: none; font-weight: 500;">View all goals &rarr;</a>
+                </div>
+            {% else %}
+                <p style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 0;">No active savings goals. <a href="{% url 'savings:savings_goal_add' %}" style="color: var(--accent-green);">Create one</a> to get started.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Quick Contribute Modal -->
+        <div id="contribute-modal" class="modal-overlay no-print" role="dialog" aria-modal="true" aria-labelledby="contribute-modal-title">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h3 id="contribute-modal-title" class="modal-title">Quick Contribute</h3>
+                    <button type="button" onclick="closeContributeModal()" class="modal-close" aria-label="Close contribute dialog">&times;</button>
+                </div>
+                <form id="contribute-modal-form" method="post" action="">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="/dashboard/">
+                    <div class="modal-body">
+                        <div style="margin-bottom: 16px;">
+                            <label for="contribute-amount" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">Amount</label>
+                            <input type="number" id="contribute-amount" name="amount" step="0.01" min="0.01" required placeholder="0.00"
+                                style="width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 15px; box-sizing: border-box;">
+                        </div>
+                        <div>
+                            <label for="contribute-account" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">From Account</label>
+                            <select id="contribute-account" name="source_account" required
+                                style="width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 14px; box-sizing: border-box;">
+                                <option value="">Select account…</option>
+                                {% for account in accounts %}
+                                <option value="{{ account.pk }}">{{ account.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" onclick="closeContributeModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Contribution</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <script>
+        (function() {
+            function openContributeModal(goalId, goalName) {
+                var modal = document.getElementById('contribute-modal');
+                var form = document.getElementById('contribute-modal-form');
+                var title = document.getElementById('contribute-modal-title');
+                form.action = '/savings/' + goalId + '/contribute/';
+                title.textContent = 'Contribute to ' + goalName;
+                modal.classList.add('open');
+                var amountInput = form.querySelector('input[name="amount"]');
+                if (amountInput) amountInput.focus();
+            }
+            function closeContributeModal() {
+                document.getElementById('contribute-modal').classList.remove('open');
+            }
+            window.openContributeModal = openContributeModal;
+            window.closeContributeModal = closeContributeModal;
+            document.getElementById('contribute-modal').addEventListener('click', function(e) {
+                if (e.target === this) closeContributeModal();
+            });
+        })();
+        </script>
+
+        <!-- Upcoming Recurring -->
+        {% if widgets.upcoming_recurring %}
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h2 class="card-title">Upcoming Recurring</h2>
+                    <p class="card-subtitle">Due in the next 7 days</p>
+                </div>
+                <a href="{% url 'recurring_list' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
+            </div>
+
+            {% if upcoming_recurring %}
+                <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px;">
+                    <span style="font-size: 13px; color: var(--text-secondary);">Total upcoming</span>
+                    <span style="font-size: 20px; font-weight: 700; color: var(--accent-red);">-{{ upcoming_recurring_total|currency:user.currency }}</span>
+                </div>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    {% for item in upcoming_recurring %}
+                    <li style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border);">
+                        <div style="min-width: 0; flex: 1;">
+                            <p style="margin: 0; font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                {{ item.description }}
+                            </p>
+                            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-secondary);">
+                                {{ item.next_due|date:"M j, Y" }}{% if item.bucket %} &middot; {{ item.bucket.icon }} {{ item.bucket.name }}{% endif %}
+                            </p>
+                        </div>
+                        <span style="margin-left: 16px; font-size: 14px; font-weight: 600; flex-shrink: 0; color: {% if item.transaction_type == 'income' %}var(--accent-green){% else %}var(--accent-red){% endif %};">
+                            {% if item.transaction_type == 'income' %}+{% else %}-{% endif %}{{ item.amount|currency:user.currency }}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">No upcoming charges.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Recommendations -->
+        {% if widgets.recommendations and recommendations %}
+        <div class="card no-print">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h2 class="card-title">Recommendations</h2>
+                    <p class="card-subtitle">Personalized tips based on your spending</p>
+                </div>
+                <a href="{% url 'insights' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+                {% for rec in recommendations %}
+                <div class="recommendation-card recommendation-priority-{{ rec.priority }}">
+                    <div class="recommendation-icon">
+                        {% if rec.category == 'budget' %}&#128179;
+                        {% elif rec.category == 'savings' %}&#127381;
+                        {% elif rec.category == 'quality' %}&#9888;
+                        {% elif rec.category == 'vendor' %}&#128722;
+                        {% endif %}
+                    </div>
+                    <div class="recommendation-body">
+                        <span class="recommendation-category text-secondary">{{ rec.get_category_display }}</span>
+                        <p class="recommendation-message">{{ rec.message }}</p>
+                    </div>
+                    <form method="post" action="{% url 'dismiss_recommendation' rec.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="/dashboard/">
+                        <button type="submit" class="recommendation-dismiss" aria-label="Dismiss recommendation">&times;</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+</div>
+
+<!-- Secondary Widgets: Calendar · No-Spend · Income · Bills · Activity -->
+{% if widgets.calendar or widgets.no_spend_days or widgets.income_received or widgets.bill_countdown or widgets.activity_feed %}
+<div class="dashboard-secondary-grid">
+
+    <!-- ===== LEFT ===== -->
+    <div class="dashboard-col">
 
         <!-- Calendar Widget -->
         {% if widgets.calendar %}
@@ -487,6 +707,11 @@
         </div>
         {% endif %}
 
+    </div>
+
+    <!-- ===== RIGHT ===== -->
+    <div class="dashboard-col">
+
         <!-- Income Received -->
         {% if widgets.income_received %}
         <div class="card">
@@ -535,117 +760,6 @@
         </div>
         {% endif %}
 
-        <!-- Savings Goals -->
-        {% if widgets.savings_goals %}
-        <div class="card">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                    <h2 class="card-title">Savings Goals</h2>
-                    <p class="card-subtitle">Top goals by priority</p>
-                </div>
-            </div>
-
-            {% if savings_widget_data %}
-                <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 4px;">
-                    {% for item in savings_widget_data %}
-                    <div style="display: flex; align-items: center; gap: 16px; padding: 12px; background: var(--bg-primary); border-radius: var(--radius); border-left: 3px solid {{ item.goal.color }};">
-                        <span style="font-size: 24px; flex-shrink: 0;">{{ item.goal.icon }}</span>
-                        <div style="flex: 1; min-width: 0;">
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                                <p style="margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.goal.name }}</p>
-                                <span style="flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 10px; text-transform: uppercase;
-                                    {% if item.goal.priority == 'critical' %}background: #ff4757; color: #fff;
-                                    {% elif item.goal.priority == 'high' %}background: #f9ca24; color: #1a1a2e;
-                                    {% elif item.goal.priority == 'medium' %}background: var(--accent-blue); color: #fff;
-                                    {% else %}background: var(--bg-secondary); color: var(--text-secondary);{% endif %}">
-                                    {{ item.goal.priority }}
-                                </span>
-                            </div>
-                            <div class="progress" style="height: 6px; margin-bottom: 4px;">
-                                <div class="progress-bar {% if item.pct >= 90 %}progress-bar--danger{% elif item.pct >= 75 %}progress-bar--warning{% else %}progress-bar--success{% endif %}" style="width: {{ item.pct }}%;"></div>
-                            </div>
-                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary);">
-                                {{ item.goal.current_amount|currency:user.currency }} of {{ item.goal.target_amount|currency:user.currency }}
-                                <span style="margin-left: 4px;">({{ item.pct }}%)</span>
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            class="btn btn-primary btn-sm"
-                            style="flex-shrink: 0;"
-                            onclick="openContributeModal('{{ item.goal.pk }}', '{{ item.goal.name|escapejs }}')"
-                        >Contribute</button>
-                    </div>
-                    {% endfor %}
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--border); margin-top: 4px;">
-                    <span style="font-size: 13px; color: var(--text-secondary);">Total saved: <span style="color: var(--accent-green); font-weight: 600;">{{ total_saved|currency:user.currency }}</span></span>
-                    <a href="{% url 'savings:savings_list' %}" style="font-size: 13px; color: var(--accent-green); text-decoration: none; font-weight: 500;">View all goals &rarr;</a>
-                </div>
-            {% else %}
-                <p style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 0;">No active savings goals. <a href="{% url 'savings:savings_goal_add' %}" style="color: var(--accent-green);">Create one</a> to get started.</p>
-            {% endif %}
-        </div>
-        {% endif %}
-
-        <!-- Quick Contribute Modal -->
-        <div id="contribute-modal" class="modal-overlay no-print" role="dialog" aria-modal="true" aria-labelledby="contribute-modal-title">
-            <div class="modal-card">
-                <div class="modal-header">
-                    <h3 id="contribute-modal-title" class="modal-title">Quick Contribute</h3>
-                    <button type="button" onclick="closeContributeModal()" class="modal-close" aria-label="Close contribute dialog">&times;</button>
-                </div>
-                <form id="contribute-modal-form" method="post" action="">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="/dashboard/">
-                    <div class="modal-body">
-                        <div style="margin-bottom: 16px;">
-                            <label for="contribute-amount" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">Amount</label>
-                            <input type="number" id="contribute-amount" name="amount" step="0.01" min="0.01" required placeholder="0.00"
-                                style="width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 15px; box-sizing: border-box;">
-                        </div>
-                        <div>
-                            <label for="contribute-account" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">From Account</label>
-                            <select id="contribute-account" name="source_account" required
-                                style="width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 14px; box-sizing: border-box;">
-                                <option value="">Select account…</option>
-                                {% for account in accounts %}
-                                <option value="{{ account.pk }}">{{ account.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" onclick="closeContributeModal()" class="btn btn-secondary">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Add Contribution</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        <script>
-        (function() {
-            function openContributeModal(goalId, goalName) {
-                var modal = document.getElementById('contribute-modal');
-                var form = document.getElementById('contribute-modal-form');
-                var title = document.getElementById('contribute-modal-title');
-                form.action = '/savings/' + goalId + '/contribute/';
-                title.textContent = 'Contribute to ' + goalName;
-                modal.classList.add('open');
-                var amountInput = form.querySelector('input[name="amount"]');
-                if (amountInput) amountInput.focus();
-            }
-            function closeContributeModal() {
-                document.getElementById('contribute-modal').classList.remove('open');
-            }
-            window.openContributeModal = openContributeModal;
-            window.closeContributeModal = closeContributeModal;
-            document.getElementById('contribute-modal').addEventListener('click', function(e) {
-                if (e.target === this) closeContributeModal();
-            });
-        })();
-        </script>
-
         <!-- Bill Countdown -->
         {% if widgets.bill_countdown and bill_countdown %}
         <div class="card">
@@ -676,80 +790,6 @@
                 </li>
                 {% endfor %}
             </ul>
-        </div>
-        {% endif %}
-
-        <!-- Upcoming Recurring -->
-        {% if widgets.upcoming_recurring %}
-        <div class="card">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                    <h2 class="card-title">Upcoming Recurring</h2>
-                    <p class="card-subtitle">Due in the next 7 days</p>
-                </div>
-                <a href="{% url 'recurring_list' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
-            </div>
-
-            {% if upcoming_recurring %}
-                <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px;">
-                    <span style="font-size: 13px; color: var(--text-secondary);">Total upcoming</span>
-                    <span style="font-size: 20px; font-weight: 700; color: var(--accent-red);">-{{ upcoming_recurring_total|currency:user.currency }}</span>
-                </div>
-                <ul style="list-style: none; padding: 0; margin: 0;">
-                    {% for item in upcoming_recurring %}
-                    <li style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border);">
-                        <div style="min-width: 0; flex: 1;">
-                            <p style="margin: 0; font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                {{ item.description }}
-                            </p>
-                            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-secondary);">
-                                {{ item.next_due|date:"M j, Y" }}{% if item.bucket %} &middot; {{ item.bucket.icon }} {{ item.bucket.name }}{% endif %}
-                            </p>
-                        </div>
-                        <span style="margin-left: 16px; font-size: 14px; font-weight: 600; flex-shrink: 0; color: {% if item.transaction_type == 'income' %}var(--accent-green){% else %}var(--accent-red){% endif %};">
-                            {% if item.transaction_type == 'income' %}+{% else %}-{% endif %}{{ item.amount|currency:user.currency }}
-                        </span>
-                    </li>
-                    {% endfor %}
-                </ul>
-            {% else %}
-                <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">No upcoming charges.</p>
-            {% endif %}
-        </div>
-        {% endif %}
-
-        <!-- Recommendations -->
-        {% if widgets.recommendations and recommendations %}
-        <div class="card no-print">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                    <h2 class="card-title">Recommendations</h2>
-                    <p class="card-subtitle">Personalized tips based on your spending</p>
-                </div>
-                <a href="{% url 'insights' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
-                {% for rec in recommendations %}
-                <div class="recommendation-card recommendation-priority-{{ rec.priority }}">
-                    <div class="recommendation-icon">
-                        {% if rec.category == 'budget' %}&#128179;
-                        {% elif rec.category == 'savings' %}&#127381;
-                        {% elif rec.category == 'quality' %}&#9888;
-                        {% elif rec.category == 'vendor' %}&#128722;
-                        {% endif %}
-                    </div>
-                    <div class="recommendation-body">
-                        <span class="recommendation-category text-secondary">{{ rec.get_category_display }}</span>
-                        <p class="recommendation-message">{{ rec.message }}</p>
-                    </div>
-                    <form method="post" action="{% url 'dismiss_recommendation' rec.pk %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="/dashboard/">
-                        <button type="submit" class="recommendation-dismiss" aria-label="Dismiss recommendation">&times;</button>
-                    </form>
-                </div>
-                {% endfor %}
-            </div>
         </div>
         {% endif %}
 
@@ -789,5 +829,6 @@
     </div>
 
 </div>
+{% endif %}
 
 {% endblock %}
