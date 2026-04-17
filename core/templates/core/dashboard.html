@@ -541,9 +541,8 @@
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
                     <h2 class="card-title">Savings Goals</h2>
-                    <p class="card-subtitle">Total saved: <span style="color: var(--accent-green); font-weight: 600;">{{ total_saved|currency:user.currency }}</span></p>
+                    <p class="card-subtitle">Top goals by priority</p>
                 </div>
-                <a href="{% url 'savings:savings_list' %}" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">View all</a>
             </div>
 
             {% if savings_widget_data %}
@@ -578,6 +577,11 @@
                         >Contribute</button>
                     </div>
                     {% endfor %}
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--border); margin-top: 4px;">
+                    <span style="font-size: 13px; color: var(--text-secondary);">Total saved: <span style="color: var(--accent-green); font-weight: 600;">{{ total_saved|currency:user.currency }}</span></span>
+                    <a href="{% url 'savings:savings_list' %}" style="font-size: 13px; color: var(--accent-green); text-decoration: none; font-weight: 500;">View all goals &rarr;</a>
                 </div>
             {% else %}
                 <p style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 0;">No active savings goals. <a href="{% url 'savings:savings_goal_add' %}" style="color: var(--accent-green);">Create one</a> to get started.</p>
