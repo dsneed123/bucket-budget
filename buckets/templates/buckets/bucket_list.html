@@ -124,7 +124,9 @@
         </div>
         {% if item.bucket.rollover and item.rollover_amount > 0 %}
         <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
-            <span style="font-size: 0.78rem; color: var(--text-secondary);">↩ Rolled over from last month</span>
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">↩ Rolled over from last month
+                <span class="info-tooltip" data-tooltip="Unused budget from last month carried into this month's allocation."><i class="info-icon" aria-hidden="true">i</i></span>
+            </span>
             <span style="font-size: 0.85rem; font-weight: 600; color: var(--accent-green);">+{{ item.rollover_amount|currency:request.user.currency }}</span>
         </div>
         {% endif %}

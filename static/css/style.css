@@ -2079,6 +2079,87 @@ kbd {
     margin: -7px 0 0 -7px;
 }
 
+/* =====================
+   Info tooltip
+   ===================== */
+
+.info-tooltip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: default;
+}
+
+.info-tooltip .info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    color: var(--bg-primary);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    font-style: normal;
+    flex-shrink: 0;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+    vertical-align: middle;
+    margin-left: 5px;
+}
+
+.info-tooltip:hover .info-icon {
+    opacity: 1;
+}
+
+.info-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0d0d1a;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.45;
+    padding: 7px 10px;
+    border-radius: 6px;
+    white-space: normal;
+    width: 220px;
+    text-align: left;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s, visibility 0.15s;
+    z-index: 9000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.info-tooltip::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #0d0d1a;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s, visibility 0.15s;
+    z-index: 9001;
+}
+
+.info-tooltip:hover::after,
+.info-tooltip:hover::before {
+    opacity: 1;
+    visibility: visible;
+}
+
 /* ============================================================
    Print stylesheet
    ============================================================ */
@@ -2094,6 +2175,12 @@ kbd {
         color: #000 !important;
         font-size: 11pt;
         line-height: 1.4;
+    }
+
+    /* Suppress tooltips in print */
+    .info-tooltip::after,
+    .info-tooltip::before {
+        display: none !important;
     }
 
     /* Hide chrome elements that have no meaning on paper */
