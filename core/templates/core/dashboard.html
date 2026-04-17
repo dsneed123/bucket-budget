@@ -168,8 +168,11 @@
             </p>
         {% else %}
             <p class="stat-value" style="color: var(--text-secondary);">—</p>
+            <p class="stat-label" style="margin-top: 4px;">Score your purchases</p>
         {% endif %}
+        {% if sidebar_quality_score %}
         <p class="stat-label" style="margin-top: 4px;"><a href="{% url 'rankings' %}" style="color: var(--text-secondary); text-decoration: none;">View rankings &rarr;</a></p>
+        {% endif %}
     </div>
 
 </div>
