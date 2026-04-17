@@ -237,7 +237,7 @@
                         </td>
                         <td style="padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; font-size: 14px; color: var(--text-primary);">{{ item.spent|currency:user.currency }}</td>
                         <td style="padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; font-size: 14px; font-weight: 600; {% if item.over %}color: var(--accent-red);{% else %}color: var(--accent-green);{% endif %}">
-                            {% if item.over %}&minus;{% endif %}{{ item.remaining|currency:user.currency }}
+                            {{ item.remaining|currency:user.currency }}
                         </td>
                         <td style="padding: 14px 16px; border-bottom: 1px solid var(--border);">
                             <div style="display: flex; align-items: center; gap: 10px;">
@@ -260,7 +260,7 @@
                         </td>
                         <td style="padding: 14px 16px; text-align: right; font-size: 14px; font-weight: 700; color: var(--text-primary);">{{ total_spent|currency:user.currency }}</td>
                         <td style="padding: 14px 16px; text-align: right; font-size: 14px; font-weight: 700; {% if total_remaining < 0 %}color: var(--accent-red);{% else %}color: var(--accent-green);{% endif %}">
-                            {% if total_remaining < 0 %}&minus;{% endif %}{{ total_remaining|currency:user.currency }}
+                            {{ total_remaining|currency:user.currency }}
                         </td>
                         <td style="padding: 14px 16px;">
                             <div style="display: flex; align-items: center; gap: 10px;">

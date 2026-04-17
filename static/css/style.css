@@ -1111,6 +1111,10 @@ table th.sortable:hover {
     color: var(--accent-red);
 }
 
+.amount-negative {
+    color: var(--accent-red);
+}
+
 /* =====================
    Utility
    ===================== */
@@ -1763,6 +1767,7 @@ kbd {
     .stat-value { color: #000 !important; }
     .stat-positive { color: #1a7a3c !important; }
     .stat-negative { color: #c0392b !important; }
+    .amount-negative { color: #c0392b !important; }
     .text-green { color: #1a7a3c !important; }
     .text-red { color: #c0392b !important; }
 
