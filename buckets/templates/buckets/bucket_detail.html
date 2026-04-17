@@ -6,8 +6,8 @@
 <div class="mb-4 flex items-center justify-between">
     <a href="{% url 'bucket_list' %}" style="font-size: 0.85rem; color: var(--text-secondary); text-decoration: none;">← Back to Buckets</a>
     <div style="display: flex; gap: 10px;">
-        <a href="{% url 'bucket_edit' bucket.pk %}" class="btn btn-secondary" style="font-size: 0.85rem; padding: 6px 14px;">Edit</a>
-        <a href="{% url 'bucket_delete' bucket.pk %}" style="font-size: 0.85rem; padding: 6px 14px; background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.3); border-radius: 6px; color: #ff4757; text-decoration: none;">Delete</a>
+        <a href="{% url 'bucket_edit' bucket.pk %}" class="btn btn-secondary btn-sm">Edit</a>
+        <a href="{% url 'bucket_delete' bucket.pk %}" class="btn btn-danger btn-sm">Delete</a>
     </div>
 </div>
 

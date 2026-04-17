@@ -53,9 +53,9 @@
         </div>
 
         <div style="margin-top: 20px; display: flex; gap: 12px;">
-            <a href="{% url 'account_update_balance' account.pk %}" class="btn btn-primary" style="font-size: 0.85rem;">Update Balance</a>
-            <a href="{% url 'account_edit' account.pk %}" class="btn btn-secondary" style="font-size: 0.85rem;">Edit Account</a>
-            <a href="{% url 'account_delete' account.pk %}" class="btn btn-danger" style="font-size: 0.85rem;">Delete Account</a>
+            <a href="{% url 'account_update_balance' account.pk %}" class="btn btn-primary">Update Balance</a>
+            <a href="{% url 'account_edit' account.pk %}" class="btn btn-secondary">Edit Account</a>
+            <a href="{% url 'account_delete' account.pk %}" class="btn btn-danger">Delete Account</a>
             <a href="{% url 'account_list' %}" style="font-size: 0.85rem; color: var(--text-secondary); text-decoration: none; align-self: center;">← All Accounts</a>
         </div>
     </div>

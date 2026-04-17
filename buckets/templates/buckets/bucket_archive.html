@@ -39,8 +39,8 @@
         <form method="post" novalidate>
             {% csrf_token %}
             <div style="display: flex; align-items: center; gap: 12px;">
-                <button type="submit" class="btn" style="background-color: #e67e22; color: #fff; border: none;">Archive bucket</button>
-                <a href="{% url 'bucket_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+                <button type="submit" class="btn btn-primary">Archive bucket</button>
+                <a href="{% url 'bucket_list' %}" class="btn btn-secondary">Cancel</a>
             </div>
         </form>
     </div>

@@ -31,7 +31,7 @@ mark.search-highlight {
             </div>
             <button type="submit" class="btn btn-primary" style="padding: 8px 18px; font-size: 0.9rem; white-space: nowrap;">Search</button>
             {% if filters.search %}
-                <a href="?{% if filter_qs_no_search %}{{ filter_qs_no_search }}{% endif %}" class="btn" style="padding: 8px 14px; font-size: 0.9rem; white-space: nowrap;">&#10005; Clear</a>
+                <a href="?{% if filter_qs_no_search %}{{ filter_qs_no_search }}{% endif %}" class="btn btn-secondary" style="padding: 8px 14px; font-size: 0.9rem; white-space: nowrap;">&#10005; Clear</a>
             {% endif %}
         </div>
     </form>
@@ -44,8 +44,8 @@ mark.search-highlight {
 </div>
 
 <div style="margin-bottom: 16px; display: flex; justify-content: flex-end; gap: 8px;">
-    <a href="{% url 'transaction_import_csv' %}" class="btn">Import CSV</a>
-    <a href="{% url 'transaction_export_csv' %}{% if filter_qs %}?{{ filter_qs }}{% endif %}" class="btn">Export CSV</a>
+    <a href="{% url 'transaction_import_csv' %}" class="btn btn-secondary">Import CSV</a>
+    <a href="{% url 'transaction_export_csv' %}{% if filter_qs %}?{{ filter_qs }}{% endif %}" class="btn btn-secondary">Export CSV</a>
     <a href="{% url 'transaction_add' %}" class="btn btn-primary">+ Add Transaction</a>
 </div>
 
@@ -180,7 +180,7 @@ mark.search-highlight {
                     Filter{% if active_filter_count %} <span style="display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.25); border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; font-weight: 700; margin-left: 4px;">{{ active_filter_count }}</span>{% endif %}
                 </button>
                 {% if active_filter_count %}
-                    <a href="{% url 'transaction_list' %}" class="btn" style="padding: 6px 14px; font-size: 0.85rem; white-space: nowrap;">Clear</a>
+                    <a href="{% url 'transaction_list' %}" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.85rem; white-space: nowrap;">Clear</a>
                 {% endif %}
             </div>
         </div>
@@ -446,7 +446,7 @@ function confirmBulkAction() {
         <div style="font-size: 3rem; margin-bottom: 16px;" aria-hidden="true">🔍</div>
         <h3 style="color: var(--text-primary); margin-bottom: 8px;">No transactions match your filters</h3>
         <p style="color: var(--text-secondary); margin-bottom: 24px;">Try adjusting or clearing your filters.</p>
-        <a href="{% url 'transaction_list' %}" class="btn">Clear Filters</a>
+        <a href="{% url 'transaction_list' %}" class="btn btn-secondary">Clear Filters</a>
     {% else %}
         <div style="font-size: 3rem; margin-bottom: 16px;" aria-hidden="true">💳</div>
         <h3 style="color: var(--text-primary); margin-bottom: 8px;">No transactions yet</h3>

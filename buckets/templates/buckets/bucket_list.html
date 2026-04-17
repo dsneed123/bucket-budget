@@ -26,8 +26,8 @@
         </div>
     </div>
     <div style="display: flex; gap: 8px;">
-        <a href="{% url 'bucket_templates' %}" class="btn" style="background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-primary);">Templates</a>
-        <a href="{% url 'quick_allocate' %}" class="btn" style="background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-primary);">Quick Allocate</a>
+        <a href="{% url 'bucket_templates' %}" class="btn btn-secondary">Templates</a>
+        <a href="{% url 'quick_allocate' %}" class="btn btn-secondary">Quick Allocate</a>
         <a href="{% url 'bucket_add' %}" class="btn btn-primary">+ Add Bucket</a>
     </div>
 </div>
@@ -159,7 +159,7 @@
             </div>
             <form method="post" action="{% url 'bucket_unarchive' bucket.pk %}" style="margin: 0;">
                 {% csrf_token %}
-                <button type="submit" class="btn" style="font-size: 0.75rem; padding: 4px 12px; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border);">Unarchive</button>
+                <button type="submit" class="btn btn-secondary btn-sm">Unarchive</button>
             </form>
         </div>
         {% endfor %}
