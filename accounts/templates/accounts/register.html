@@ -6,6 +6,10 @@
     <h1 class="auth-title">Create your account</h1>
     <p class="auth-subtitle">Start tracking your budget today.</p>
 
+    {% if errors.__all__ %}
+        <p class="form-error mb-3">{{ errors.__all__ }}</p>
+    {% endif %}
+
     <form method="post" novalidate>
         {% csrf_token %}
 
