@@ -757,8 +757,8 @@
             <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
                 <span style="font-size: 28px;" aria-hidden="true">🌿</span>
                 <div>
-                    <p style="margin: 0; font-size: 22px; font-weight: 700; color: var(--accent-green);">
-                        {{ no_spend_days }} <span style="font-size: 15px; font-weight: 400; color: var(--text-secondary);">/ {{ days_elapsed }} days elapsed</span>
+                    <p style="margin: 0; font-size: 22px; font-weight: 700; color: {% if no_spend_above_avg %}var(--accent-green){% else %}var(--text-secondary){% endif %};">
+                        {{ no_spend_days }}<span style="font-size: 15px; font-weight: 400; color: var(--text-secondary);">/{{ days_in_month }}</span>
                     </p>
                     {% if no_spend_goal > 0 %}
                     <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-secondary);">
