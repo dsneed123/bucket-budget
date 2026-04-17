@@ -48,8 +48,8 @@
                 <span style="font-size: 0.875rem; color: var(--text-secondary);">Progress</span>
                 <span style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">{{ pct }}%</span>
             </div>
-            <div class="progress" style="height: 12px; border-radius: 6px;">
-                <div class="progress-bar" style="width: {{ pct }}%; background: {{ goal.color }}; height: 100%; border-radius: 6px; transition: width 0.4s ease;"></div>
+            <div class="progress progress-lg">
+                <div class="progress-bar {% if pct >= 90 %}progress-bar--danger{% elif pct >= 75 %}progress-bar--warning{% else %}progress-bar--success{% endif %}" style="width: {{ pct }}%;"></div>
             </div>
         </div>
 

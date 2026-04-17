@@ -881,16 +881,20 @@ table tbody tr:hover td {
     transition: width 0.4s ease;
 }
 
-.progress-bar-red {
+.progress-bar--success {
+    background-color: var(--accent-green);
+}
+
+.progress-bar--warning {
+    background-color: var(--accent-gold);
+}
+
+.progress-bar--danger {
     background-color: var(--accent-red);
 }
 
-.progress-bar-blue {
+.progress-bar--info {
     background-color: var(--accent-blue);
-}
-
-.progress-bar-gold {
-    background-color: var(--accent-gold);
 }
 
 /* =====================

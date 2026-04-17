@@ -80,8 +80,9 @@
         {% endwith %}
         <div class="progress" style="height: 10px;">
             {% with raw_pct=total_spent %}
-            <div class="progress-bar {% if remaining_budget < 0 %}progress-bar-red{% endif %}"
-                 style="width: {% widthratio total_spent monthly_income 100 %}%; max-width: 100%;"></div>
+            {% widthratio total_spent monthly_income 100 as spent_pct %}
+            <div class="progress-bar {% if remaining_budget < 0 %}progress-bar--danger{% elif spent_pct >= 75 %}progress-bar--warning{% else %}progress-bar--success{% endif %}"
+                 style="width: {{ spent_pct }}%; max-width: 100%;"></div>
             {% endwith %}
         </div>
     </div>
@@ -241,8 +242,8 @@
                         <td style="padding: 14px 16px; border-bottom: 1px solid var(--border);">
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <div class="progress" style="flex: 1; height: 6px;">
-                                    <div class="progress-bar {% if item.over %}progress-bar-red{% endif %}"
-                                         style="width: {{ item.pct }}%; {% if not item.over %}background: {{ item.bucket.color }};{% endif %}"></div>
+                                    <div class="progress-bar {% if item.over %}progress-bar--danger{% elif item.pct >= 75 %}progress-bar--warning{% else %}progress-bar--success{% endif %}"
+                                         style="width: {{ item.pct }}%;"></div>
                                 </div>
                                 <span style="font-size: 12px; color: var(--text-secondary); flex-shrink: 0; width: 36px; text-align: right;">{{ item.pct }}%</span>
                             </div>
@@ -264,7 +265,7 @@
                         <td style="padding: 14px 16px;">
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <div class="progress" style="flex: 1; height: 6px;">
-                                    <div class="progress-bar {% if total_remaining < 0 %}progress-bar-red{% endif %}"
+                                    <div class="progress-bar {% if total_remaining < 0 %}progress-bar--danger{% elif total_pct >= 75 %}progress-bar--warning{% else %}progress-bar--success{% endif %}"
                                          style="width: {{ total_pct }}%;"></div>
                                 </div>
                                 <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary); flex-shrink: 0; width: 36px; text-align: right;">{{ total_pct }}%</span>
@@ -357,8 +358,8 @@
             </div>
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
                 <span style="font-size: 11px; color: var(--text-muted); width: 58px; text-align: right; flex-shrink: 0;">Allocated</span>
-                <div style="flex: 1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden;">
-                    <div style="height: 100%; width: {% widthratio item.effective_allocation item.bar_max 100 %}%; background: var(--accent-blue); border-radius: 4px;"></div>
+                <div class="progress" style="flex: 1;">
+                    <div class="progress-bar progress-bar--info" style="width: {% widthratio item.effective_allocation item.bar_max 100 %}%;"></div>
                 </div>
                 <span style="font-size: 11px; color: var(--text-secondary); width: 70px; text-align: right; flex-shrink: 0;">
                     {{ item.effective_allocation|currency:user.currency }}
@@ -367,8 +368,8 @@
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 11px; color: var(--text-muted); width: 58px; text-align: right; flex-shrink: 0;">Spent</span>
-                <div style="flex: 1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden;">
-                    <div style="height: 100%; width: {% widthratio item.spent item.bar_max 100 %}%; {% if item.over %}background: var(--accent-red);{% else %}background: var(--accent-green);{% endif %} border-radius: 4px;"></div>
+                <div class="progress" style="flex: 1;">
+                    <div class="progress-bar {% if item.over %}progress-bar--danger{% else %}progress-bar--success{% endif %}" style="width: {% widthratio item.spent item.bar_max 100 %}%;"></div>
                 </div>
                 <span style="font-size: 11px; {% if item.over %}color: var(--accent-red);{% else %}color: var(--accent-green);{% endif %} width: 70px; text-align: right; flex-shrink: 0;">{{ item.spent|currency:user.currency }}</span>
             </div>

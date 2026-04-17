@@ -204,7 +204,7 @@
                         </span>
                     </div>
                     <div class="progress" style="height: 10px;" role="progressbar" aria-valuenow="{{ budget_pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="Budget: {{ budget_pct }}% spent">
-                        <div class="progress-bar" style="width: {{ budget_pct }}%; background: {% if budget_pct >= 100 %}var(--accent-red){% elif budget_pct >= 80 %}#f9ca24{% else %}var(--accent-blue){% endif %};"></div>
+                        <div class="progress-bar {% if budget_pct >= 90 %}progress-bar--danger{% elif budget_pct >= 75 %}progress-bar--warning{% else %}progress-bar--success{% endif %}" style="width: {{ budget_pct }}%; max-width: 100%;"></div>
                     </div>
                 </div>
 
@@ -238,7 +238,7 @@
                                 </span>
                             </div>
                             <div class="progress" style="height: 6px;" role="progressbar" aria-valuenow="{{ item.pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ item.bucket.name }}: {{ item.pct }}% of budget spent">
-                                <div class="progress-bar" style="width: {{ item.pct }}%; background: {% if item.over %}var(--accent-red){% else %}{{ item.bucket.color }}{% endif %};"></div>
+                                <div class="progress-bar {% if item.over %}progress-bar--danger{% elif item.pct >= 75 %}progress-bar--warning{% else %}progress-bar--success{% endif %}" style="width: {{ item.pct }}%;"></div>
                             </div>
                         </div>
                         {% endfor %}
@@ -438,7 +438,7 @@
 
             {% if no_spend_goal > 0 %}
             <div class="progress" style="height: 8px; margin-bottom: 16px;" role="progressbar" aria-valuenow="{{ no_spend_days }}" aria-valuemin="0" aria-valuemax="{{ no_spend_goal }}" aria-label="No-spend days: {{ no_spend_days }} of {{ no_spend_goal }} goal">
-                <div class="progress-bar" style="width: {% widthratio no_spend_days no_spend_goal 100 %}%; background: var(--accent-green); max-width: 100%;"></div>
+                <div class="progress-bar progress-bar--success" style="width: {% widthratio no_spend_days no_spend_goal 100 %}%; max-width: 100%;"></div>
             </div>
             {% endif %}
 
@@ -490,7 +490,7 @@
 
             {% if monthly_income > 0 %}
             <div class="progress" style="height: 8px;" role="progressbar" aria-valuenow="{{ income_pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="Income received: {{ income_pct }}% of expected monthly income">
-                <div class="progress-bar" style="width: {{ income_pct }}%; background: var(--accent-green); max-width: 100%;"></div>
+                <div class="progress-bar progress-bar--success" style="width: {{ income_pct }}%; max-width: 100%;"></div>
             </div>
             <p style="margin: 8px 0 0; font-size: 12px; color: var(--text-secondary);">
                 Set your expected income in <a href="{% url 'accounts:settings' %}" style="color: var(--accent-blue);">Settings</a>.
@@ -531,7 +531,7 @@
                                 </span>
                             </div>
                             <div class="progress" style="height: 6px; margin-bottom: 4px;">
-                                <div class="progress-bar" style="width: {{ item.pct }}%; background: {{ item.goal.color }};"></div>
+                                <div class="progress-bar {% if item.pct >= 90 %}progress-bar--danger{% elif item.pct >= 75 %}progress-bar--warning{% else %}progress-bar--success{% endif %}" style="width: {{ item.pct }}%;"></div>
                             </div>
                             <p style="margin: 0; font-size: 12px; color: var(--text-secondary);">
                                 {{ item.goal.current_amount|currency:user.currency }} of {{ item.goal.target_amount|currency:user.currency }}

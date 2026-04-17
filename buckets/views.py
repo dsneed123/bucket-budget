@@ -93,11 +93,11 @@ def bucket_list(request):
             pct = 0
 
         if pct >= 90:
-            bar_class = 'progress-bar-red'
+            bar_class = 'progress-bar--danger'
         elif pct >= 75:
-            bar_class = 'progress-bar-gold'
+            bar_class = 'progress-bar--warning'
         else:
-            bar_class = 'progress-bar'
+            bar_class = 'progress-bar--success'
 
         total_allocated += allocated
         total_spent += spent
@@ -160,11 +160,11 @@ def bucket_detail(request, bucket_id):
         pct = 0
 
     if pct >= 90:
-        bar_class = 'progress-bar-red'
+        bar_class = 'progress-bar--danger'
     elif pct >= 75:
-        bar_class = 'progress-bar-gold'
+        bar_class = 'progress-bar--warning'
     else:
-        bar_class = 'progress-bar'
+        bar_class = 'progress-bar--success'
 
     monthly_history = []
     year = today.year
