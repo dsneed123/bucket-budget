@@ -55,8 +55,8 @@
         <form method="post" novalidate>
             {% csrf_token %}
             <div style="display: flex; align-items: center; gap: 12px;">
-                <button type="submit" class="btn" style="background-color: #ff4757; color: #fff; border: none;">Delete transaction</button>
-                <a href="{% url 'transaction_list' %}" style="font-size: 14px; color: var(--text-secondary); text-decoration: none;">Cancel</a>
+                <button type="submit" class="btn btn-danger">Delete transaction</button>
+                <a href="{% url 'transaction_list' %}" class="btn btn-secondary">Cancel</a>
             </div>
         </form>
     </div>

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Delete Account — Bucket Budget{% endblock %}
+{% block page_title %}Delete Account{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px;">
+    <div class="card" style="border-top: 4px solid #ff4757;">
+        <div class="card-header">
+            <h2 class="card-title">{{ account.name }}</h2>
+            <p class="card-subtitle">This action is permanent and cannot be undone.</p>
+        </div>
+
+        <div style="background-color: rgba(255, 71, 87, 0.1); border: 1px solid #ff4757; border-radius: var(--radius); padding: 12px 16px; margin-bottom: 24px; font-size: 14px; color: #ff4757;">
+            <strong>Warning:</strong> Deleting this account will deactivate it and remove it from your dashboard.
+            {% if transaction_count == 1 %}
+                1 transaction linked to this account will remain in your history.
+            {% elif transaction_count > 1 %}
+                {{ transaction_count }} transactions linked to this account will remain in your history.
+            {% else %}
+                There are no transactions linked to this account.
+            {% endif %}
+        </div>
+
+        <div style="margin-bottom: 24px; font-size: 14px; color: var(--text-secondary);">
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Account</span>
+                <span style="color: var(--text-primary); font-weight: 500;">{{ account.name }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Type</span>
+                <span style="color: var(--text-primary); font-weight: 500;">{{ account.get_account_type_display }}</span>
+            </div>
+            {% if account.institution %}
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Institution</span>
+                <span style="color: var(--text-primary); font-weight: 500;">{{ account.institution }}</span>
+            </div>
+            {% endif %}
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <span>Balance</span>
+                <span style="color: var(--text-primary); font-weight: 500;">${{ account.balance|floatformat:2 }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                <span>Transactions</span>
+                <span style="color: var(--text-primary); font-weight: 500;">{{ transaction_count }}</span>
+            </div>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <button type="submit" class="btn btn-danger">Delete account</button>
+                <a href="{% url 'account_detail' account.pk %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

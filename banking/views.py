@@ -142,6 +142,22 @@ def account_update_balance(request, account_id):
 
 
 @login_required
+def account_delete(request, account_id):
+    account = get_object_or_404(BankAccount, pk=account_id, user=request.user, is_active=True)
+    transaction_count = account.transactions.count()
+
+    if request.method == 'POST':
+        account.is_active = False
+        account.save()
+        return redirect('account_list')
+
+    return render(request, 'banking/account_delete.html', {
+        'account': account,
+        'transaction_count': transaction_count,
+    })
+
+
+@login_required
 def account_edit(request, account_id):
     account = get_object_or_404(BankAccount, pk=account_id, user=request.user, is_active=True)
     errors = {}
