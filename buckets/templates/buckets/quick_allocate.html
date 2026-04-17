@@ -18,7 +18,7 @@
         </div>
         {% if monthly_income == 0 %}
         <p style="margin: 12px 0 0; font-size: 0.85rem; color: var(--accent-gold);">
-            ⚠ No monthly income set. <a href="{% url 'profile' %}" style="color: var(--accent-gold);">Update your profile</a> to enable income tracking.
+            ⚠ No monthly income set. <a href="{% url 'accounts:profile' %}" style="color: var(--accent-gold);">Update your profile</a> to enable income tracking.
         </p>
         {% endif %}
     </div>
