@@ -809,20 +809,20 @@
             <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
                 <span style="font-size: 28px;" aria-hidden="true">💰</span>
                 <div>
-                    <p style="margin: 0; font-size: 22px; font-weight: 700; color: var(--accent-green);">
-                        {{ total_income|currency:user.currency }}
-                        {% if monthly_income > 0 %}
-                        <span style="font-size: 15px; font-weight: 400; color: var(--text-secondary);">/ {{ monthly_income|currency:user.currency }} expected</span>
-                        {% else %}
-                        <span style="font-size: 15px; font-weight: 400; color: var(--text-secondary);">received this month</span>
-                        {% endif %}
-                    </p>
                     {% if monthly_income > 0 %}
+                    <p style="margin: 0; font-size: 22px; font-weight: 700; color: var(--accent-green);">
+                        {{ total_income|currency:user.currency }} / {{ monthly_income|currency:user.currency }} received
+                    </p>
                     <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-secondary);">
                         {{ income_pct }}% of expected monthly income
                         {% if income_pct >= 100 %}
                         <span style="color: var(--accent-green); font-weight: 600; margin-left: 4px;">Fully received!</span>
                         {% endif %}
+                    </p>
+                    {% else %}
+                    <p style="margin: 0; font-size: 22px; font-weight: 700; color: var(--accent-green);">
+                        {{ total_income|currency:user.currency }}
+                        <span style="font-size: 15px; font-weight: 400; color: var(--text-secondary);">received this month</span>
                     </p>
                     {% endif %}
                 </div>
@@ -832,12 +832,9 @@
             <div class="progress" style="height: 8px;" role="progressbar" aria-valuenow="{{ income_pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="Income received: {{ income_pct }}% of expected monthly income">
                 <div class="progress-bar progress-bar--success" style="width: {{ income_pct }}%; max-width: 100%;"></div>
             </div>
-            <p style="margin: 8px 0 0; font-size: 12px; color: var(--text-secondary);">
-                Set your expected income in <a href="{% url 'accounts:settings' %}" style="color: var(--accent-blue);">Settings</a>.
-            </p>
             {% else %}
             <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">
-                Set your expected monthly income in <a href="{% url 'accounts:settings' %}" style="color: var(--accent-blue);">Settings</a> to track progress.
+                Set your monthly income in <a href="{% url 'accounts:profile' %}" style="color: var(--accent-blue);">Profile</a>.
             </p>
             {% endif %}
         </div>
