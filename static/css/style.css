@@ -645,6 +645,72 @@ input[type="radio"]:focus-visible {
     outline-offset: 2px;
 }
 
+.recommendation-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    border-radius: 8px;
+    background: var(--card-bg, var(--bg-card));
+    border: 1px solid var(--border);
+}
+
+.recommendation-priority-high {
+    border-left: 3px solid var(--accent-red);
+}
+
+.recommendation-priority-medium {
+    border-left: 3px solid var(--accent-gold, #f39c12);
+}
+
+.recommendation-priority-low {
+    border-left: 3px solid var(--accent-green);
+}
+
+.recommendation-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    line-height: 1.4;
+}
+
+.recommendation-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.recommendation-category {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.recommendation-message {
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.45;
+}
+
+.recommendation-dismiss {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 0.25rem;
+    line-height: 1;
+    flex-shrink: 0;
+    opacity: 0.6;
+}
+
+.recommendation-dismiss:hover {
+    opacity: 1;
+    color: var(--text-primary);
+}
+
 .message-close:focus-visible,
 .kbd-modal-close:focus-visible,
 .recommendation-dismiss:focus-visible {
