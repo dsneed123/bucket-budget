@@ -71,8 +71,8 @@
 
         <div style="margin-bottom: 12px;">
             <div class="progress">
-                <div class="{% if item.goal.is_achieved %}progress-bar{% elif item.pct >= 90 %}progress-bar progress-bar-red{% elif item.pct >= 75 %}progress-bar progress-bar-gold{% else %}progress-bar{% endif %}"
-                     style="width: {{ item.pct }}%;{% if item.goal.is_achieved %} background: var(--accent-green);{% else %} background: {{ item.goal.color }};{% endif %}"></div>
+                <div class="progress-bar {% if item.pct >= 90 %}progress-bar--danger{% elif item.pct >= 75 %}progress-bar--warning{% else %}progress-bar--success{% endif %}"
+                     style="width: {{ item.pct }}%;"></div>
             </div>
         </div>
 
