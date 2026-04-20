@@ -72,8 +72,9 @@ def transaction_list(request):
     today = datetime.date.today()
 
     # Extract filter params
-    date_from = request.GET.get('date_from', '').strip()
-    date_to = request.GET.get('date_to', '').strip()
+    _date_single = request.GET.get('date', '').strip()
+    date_from = request.GET.get('date_from', _date_single).strip()
+    date_to = request.GET.get('date_to', _date_single).strip()
     bucket_id = request.GET.get('bucket', '').strip()
     txn_type = request.GET.get('type', '').strip()
     account_id = request.GET.get('account', '').strip()

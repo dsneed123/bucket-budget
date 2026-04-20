@@ -388,6 +388,8 @@ def dashboard(request):
         'daily_spending': daily_spending,
         'calendar_weeks': calendar_weeks,
         'calendar_txns_by_day': calendar_txns_by_day,
+        'cal_year': cal_year,
+        'cal_month': cal_month,
         'activity_feed': activity_feed,
         'streak': streak,
         'no_spend_days': no_spend_days,

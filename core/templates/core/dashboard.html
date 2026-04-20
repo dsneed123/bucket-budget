@@ -640,107 +640,55 @@
                 </div>
             </div>
 
-            <!-- Day-of-week headers -->
-            <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; margin-bottom: 4px;">
-                <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 4px 0;">Su</div>
-                <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 4px 0;">Mo</div>
-                <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 4px 0;">Tu</div>
-                <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 4px 0;">We</div>
-                <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 4px 0;">Th</div>
-                <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 4px 0;">Fr</div>
-                <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 4px 0;">Sa</div>
-            </div>
-
-            <!-- Calendar grid -->
-            {% for week in calendar_weeks %}
-            <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px;">
-                {% for cell in week %}
-                {% if cell %}
-                <div class="cal-day{% if cell.is_today %} cal-day-today{% endif %}{% if cell.has_income or cell.has_expense %} cal-day-active{% endif %}{% if cell.is_no_spend and not cell.is_today %} cal-day-no-spend{% endif %}"
-                     data-day="{{ cell.day }}"
-                     onclick="calShowDay(this, {{ cell.day }})"
-                     {% if cell.has_income or cell.has_expense %}role="button" tabindex="0" aria-label="{{ cell.day }} {{ current_month }}{% if cell.has_income %}, has income{% endif %}{% if cell.has_expense %}, has expenses{% endif %}"{% else %}aria-label="{{ cell.day }} {{ current_month }}"{% endif %}
-                     style="display: flex; flex-direction: column; align-items: center; padding: 4px 2px; border-radius: var(--radius-sm); cursor: {% if cell.has_income or cell.has_expense %}pointer{% else %}default{% endif %}; position: relative;
-                            {% if cell.is_today %}background: var(--accent-blue); color: #fff;{% elif cell.is_no_spend %}background: rgba(0,212,170,0.15);{% endif %}">
-                    <span style="font-size: 12px; font-weight: {% if cell.is_today %}700{% else %}400{% endif %}; color: {% if cell.is_today %}#fff{% else %}var(--text-primary){% endif %}; line-height: 1.4;" aria-hidden="true">{{ cell.day }}</span>
-                    <div style="display: flex; gap: 2px; height: 5px; margin-top: 2px;" aria-hidden="true">
-                        {% if cell.has_income %}<span style="width: 5px; height: 5px; border-radius: 50%; background: {% if cell.is_today %}rgba(255,255,255,0.9){% else %}var(--accent-green){% endif %}; display: inline-block; flex-shrink: 0;"></span>{% endif %}
-                        {% if cell.has_expense %}<span style="width: 5px; height: 5px; border-radius: 50%; background: {% if cell.is_today %}rgba(255,255,255,0.9){% else %}var(--accent-red){% endif %}; display: inline-block; flex-shrink: 0;"></span>{% endif %}
-                    </div>
-                </div>
-                {% else %}
-                <div></div>
-                {% endif %}
-                {% endfor %}
-            </div>
-            {% endfor %}
-
-            <!-- Transaction detail panel -->
-            <div id="cal-detail" aria-live="polite" style="display: none; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);">
-                <p id="cal-detail-title" style="margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--text-primary);"></p>
-                <ul id="cal-detail-list" style="margin: 0; padding: 0; list-style: none;"></ul>
-            </div>
-
-            {{ calendar_txns_by_day|json_script:"cal-txns-data" }}
+            <!-- Calendar table -->
             <style>
-            .cal-day { transition: background 0.1s; }
-            .cal-day:not(.cal-day-today):hover { background: var(--bg-primary); }
-            .cal-day-selected:not(.cal-day-today) { background: var(--bg-secondary) !important; outline: 2px solid var(--accent-blue); outline-offset: -2px; }
-            .cal-day[role="button"]:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 2px; }
+            .cal-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+            .cal-table th { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-align: center; padding: 4px 0; }
+            .cal-table td { padding: 0; text-align: center; }
+            .cal-day { display: flex; flex-direction: column; align-items: center; padding: 4px 2px; border-radius: var(--radius-sm); cursor: pointer; transition: background 0.1s; }
+            .cal-day:hover { background: var(--bg-primary); }
+            .cal-day-today { outline: 2px solid var(--accent-blue); outline-offset: -2px; border-radius: var(--radius-sm); }
             .cal-day-no-spend { background: rgba(0,212,170,0.15); }
+            .cal-day:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 2px; }
             </style>
-            <script>
-            (function() {
-                var calTxns = JSON.parse(document.getElementById('cal-txns-data').textContent);
-                var _selectedDay = null;
-
-                // Keyboard support for calendar day buttons
-                document.addEventListener('keydown', function(e) {
-                    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('cal-day') && e.target.getAttribute('role') === 'button') {
-                        e.preventDefault();
-                        var day = parseInt(e.target.dataset.day, 10);
-                        window.calShowDay(e.target, day);
-                    }
-                });
-
-                window.calShowDay = function(el, day) {
-                    var detail = document.getElementById('cal-detail');
-                    var titleEl = document.getElementById('cal-detail-title');
-                    var listEl = document.getElementById('cal-detail-list');
-
-                    // Deselect all
-                    document.querySelectorAll('.cal-day-selected').forEach(function(d) { d.classList.remove('cal-day-selected'); });
-
-                    // Toggle off if same day
-                    if (_selectedDay === day && detail.style.display !== 'none') {
-                        detail.style.display = 'none';
-                        _selectedDay = null;
-                        return;
-                    }
-                    _selectedDay = day;
-
-                    var txns = calTxns[String(day)] || [];
-                    titleEl.textContent = 'Transactions — ' + el.dataset.day + ' {{ current_month }}';
-
-                    if (txns.length === 0) {
-                        listEl.innerHTML = '<li style="font-size:13px;color:var(--text-secondary);padding:4px 0;">No transactions on this day.</li>';
-                    } else {
-                        listEl.innerHTML = txns.map(function(t) {
-                            var sign = t.type === 'income' ? '+' : '-';
-                            var color = t.type === 'income' ? 'var(--accent-green)' : 'var(--accent-red)';
-                            var desc = t.desc.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                            return '<li style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">' +
-                                '<span style="font-size:13px;color:var(--text-primary);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + desc + '</span>' +
-                                '<span style="font-size:13px;font-weight:600;color:' + color + ';margin-left:10px;flex-shrink:0;">' + sign + parseFloat(t.amount).toFixed(2) + '</span>' +
-                                '</li>';
-                        }).join('');
-                    }
-
-                    el.classList.add('cal-day-selected');
-                    detail.style.display = 'block';
-                };
-            })();
-            </script>
+            <table class="cal-table" role="grid" aria-label="{{ current_month }} calendar">
+                <thead>
+                    <tr>
+                        <th scope="col">Su</th>
+                        <th scope="col">Mo</th>
+                        <th scope="col">Tu</th>
+                        <th scope="col">We</th>
+                        <th scope="col">Th</th>
+                        <th scope="col">Fr</th>
+                        <th scope="col">Sa</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for week in calendar_weeks %}
+                <tr>
+                    {% for cell in week %}
+                    {% if cell %}
+                    <td>
+                        <a href="/transactions/?date={{ cal_year }}-{{ cal_month|stringformat:'02d' }}-{{ cell.day|stringformat:'02d' }}"
+                           class="cal-day{% if cell.is_today %} cal-day-today{% endif %}{% if cell.is_no_spend and not cell.is_today %} cal-day-no-spend{% endif %}"
+                           tabindex="0"
+                           aria-label="{{ cell.day }} {{ current_month }}{% if cell.has_income %}, has income{% endif %}{% if cell.has_expense %}, has expenses{% endif %}"
+                           style="text-decoration: none; color: inherit;">
+                            <span style="font-size: 12px; font-weight: {% if cell.is_today %}700{% else %}400{% endif %}; color: var(--text-primary); line-height: 1.4;" aria-hidden="true">{{ cell.day }}</span>
+                            <div style="display: flex; gap: 2px; height: 5px; margin-top: 2px;" aria-hidden="true">
+                                {% if cell.has_income %}<span style="width: 5px; height: 5px; border-radius: 50%; background: var(--accent-green); display: inline-block; flex-shrink: 0;"></span>{% endif %}
+                                {% if cell.has_expense %}<span style="width: 5px; height: 5px; border-radius: 50%; background: var(--accent-red); display: inline-block; flex-shrink: 0;"></span>{% endif %}
+                            </div>
+                        </a>
+                    </td>
+                    {% else %}
+                    <td></td>
+                    {% endif %}
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
         </div>
         {% endif %}
 
