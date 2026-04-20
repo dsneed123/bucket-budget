@@ -145,7 +145,14 @@
                     {% if user.is_authenticated %}
                         <span class="balance-display {% if net_worth >= 0 %}balance-positive{% else %}balance-negative{% endif %}">{{ net_worth|currency:user.currency }}</span>
                         <span class="username">Hi, {{ user.first_name|default:user.username }}</span>
-                        <a href="/profile/" class="avatar" style="background-color: {{ user.email|avatar_color }};" title="{{ user.first_name }} {{ user.last_name }}" aria-label="Profile: {{ user.first_name }} {{ user.last_name }}">{{ user|avatar_initials }}</a>
+                        <div class="user-menu">
+                            <button class="avatar user-menu-trigger" style="background-color: {{ user.email|avatar_color }};" aria-label="User menu" aria-haspopup="true">{{ user|avatar_initials }}</button>
+                            <div class="user-dropdown" role="menu">
+                                <a href="{% url 'accounts:profile' %}" class="user-dropdown-item" role="menuitem">Profile</a>
+                                <a href="{% url 'accounts:settings' %}" class="user-dropdown-item" role="menuitem">Settings</a>
+                                <a href="{% url 'accounts:logout' %}" class="user-dropdown-item user-dropdown-item--logout" role="menuitem">Logout</a>
+                            </div>
+                        </div>
                     {% else %}
                         <a href="{% url 'accounts:login' %}" class="user-link">Sign in</a>
                     {% endif %}
