@@ -302,6 +302,26 @@ def dashboard(request):
         if (fstart + datetime.timedelta(days=i)) not in _fiscal_expense_dates
     )
 
+    # Historical average no-spend rate (last 3 months) for above-average coloring
+    _prev_rates = []
+    _prev_date = fstart - datetime.timedelta(days=1)
+    for _ in range(3):
+        _py, _pm = get_current_fiscal_month(_prev_date, fiscal_start)
+        _ps, _pe = get_fiscal_month_range(_py, _pm, fiscal_start)
+        _pd = (_pe - _ps).days + 1
+        _pexp = set(
+            Transaction.objects.filter(
+                user=request.user, transaction_type='expense',
+                date__gte=_ps, date__lte=_pe,
+            ).values_list('date', flat=True).distinct()
+        )
+        _pns = sum(1 for i in range(_pd) if (_ps + datetime.timedelta(days=i)) not in _pexp)
+        _prev_rates.append(_pns / _pd)
+        _prev_date = _ps - datetime.timedelta(days=1)
+    _avg_no_spend_rate = sum(_prev_rates) / len(_prev_rates) if _prev_rates else 0
+    _current_no_spend_rate = no_spend_days / _days_elapsed if _days_elapsed > 0 else 0
+    no_spend_above_avg = _current_no_spend_rate >= _avg_no_spend_rate
+
     refresh_recommendations(request.user)
     _priority_order = {Recommendation.PRIORITY_HIGH: 0, Recommendation.PRIORITY_MEDIUM: 1, Recommendation.PRIORITY_LOW: 2}
     recommendations = sorted(
@@ -392,7 +412,9 @@ def dashboard(request):
         'streak': streak,
         'no_spend_days': no_spend_days,
         'no_spend_goal': no_spend_goal,
+        'no_spend_above_avg': no_spend_above_avg,
         'days_elapsed': _days_elapsed,
+        'days_in_month': days_in_month,
         'monthly_income': monthly_income,
         'income_pct': income_pct,
         'widgets': widgets,
