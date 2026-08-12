@@ -57,11 +57,15 @@ def _build_activity_feed(user, limit=10):
             'kind': 'milestone',
         })
 
+    # Use recommendations_refreshed_at as the timestamp so recommendations don't
+    # always appear as "just now" after being recreated during a cache refresh.
+    prefs = UserPreferences.objects.filter(user=user).first()
+    rec_timestamp = (prefs.recommendations_refreshed_at if prefs and prefs.recommendations_refreshed_at else None)
     for rec in Recommendation.objects.filter(user=user).order_by('-created_at')[:limit]:
         events.append({
             'icon': _cat_icons.get(rec.category, '💡'),
             'description': rec.message,
-            'timestamp': rec.created_at,
+            'timestamp': rec_timestamp or rec.created_at,
             'amount': None,
             'is_income': False,
             'kind': 'alert',
